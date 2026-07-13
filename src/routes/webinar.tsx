@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import ibdaLogo from "@/assets/ibda-logo.png";
 import yifatPhoto from "@/assets/yifat.jpg";
 import { subscribeRegistration } from "@/lib/resend.functions";
+import { getScheduleData } from "@/lib/schedule.functions";
+import { formatSessionDate } from "@/lib/format-date";
 
 export const Route = createFileRoute("/webinar")({
   head: () => ({
@@ -18,6 +20,7 @@ export const Route = createFileRoute("/webinar")({
       },
     ],
   }),
+  loader: async () => getScheduleData(),
   component: WebinarPage,
 });
 
@@ -44,6 +47,8 @@ const RegSchema = z.object({
 });
 
 function WebinarPage() {
+  const { openSession } = Route.useLoaderData();
+  const dateLabel = (openSession && formatSessionDate(openSession.starts_at)) || OPEN_WEBINAR.dateLabel;
   return (
     <div className="min-h-screen bg-ink text-cream font-sans" dir="rtl">
       <header className="border-b border-border/60">
@@ -69,7 +74,7 @@ function WebinarPage() {
           </p>
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-cream bg-gold/10 border border-gold/40 px-4 py-2 rounded-md">
             <Calendar size={16} className="text-gold" />
-            <span>{OPEN_WEBINAR.dateLabel}</span>
+            <span>{dateLabel}</span>
           </div>
         </section>
 
@@ -103,7 +108,7 @@ function WebinarPage() {
           </div>
         </section>
 
-        <RegistrationForm />
+        <RegistrationForm sessionId={openSession?.id} />
 
         <div className="mt-10 text-center">
           <a
@@ -129,7 +134,7 @@ function WebinarPage() {
   );
 }
 
-function RegistrationForm() {
+function RegistrationForm({ sessionId }: { sessionId?: string }) {
   const navigate = useNavigate();
   const [first_name, setFirstName] = useState("");
   const [last_name, setLastName] = useState("");
@@ -164,6 +169,7 @@ function RegistrationForm() {
           firm_name: parsed.data.firm_name || "",
           bar_license: parsed.data.bar_license || "",
           selected_packages: ["open"],
+          session_id: sessionId,
         },
       });
       navigate({ to: "/thank-you" });

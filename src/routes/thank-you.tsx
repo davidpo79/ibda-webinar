@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import ibdaLogo from "@/assets/ibda-logo.png";
 import { subscribeRegistration } from "@/lib/resend.functions";
 import { createSumitPayment } from "@/lib/sumit.functions";
+import { getScheduleData } from "@/lib/schedule.functions";
+import { formatSessionDate } from "@/lib/format-date";
 
 export const Route = createFileRoute("/thank-you")({
   head: () => ({
@@ -29,6 +31,7 @@ export const Route = createFileRoute("/thank-you")({
       { name: "description", content: "תודה שנרשמת לוובינר הפתוח של IBDA — הצצה לתוכניות ההמשך." },
     ],
   }),
+  loader: async () => getScheduleData(),
   component: ThankYouPage,
 });
 
@@ -100,8 +103,22 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function ThankYouPage() {
+  const { openSession, coreSessions, premiumSessions } = Route.useLoaderData();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const formRef = useRef<HTMLDivElement>(null);
+
+  const openWebinarRecap = {
+    ...OPEN_WEBINAR_RECAP,
+    dateLabel: (openSession && formatSessionDate(openSession.starts_at)) || OPEN_WEBINAR_RECAP.dateLabel,
+  };
+  const coreSeriesResolved = CORE_SERIES.map((s, i) => ({
+    ...s,
+    date: formatSessionDate(coreSessions[i]?.starts_at) || s.date,
+  }));
+  const premiumWorkshopsResolved = PREMIUM_WORKSHOPS.map((w) => ({
+    ...w,
+    date: formatSessionDate(premiumSessions.find((p) => p.key === w.id)?.starts_at) || w.date,
+  }));
 
   function choosePath(id: string) {
     setSelected(new Set([id]));
@@ -132,11 +149,11 @@ function ThankYouPage() {
           </div>
           <h1 className="font-serif text-4xl sm:text-5xl text-cream mb-4">תודה שנרשמת לוובינר הפתוח!</h1>
           <p className="text-muted-brown text-[17px] leading-[1.85] max-w-xl mx-auto mb-5">
-            "{OPEN_WEBINAR_RECAP.title}" — פרטי ההתחברות למפגש יישלחו אליך בנפרד, סמוך למועד.
+            "{openWebinarRecap.title}" — פרטי ההתחברות למפגש יישלחו אליך בנפרד, סמוך למועד.
           </p>
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-cream bg-gold/10 border border-gold/40 px-4 py-2 rounded-md">
             <Calendar size={16} className="text-gold" />
-            <span>{OPEN_WEBINAR_RECAP.dateLabel}</span>
+            <span>{openWebinarRecap.dateLabel}</span>
           </div>
         </section>
 
@@ -194,7 +211,7 @@ function ThankYouPage() {
 
         <CollapsiblePanel title="9 מפגשי סדרת הליבה בפירוט">
           <ul className="space-y-3">
-            {CORE_SERIES.map((s, i) => (
+            {coreSeriesResolved.map((s, i) => (
               <li key={s.t} className="flex items-start gap-3 bg-ink/40 border border-cream/10 rounded-md p-3">
                 <span className="font-serif text-gold ltr-inline w-6 shrink-0">{String(i + 1).padStart(2, "0")}</span>
                 <div className="min-w-0">

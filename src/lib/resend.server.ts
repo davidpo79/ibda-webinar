@@ -26,11 +26,10 @@ const FREE_PACKAGES = new Set(["open"]);
 
 // Recap shown in the confirmation email when the "open" webinar is among the
 // selected packages. No join link exists in the system yet — access details
-// are sent separately, manually, closer to the session.
-const OPEN_WEBINAR_RECAP = {
-  title: "כמה זה עולה לעשות עסקת נדל״ן?",
-  dateLabel: "15.7 · 10:00",
-};
+// are sent separately, manually, closer to the session. The date is dynamic
+// (sourced from the sessions table by the caller) — this title is the only
+// hardcoded part left, since the open webinar's topic doesn't change.
+const OPEN_WEBINAR_RECAP_TITLE = "כמה זה עולה לעשות עסקת נדל״ן?";
 
 let _resend: Resend | undefined;
 function resendClient(): Resend {
@@ -55,12 +54,7 @@ function packageLabels(data: RegistrationSubscription): string[] {
     .filter(Boolean) as string[];
 }
 
-const CONTACT_PROPERTY_KEYS = [
-  "firm_name",
-  "bar_license",
-  "packages",
-  "payment_status",
-] as const;
+const CONTACT_PROPERTY_KEYS = ["firm_name", "bar_license", "packages", "payment_status"] as const;
 
 // Resend's contact properties (custom fields) must exist before a value can
 // be set for them — create them once per process, ignoring "already exists"
@@ -114,7 +108,10 @@ async function upsertResendContact(data: RegistrationSubscription) {
   }
 }
 
-async function sendConfirmationEmail(data: RegistrationSubscription) {
+async function sendConfirmationEmail(
+  data: RegistrationSubscription,
+  openWebinarDateLabel: string | null,
+) {
   const resend = resendClient();
   const labels = packageLabels(data);
   const hasPaid = data.selected_packages.some((p) => !FREE_PACKAGES.has(p));
@@ -124,16 +121,19 @@ async function sendConfirmationEmail(data: RegistrationSubscription) {
     to: data.email,
     replyTo: "webinar@ibda-law.com",
     subject: hasPaid ? "ההרשמה שלך ל-IBDA התקבלה" : "ההרשמה לוובינר הפתוח של IBDA אושרה",
-    html: confirmationEmailHtml({ ...data, labels, hasPaid }),
+    html: confirmationEmailHtml({ ...data, labels, hasPaid, openWebinarDateLabel }),
   });
   if (error) {
     console.error("[resend] confirmation email failed", error);
   }
 }
 
-export async function syncResendContact(data: RegistrationSubscription): Promise<void> {
+export async function syncResendContact(
+  data: RegistrationSubscription,
+  openWebinarDateLabel: string | null = null,
+): Promise<void> {
   await upsertResendContact(data);
-  await sendConfirmationEmail(data);
+  await sendConfirmationEmail(data, openWebinarDateLabel);
 }
 
 export async function updateResendPaymentStatusByEmail(
@@ -201,27 +201,35 @@ function exploreProgramsCta(): string {
     </div>`;
 }
 
-function webinarRecapHtml(): string {
+function webinarRecapHtml(dateLabel: string | null): string {
   return `
     <div style="background-color:#17150F;border:1px solid #3A342A;border-radius:8px;padding:16px 20px;margin-bottom:18px;">
       <div style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">פרטי הוובינר הפתוח</div>
-      <p style="color:#FFFDF7;font-size:15px;margin:0 0 6px;">${OPEN_WEBINAR_RECAP.title}</p>
-      <p style="color:#D9D0BB;font-size:13px;margin:0 0 10px;">${OPEN_WEBINAR_RECAP.dateLabel}</p>
+      <p style="color:#FFFDF7;font-size:15px;margin:0 0 6px;">${OPEN_WEBINAR_RECAP_TITLE}</p>
+      ${dateLabel ? `<p style="color:#D9D0BB;font-size:13px;margin:0 0 10px;">${dateLabel}</p>` : ""}
       <p style="color:#D9D0BB;font-size:13px;line-height:1.6;margin:0;">פרטי ההתחברות למפגש יישלחו אליך בנפרד, סמוך למועד.</p>
     </div>`;
 }
 
-function confirmationEmailHtml(input: RegistrationSubscription & { labels: string[]; hasPaid: boolean }): string {
+function confirmationEmailHtml(
+  input: RegistrationSubscription & {
+    labels: string[];
+    hasPaid: boolean;
+    openWebinarDateLabel: string | null;
+  },
+): string {
   const itemsHtml = input.labels.map((l) => `<li style="margin-bottom:6px;">${l}</li>`).join("");
   const hasOpenWebinar = input.selected_packages.includes("open");
   return emailShell(`
     <h1 style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">שלום ${input.first_name},</h1>
     <p style="color:#D9D0BB;font-size:15px;line-height:1.8;margin:0 0 18px;">
-      ${input.hasPaid
-        ? "תודה שנרשמת! פרטי הגישה למפגשים יישלחו אליך בקרוב, לאחר השלמת התשלום."
-        : "ההרשמה שלך לוובינר הפתוח התקבלה בהצלחה. נתראה שם!"}
+      ${
+        input.hasPaid
+          ? "תודה שנרשמת! פרטי הגישה למפגשים יישלחו אליך בקרוב, לאחר השלמת התשלום."
+          : "ההרשמה שלך לוובינר הפתוח התקבלה בהצלחה. נתראה שם!"
+      }
     </p>
-    ${hasOpenWebinar ? webinarRecapHtml() : ""}
+    ${hasOpenWebinar ? webinarRecapHtml(input.openWebinarDateLabel) : ""}
     <div style="background-color:#17150F;border:1px solid #3A342A;border-radius:8px;padding:16px 20px;margin-bottom:18px;">
       <div style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">מסלולים שנבחרו</div>
       <ul style="color:#FFFDF7;font-size:14px;margin:0;padding-inline-start:18px;">${itemsHtml}</ul>

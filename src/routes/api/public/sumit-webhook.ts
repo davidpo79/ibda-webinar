@@ -1,12 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 async function handle(request: Request) {
-  const {
-    parseSumitTransactionStatus,
-    verifySumitTransaction,
-    verifySumitWebhookSignature,
-  } = await import("@/lib/sumit.server");
+  const { parseSumitTransactionStatus, verifySumitTransaction, verifySumitWebhookSignature } =
+    await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
+  const { markOrderStatus } = await import("@/lib/orders.server");
 
   const rawBody = await request.text();
   if (!rawBody.trim()) {
@@ -43,13 +41,16 @@ async function handle(request: Request) {
   const transactionId =
     String(payload.TransactionID || payload.ChargeID || payload.documentid || "") || null;
   const orderReference =
-    String(payload.ExternalIdentifier || payload.orderRef || payload.order_reference || "") ||
-    null;
+    String(payload.ExternalIdentifier || payload.orderRef || payload.order_reference || "") || null;
   // email/package travel as query params on the IPNURL we generated
   // ourselves, so no database lookup is needed to resolve who this is.
   const email = String(payload.email || payload.EmailAddress || "") || null;
 
-  console.log("[sumit-webhook] received", { transactionId, orderReference, hasEmail: Boolean(email) });
+  console.log("[sumit-webhook] received", {
+    transactionId,
+    orderReference,
+    hasEmail: Boolean(email),
+  });
 
   if (!transactionId && !orderReference) {
     // 200 so Sumit doesn't keep retrying a call we can't process.
@@ -69,6 +70,18 @@ async function handle(request: Request) {
       await updateResendPaymentStatusByEmail(email, validation.paid ? "שולם" : "נכשל");
     } catch (err) {
       console.error("[sumit-webhook] Resend update error", err);
+    }
+  }
+
+  if (orderReference) {
+    try {
+      await markOrderStatus({
+        orderReference,
+        transactionId,
+        status: validation.paid ? "paid" : "failed",
+      });
+    } catch (err) {
+      console.error("[sumit-webhook] order status update error", err);
     }
   }
 

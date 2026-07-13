@@ -12,7 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WebinarRouteImport } from './routes/webinar'
 import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
+import { Route as AdminScheduleRouteImport } from './routes/admin/schedule'
+import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as ApiPublicSumitWebhookRouteImport } from './routes/api/public/sumit-webhook'
 import { Route as ApiPublicSumitReturnRouteImport } from './routes/api/public/sumit-return'
 
@@ -31,9 +34,24 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
   id: '/payment/success',
   path: '/payment/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminScheduleRoute = AdminScheduleRouteImport.update({
+  id: '/admin/schedule',
+  path: '/admin/schedule',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin/login',
+  path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicSumitWebhookRoute = ApiPublicSumitWebhookRouteImport.update({
@@ -51,7 +69,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/schedule': typeof AdminScheduleRoute
   '/payment/success': typeof PaymentSuccessRoute
+  '/admin/': typeof AdminIndexRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
 }
@@ -59,7 +80,10 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/schedule': typeof AdminScheduleRoute
   '/payment/success': typeof PaymentSuccessRoute
+  '/admin': typeof AdminIndexRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
 }
@@ -68,7 +92,10 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/login': typeof AdminLoginRoute
+  '/admin/schedule': typeof AdminScheduleRoute
   '/payment/success': typeof PaymentSuccessRoute
+  '/admin/': typeof AdminIndexRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
 }
@@ -78,7 +105,10 @@ export interface FileRouteTypes {
     | '/'
     | '/thank-you'
     | '/webinar'
+    | '/admin/login'
+    | '/admin/schedule'
     | '/payment/success'
+    | '/admin/'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -86,7 +116,10 @@ export interface FileRouteTypes {
     | '/'
     | '/thank-you'
     | '/webinar'
+    | '/admin/login'
+    | '/admin/schedule'
     | '/payment/success'
+    | '/admin'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
   id:
@@ -94,7 +127,10 @@ export interface FileRouteTypes {
     | '/'
     | '/thank-you'
     | '/webinar'
+    | '/admin/login'
+    | '/admin/schedule'
     | '/payment/success'
+    | '/admin/'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
   fileRoutesById: FileRoutesById
@@ -103,7 +139,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ThankYouRoute: typeof ThankYouRoute
   WebinarRoute: typeof WebinarRoute
+  AdminLoginRoute: typeof AdminLoginRoute
+  AdminScheduleRoute: typeof AdminScheduleRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   ApiPublicSumitReturnRoute: typeof ApiPublicSumitReturnRoute
   ApiPublicSumitWebhookRoute: typeof ApiPublicSumitWebhookRoute
 }
@@ -131,11 +170,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/payment/success': {
       id: '/payment/success'
       path: '/payment/success'
       fullPath: '/payment/success'
       preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/schedule': {
+      id: '/admin/schedule'
+      path: '/admin/schedule'
+      fullPath: '/admin/schedule'
+      preLoaderRoute: typeof AdminScheduleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/login': {
+      id: '/admin/login'
+      path: '/admin/login'
+      fullPath: '/admin/login'
+      preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/sumit-webhook': {
@@ -159,7 +219,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ThankYouRoute: ThankYouRoute,
   WebinarRoute: WebinarRoute,
+  AdminLoginRoute: AdminLoginRoute,
+  AdminScheduleRoute: AdminScheduleRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
+  AdminIndexRoute: AdminIndexRoute,
   ApiPublicSumitReturnRoute: ApiPublicSumitReturnRoute,
   ApiPublicSumitWebhookRoute: ApiPublicSumitWebhookRoute,
 }

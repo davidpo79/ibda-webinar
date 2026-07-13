@@ -23,6 +23,10 @@ const PACKAGE_NAMES: Record<string, string> = {
   premium_bundle: "חבילת פרימיום - הכל כלול",
 };
 
+export function getPackagePrice(packageId: string): number | undefined {
+  return PACKAGE_PRICES[packageId];
+}
+
 type CreatePaymentInput = {
   package_id: string;
   email: string;
@@ -47,8 +51,7 @@ function sumitCredentials() {
 }
 
 export function getSumitPublicOrigin() {
-  const configured =
-    process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.APP_URL;
+  const configured = process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.APP_URL;
   if (configured) return configured.replace(/\/$/, "");
   const reqUrl = getRequestUrl();
   return `${reqUrl.protocol}//${reqUrl.host}`;
@@ -169,11 +172,17 @@ export function parseSumitTransactionStatus(payload: Record<string, unknown>): S
 
 // Fail-closed HMAC-SHA256 signature check for the Sumit IPN webhook. When no
 // SUMIT_WEBHOOK_KEY is configured, verification is skipped (local/dev only).
-export function verifySumitWebhookSignature(rawBody: string, signatureHeader: string | null): boolean {
+export function verifySumitWebhookSignature(
+  rawBody: string,
+  signatureHeader: string | null,
+): boolean {
   const key = process.env.SUMIT_WEBHOOK_KEY;
   if (!key) return true;
   if (!signatureHeader) return false;
-  const sig = signatureHeader.trim().replace(/^sha256=/i, "").toLowerCase();
+  const sig = signatureHeader
+    .trim()
+    .replace(/^sha256=/i, "")
+    .toLowerCase();
   const expected = createHmac("sha256", key).update(rawBody, "utf8").digest("hex");
   const sigBuf = Buffer.from(sig, "hex");
   const expBuf = Buffer.from(expected, "hex");

@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 async function handle(request: Request) {
-  const { parseSumitTransactionStatus, verifySumitTransaction } = await import("@/lib/sumit.server");
+  const { parseSumitTransactionStatus, verifySumitTransaction } =
+    await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
+  const { markOrderStatus } = await import("@/lib/orders.server");
 
   const url = new URL(request.url);
   const params = url.searchParams;
@@ -40,12 +42,25 @@ async function handle(request: Request) {
     }
   }
 
+  if (orderReference) {
+    try {
+      await markOrderStatus({
+        orderReference,
+        transactionId,
+        status: validation.paid ? "paid" : "failed",
+      });
+    } catch (err) {
+      console.error("[sumit-return] order status update error", err);
+    }
+  }
+
   const redirectUrl = new URL("/payment/success", url.origin);
   redirectUrl.searchParams.set("statusCode", validation.paid ? "0" : "99");
   if (transactionId) redirectUrl.searchParams.set("transactionId", transactionId);
   if (orderReference) redirectUrl.searchParams.set("orderRef", orderReference);
   if (email) redirectUrl.searchParams.set("email", email);
-  if (cancelled) redirectUrl.searchParams.set("errorMessage", "העסקה בוטלה על ידך לפני השלמת התשלום.");
+  if (cancelled)
+    redirectUrl.searchParams.set("errorMessage", "העסקה בוטלה על ידך לפני השלמת התשלום.");
 
   return Response.redirect(redirectUrl.toString(), 302);
 }

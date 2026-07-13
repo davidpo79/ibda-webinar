@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { createSumitPaymentPage, verifySumitTransaction } from "./sumit.server";
+import { createSumitPaymentPage, getPackagePrice, verifySumitTransaction } from "./sumit.server";
 import { updateResendPaymentStatusByEmail } from "./resend.server";
+import { recordOrder } from "./orders.server";
 
 const CreatePaymentSchema = z.object({
   package_id: z.string(),
@@ -14,7 +15,14 @@ const CreatePaymentSchema = z.object({
 export const createSumitPayment = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => CreatePaymentSchema.parse(input))
   .handler(async ({ data }) => {
-    return createSumitPaymentPage(data);
+    const result = await createSumitPaymentPage(data);
+    await recordOrder({
+      orderReference: data.order_reference,
+      email: data.email,
+      packageId: data.package_id,
+      amount: getPackagePrice(data.package_id) ?? 0,
+    });
+    return result;
   });
 
 const ConfirmSchema = z.object({

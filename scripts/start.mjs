@@ -6,9 +6,12 @@ import { serve } from "srvx";
 import { serveStatic } from "srvx/static";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { migrate } from "./migrate.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const clientDir = join(__dirname, "..", "dist", "client");
+
+await migrate();
 
 const { default: handler } = await import("../dist/server/server.js");
 

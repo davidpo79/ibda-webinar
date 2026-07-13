@@ -12,6 +12,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY scripts ./scripts
+COPY db ./db
 
 EXPOSE 3000
 CMD ["node", "scripts/start.mjs"]

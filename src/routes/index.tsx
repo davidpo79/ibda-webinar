@@ -29,6 +29,8 @@ import {
 } from "@/lib/registration-modal-context";
 import { subscribeRegistration } from "@/lib/resend.functions";
 import { createSumitPayment } from "@/lib/sumit.functions";
+import { getScheduleData } from "@/lib/schedule.functions";
+import { formatSessionDate } from "@/lib/format-date";
 
 
 function AnimatedCardIcon({
@@ -98,6 +100,7 @@ function AnimatedCardIcon({
 
 
 export const Route = createFileRoute("/")({
+  loader: async () => getScheduleData(),
   component: Landing,
 });
 
@@ -215,6 +218,10 @@ const coreSeries: { t: string; d: string; topics: string[]; icon: LucideIcon; da
     ],
   },
 ];
+
+// Matches premiumWorkshops' array order — used to look up each workshop's
+// dynamic date from the loaded sessions by key.
+const PREMIUM_WORKSHOP_IDS = ["premium_litigation", "premium_registration", "premium_partnership", "premium_ai"];
 
 const premiumWorkshops: { t: string; meta: string; d: string; date: string; topics: string[] }[] = [
   {
@@ -342,8 +349,23 @@ const cancellationPolicy = [
 /* -------------------------- page -------------------------- */
 
 function Landing() {
+  const { openSession, coreSessions, premiumSessions } = Route.useLoaderData();
   const [selected, setSelected] = useState<Set<string>>(new Set(["open"]));
   const [coreLesson, setCoreLesson] = useState<string>("");
+
+  const openWebinarsResolved = openWebinars.map((w) => ({
+    ...w,
+    dateLabel: (openSession && formatSessionDate(openSession.starts_at)) || w.dateLabel,
+    dateISO: openSession?.starts_at || w.dateISO,
+  }));
+  const coreSeriesResolved = coreSeries.map((s, i) => ({
+    ...s,
+    date: formatSessionDate(coreSessions[i]?.starts_at) || s.date,
+  }));
+  const premiumWorkshopsResolved = premiumWorkshops.map((w, i) => {
+    const session = premiumSessions.find((p) => p.key === PREMIUM_WORKSHOP_IDS[i]);
+    return { ...w, date: formatSessionDate(session?.starts_at) || w.date };
+  });
 
   const toggle = useCallback((id: string) => {
     setSelected((s) => {
@@ -378,13 +400,13 @@ function Landing() {
   return (
     <RegistrationModalContext.Provider value={{ open, selected, toggle, coreLesson }}>
       <div className="min-h-screen bg-ink text-cream font-sans">
-        <AnnouncementBar />
+        <AnnouncementBar dateISO={openWebinarsResolved[0].dateISO} />
         <TopBar />
         <Hero />
         <ModelSection />
-        <OpenWebinarsSection />
-        <CoreSeriesSection />
-        <PremiumSection />
+        <OpenWebinarsSection data={openWebinarsResolved} />
+        <CoreSeriesSection data={coreSeriesResolved} />
+        <PremiumSection data={premiumWorkshopsResolved} />
         <PricingSection />
         <RegistrationSection />
         <Footer />
@@ -564,8 +586,8 @@ function ScheduleButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function AnnouncementBar() {
-  const target = new Date(openWebinars[0].dateISO);
+function AnnouncementBar({ dateISO }: { dateISO: string }) {
+  const target = new Date(dateISO);
   const compute = () => {
     const diff = target.getTime() - Date.now();
     if (diff <= 0) return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
@@ -862,7 +884,7 @@ function ModelSection() {
 
 /* -------------------------- open webinars -------------------------- */
 
-function OpenWebinarsSection() {
+function OpenWebinarsSection({ data }: { data: typeof openWebinars }) {
   const [open, setOpen] = useState<string | null>(null);
   const { open: openRegister } = useRegistrationModal();
   return (
@@ -877,7 +899,7 @@ function OpenWebinarsSection() {
         </div>
 
         <div className="space-y-6">
-          {openWebinars.map((w) => {
+          {data.map((w) => {
             const isOpen = open === w.n;
             return (
               <div
@@ -959,7 +981,7 @@ function OpenWebinarsSection() {
 
 /* -------------------------- core series accordion -------------------------- */
 
-function CoreSeriesSection() {
+function CoreSeriesSection({ data }: { data: typeof coreSeries }) {
   const [open, setOpen] = useState<number | null>(null);
   const { open: openRegister } = useRegistrationModal();
   return (
@@ -983,7 +1005,7 @@ function CoreSeriesSection() {
         </div>
 
         <div className="space-y-4">
-          {coreSeries.map((w, i) => {
+          {data.map((w, i) => {
             const isOpen = open === i;
             return (
               <div key={w.t} className="bg-sand/70 backdrop-blur-2xl border border-cream/10 rounded-lg overflow-hidden">
@@ -1059,16 +1081,16 @@ function CoreSeriesSection() {
 
 /* -------------------------- premium workshops -------------------------- */
 
-function PremiumSection() {
+function PremiumSection({ data }: { data: typeof premiumWorkshops }) {
   const [open, setOpen] = useState<number | null>(null);
   const { open: openRegister } = useRegistrationModal();
-  const premiumIds = ["premium_litigation", "premium_registration", "premium_partnership", "premium_ai"];
+  const premiumIds = PREMIUM_WORKSHOP_IDS;
 
   // Magazine layout mapping: one large featured card on the right (AI), three compact cards on the left
   const featuredIndex = 3;
-  const featured = premiumWorkshops[featuredIndex];
+  const featured = data[featuredIndex];
   const featuredId = premiumIds[featuredIndex];
-  const leftWorkshops = [premiumWorkshops[0], premiumWorkshops[1], premiumWorkshops[2]];
+  const leftWorkshops = [data[0], data[1], data[2]];
   const leftIds = [premiumIds[0], premiumIds[1], premiumIds[2]];
 
   const renderMeta = (w: typeof premiumWorkshops[0]) => (
