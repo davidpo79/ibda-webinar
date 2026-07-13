@@ -10,9 +10,14 @@ CREATE TABLE IF NOT EXISTS sessions (
   title text NOT NULL,
   starts_at timestamptz NOT NULL,
   sort_order int NOT NULL DEFAULT 0,
+  zoom_url text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Column added after the table already existed in production — safe to
+-- re-run (IF NOT EXISTS guards it).
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS zoom_url text;
 
 -- 'core'/'premium' sessions are fixed single slots (one row per key, ever);
 -- 'open' cohorts repeat over time with no fixed key, so the uniqueness only
@@ -29,8 +34,12 @@ CREATE TABLE IF NOT EXISTS registrations (
   firm_name text,
   bar_license text,
   selected_packages text[] NOT NULL DEFAULT '{}',
+  core_single_lesson_index int,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Column added after the table already existed in production.
+ALTER TABLE registrations ADD COLUMN IF NOT EXISTS core_single_lesson_index int;
 
 CREATE TABLE IF NOT EXISTS orders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -42,6 +51,20 @@ CREATE TABLE IF NOT EXISTS orders (
   status text NOT NULL DEFAULT 'created',
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- One row per (registration, package) that needs a "day before" reminder
+-- email. Populated at registration time; the in-process scheduler
+-- (src/lib/reminders.server.ts) polls for rows whose session is imminent
+-- and not yet sent, then marks sent_at so a redeploy never double-sends.
+CREATE TABLE IF NOT EXISTS registration_reminders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  registration_id uuid NOT NULL REFERENCES registrations(id),
+  package_id text NOT NULL,
+  session_id uuid REFERENCES sessions(id),
+  sent_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (registration_id, package_id)
 );
 
 -- Seed the current site's hardcoded dates so behavior is unchanged on first
@@ -67,3 +90,27 @@ ON CONFLICT (key) WHERE key IS NOT NULL DO NOTHING;
 INSERT INTO sessions (type, key, title, starts_at, sort_order)
 SELECT 'open', NULL, 'כמה זה עולה לעשות עסקת נדל״ן?', '2026-07-15T10:00:00+03:00', 0
 WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE type = 'open');
+
+-- Zoom links (from the IBDA email-automation spec, section 12 — with the
+-- litigation link's ActiveCampaign duplication bug fixed: the correct URL is
+-- the one from that workshop's own standalone registration email).
+-- UPDATEs (not INSERT ... ON CONFLICT) so they backfill rows that already
+-- existed in production before this column was added. core_6's link has a
+-- visual O/0 ambiguity in the original source font — kept as documented,
+-- flagged for the admin to double check against the Zoom dashboard.
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/sE3qcdizSGChPtZFva7aWg' WHERE key = 'core_1';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/uvh25IaQSfiTRCCWURnRGQ' WHERE key = 'core_2';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/gPM53MZFRRaLAvYvA3Q1Kg' WHERE key = 'core_3';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/EppiZmpHQCOKYr48_au_-A' WHERE key = 'core_4';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/kT436qzIRzORIPIJw2zm8A' WHERE key = 'core_5';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/lU441LmsT8eO0dex7yrrfA' WHERE key = 'core_6';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/ErIK1OPaS7GZmtQHrb2gQw' WHERE key = 'core_7';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/_-3TtbAmQgmtTBJxZwf9OA' WHERE key = 'core_8';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/vYsiofPBTJKymO0X2zFb2A' WHERE key = 'core_9';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/JdBxDoxjQR-boHysGROp_A' WHERE key = 'premium_ai';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/x3vXG_stS1CeH-Wzt_lLFg' WHERE key = 'premium_registration';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/4b2oHZsWTfm8O-UPVVn7Bw' WHERE key = 'premium_litigation';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/6wt1qTewQByjO_DwU8KpGg' WHERE key = 'premium_partnership';
+-- Fixed personal Zoom room (Personal Meeting ID + embedded password) reused
+-- for every open-webinar cohort, not a per-cohort registration link.
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/j/83035753700?pwd=BgqbH9xvxrV7IcPJaZqBfvE4zG8PtG.1' WHERE type = 'open' AND zoom_url IS NULL;

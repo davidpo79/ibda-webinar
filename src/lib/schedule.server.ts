@@ -9,11 +9,12 @@ export type Session = {
   title: string;
   starts_at: string;
   sort_order: number;
+  zoom_url: string | null;
 };
 
 export async function getNextOpenSession(): Promise<Session | null> {
   const rows = await sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order FROM sessions
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
     WHERE type = 'open' AND starts_at > now()
     ORDER BY starts_at ASC
     LIMIT 1
@@ -22,7 +23,7 @@ export async function getNextOpenSession(): Promise<Session | null> {
   // Fallback: no future cohort scheduled yet — show the most recent one
   // rather than nothing, so the site never renders with a missing date.
   const fallback = await sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order FROM sessions
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
     WHERE type = 'open'
     ORDER BY starts_at DESC
     LIMIT 1
@@ -32,14 +33,14 @@ export async function getNextOpenSession(): Promise<Session | null> {
 
 export async function getSessionByKey(key: string): Promise<Session | null> {
   const rows = await sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order FROM sessions WHERE key = ${key}
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions WHERE key = ${key}
   `;
   return rows[0] ?? null;
 }
 
 export async function getSessionsByType(type: SessionType): Promise<Session[]> {
   return sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order FROM sessions
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
     WHERE type = ${type}
     ORDER BY sort_order ASC, starts_at ASC
   `;
@@ -47,7 +48,7 @@ export async function getSessionsByType(type: SessionType): Promise<Session[]> {
 
 export async function getAllSessions(): Promise<Session[]> {
   return sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order FROM sessions
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
     ORDER BY type ASC, sort_order ASC, starts_at ASC
   `;
 }
@@ -59,10 +60,60 @@ export async function updateSessionDate(id: string, startsAt: string): Promise<v
 }
 
 export async function createOpenSession(title: string, startsAt: string): Promise<Session> {
+  // Inherit the fixed personal Zoom room from any prior open cohort — it's
+  // a permanent meeting room reused every time, not a per-cohort link.
+  const prior = await sql()<{ zoom_url: string | null }[]>`
+    SELECT zoom_url FROM sessions WHERE type = 'open' AND zoom_url IS NOT NULL LIMIT 1
+  `;
+  const zoomUrl = prior[0]?.zoom_url ?? null;
   const rows = await sql()<Session[]>`
-    INSERT INTO sessions (type, key, title, starts_at, sort_order)
-    VALUES ('open', NULL, ${title}, ${startsAt}, 0)
-    RETURNING id, type, key, title, starts_at, sort_order
+    INSERT INTO sessions (type, key, title, starts_at, sort_order, zoom_url)
+    VALUES ('open', NULL, ${title}, ${startsAt}, 0, ${zoomUrl})
+    RETURNING id, type, key, title, starts_at, sort_order, zoom_url
   `;
   return rows[0];
+}
+
+// Packages whose welcome email lists multiple sessions (vs. a single one).
+export type PackageSessions =
+  | { kind: "single"; session: Session | null }
+  | { kind: "list"; sessions: Session[]; anchor: Session | null };
+
+// Resolves which session(s) a given package_id refers to, for building
+// email content and for scheduling reminders. `coreSingleLessonIndex` (1-9)
+// disambiguates the `core_single` package, matching the lesson the buyer
+// picked at registration time.
+export async function resolvePackageSessions(
+  packageId: string,
+  coreSingleLessonIndex?: number | null,
+): Promise<PackageSessions> {
+  if (packageId === "open") {
+    return { kind: "single", session: await getNextOpenSession() };
+  }
+  if (packageId === "core_single") {
+    const idx =
+      coreSingleLessonIndex && coreSingleLessonIndex >= 1 && coreSingleLessonIndex <= 9
+        ? coreSingleLessonIndex
+        : 1;
+    return { kind: "single", session: await getSessionByKey(`core_${idx}`) };
+  }
+  if (packageId === "core_full") {
+    const sessions = await getSessionsByType("core");
+    return { kind: "list", sessions, anchor: earliestOf(sessions) };
+  }
+  if (packageId === "premium_bundle") {
+    const [core, premium] = await Promise.all([
+      getSessionsByType("core"),
+      getSessionsByType("premium"),
+    ]);
+    const sessions = [...core, ...premium];
+    return { kind: "list", sessions, anchor: earliestOf(sessions) };
+  }
+  // premium_ai, premium_registration, premium_litigation, premium_partnership
+  return { kind: "single", session: await getSessionByKey(packageId) };
+}
+
+function earliestOf(sessions: Session[]): Session | null {
+  if (sessions.length === 0) return null;
+  return sessions.reduce((a, b) => (new Date(a.starts_at) < new Date(b.starts_at) ? a : b));
 }

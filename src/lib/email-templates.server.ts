@@ -1,0 +1,194 @@
+import type { Session, PackageSessions } from "./schedule.server";
+import { formatHebrewFull, formatIsraelTime } from "./format-date";
+import { signUnsubscribeToken } from "./unsubscribe.server";
+import ibdaLogo from "@/assets/ibda-logo.png";
+import yifatPhoto from "@/assets/yifat.jpg";
+
+function siteOrigin(): string {
+  return (process.env.PUBLIC_SITE_URL || "").replace(/\/$/, "");
+}
+
+function absoluteAsset(assetPath: string): string {
+  const origin = siteOrigin();
+  return origin ? `${origin}${assetPath}` : assetPath;
+}
+
+function goldLink(href: string, text: string): string {
+  return `<a href="${href}" style="color:#B26B00;text-decoration:underline;">${text}</a>`;
+}
+
+// White single-column shell matching the original ActiveCampaign/Stripo
+// design documented in the email-automation spec — distinct from the dark
+// ink/gold shell used by the site's own confirmation-of-form-submission
+// email (src/lib/resend.server.ts), which follows the redesigned site's
+// visual theme instead.
+function marketingShell(bodyHtml: string, recipientEmail: string): string {
+  const logoUrl = absoluteAsset(ibdaLogo);
+  const heroUrl = absoluteAsset(yifatPhoto);
+  const origin = siteOrigin();
+  const unsubUrl = origin
+    ? `${origin}/api/public/unsubscribe?email=${encodeURIComponent(recipientEmail)}&token=${signUnsubscribeToken(recipientEmail)}`
+    : "#";
+  return `<!DOCTYPE html>
+<html lang="he" dir="rtl"><head><meta charSet="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
+<body style="margin:0;padding:0;background-color:#FFFFFF;font-family:'Lucida Grande','Lucida Sans Unicode',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellPadding="0" cellSpacing="0" style="background-color:#FFFFFF;">
+    <tr><td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="100%" style="max-width:560px;">
+        <tr><td align="center" style="padding-bottom:8px;">
+          <img src="${logoUrl}" alt="IBDA" width="140" style="display:block;margin:0 auto;" />
+          <div style="color:#333333;font-size:12px;margin-top:6px;">בן דוד עמית | משרד עורכי דין</div>
+        </td></tr>
+        <tr><td style="padding:22px 8px;color:#333333;font-size:15px;line-height:1.9;text-align:center;">
+          ${bodyHtml}
+        </td></tr>
+        <tr><td align="center" style="padding:12px 8px 8px;">
+          <img src="${heroUrl}" alt="עו״ד יפעת בן דוד עמית" width="220" style="display:block;margin:0 auto;border-radius:4px;" />
+        </td></tr>
+        <tr><td align="center" style="padding:20px 8px 4px;">
+          <img src="${logoUrl}" alt="IBDA" width="110" style="display:block;margin:0 auto;" />
+          <div style="color:#333333;font-size:11px;margin-top:6px;">בן דוד עמית | משרד עורכי דין</div>
+        </td></tr>
+        <tr><td align="center" style="padding:18px 8px 0;border-top:1px solid #eeeeee;">
+          <div style="color:#888888;font-size:11px;margin-top:14px;">Sent to: ${recipientEmail}</div>
+          <div style="margin-top:6px;">
+            <a href="${unsubUrl}" style="color:#333333;font-size:11px;font-weight:bold;text-decoration:underline;">Unsubscribe</a>
+          </div>
+          <div style="color:#aaaaaa;font-size:10px;margin-top:10px;">IBDA Law Firm — משרד עו״ד יפעת בן דוד עמית</div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+
+const WELCOME_SUBJECT = 'ברוכים הבאים לתוכנית עסקאות נדל"ן וליטיגציה!';
+
+const WELCOME_PREHEADER: Record<string, string> = {
+  open: "שמחים שהצטרפת אלינו לשלב א :)",
+  core_single: "שמחים שהצטרפת אלינו לוובינר",
+  core_full: "שמחים שהצטרפת אלינו לסדנת הליבה :)",
+  premium_bundle: "שמחים שהצטרפת אלינו לחבילת הפרימיום :)",
+  premium_partnership: "שמחים שהצטרפת אלינו לסדנא שיתוף במקרקעין",
+  premium_litigation: 'שמחים שהצטרפת אלינו לסדנא ליטיגציה בנדל"ן',
+  premium_registration: "שמחים שהצטרפת אלינו לסדנא רישום בית משותף",
+  premium_ai: "שמחים שהצטרפת אלינו לסדנא העתיד כבר כאן",
+};
+
+const WELCOME_INTRO: Record<string, string> = {
+  open: "שמחים מאוד שהצטרפת אלינו לשלב א'",
+  core_full: "שמחים מאוד שהצטרפת אלינו לסדנת הליבה",
+  premium_bundle: "שמחים מאוד שהצטרפת אלינו לסדנת הליבה",
+  premium_partnership: "שמחים מאוד שהצטרפת אלינו לסדנא שיתוף במקרקעין",
+  premium_litigation: 'שמחים מאוד שהצטרפת אלינו לסדנא ליטיגציה בנדל"ן',
+  premium_registration: "שמחים מאוד שהצטרפת אלינו לסדנא רישום בית משותף",
+  premium_ai: "שמחים מאוד שהצטרפת אלינו לסדנא העתיד כבר כאן",
+};
+
+// "the next thing starting" phrasing in the reminder email — matches each
+// package's own automation copy, grouped by the shape of what it refers to
+// (a single free/paid webinar vs. a multi-session series vs. one workshop).
+const REMINDER_VERB: Record<string, string> = {
+  open: "מתחיל הוובינר הראשון שלנו",
+  core_single: "מתחיל הוובינר שלנו",
+  core_full: "מתחילים בסדרת המפגשים שלנו",
+  premium_bundle: "מתחילים בסדרת המפגשים שלנו",
+  premium_partnership: "מתחילה הסדנא שלנו",
+  premium_litigation: "מתחילה הסדנא שלנו",
+  premium_registration: "מתחילה הסדנא שלנו",
+  premium_ai: "מתחילה הסדנא שלנו",
+};
+
+function sessionLinkLabel(s: Session): string {
+  // Core sessions carry their historical "מפגש N" numbering (sort_order 1-9);
+  // premium workshops are listed by title alone.
+  const prefix = s.type === "core" ? `מפגש ${s.sort_order} - ` : "";
+  const dateLabel = formatHebrewFull(s.starts_at) || "";
+  return `${prefix}${s.title} — ${dateLabel}`;
+}
+
+export type WelcomeEmail = { subject: string; preheader: string; html: string };
+
+// Builds the immediate "welcome" email for a single package, using whatever
+// session(s) that package currently resolves to (dates/links always read
+// live from the sessions table, never hardcoded, so admin schedule edits
+// are reflected automatically). Returns null for an unrecognized package_id.
+export function buildWelcomeEmail(
+  packageId: string,
+  sessions: PackageSessions,
+  recipientEmail: string,
+  opts: { lessonTitle?: string } = {},
+): WelcomeEmail | null {
+  const preheader = WELCOME_PREHEADER[packageId];
+  if (!preheader) return null;
+
+  let bodyInner: string;
+
+  if (sessions.kind === "single") {
+    const session = sessions.session;
+    const dateLabel = session ? formatHebrewFull(session.starts_at) : "";
+    const link = session?.zoom_url || "#";
+    const intro =
+      packageId === "core_single"
+        ? `שמחים מאוד שהצטרפת אלינו לוובינר ${opts.lessonTitle || session?.title || ""}`
+        : WELCOME_INTRO[packageId];
+    bodyInner = `
+      <p style="margin:0 0 10px;">${intro}</p>
+      <p style="margin:0 0 10px;">המפגש שלנו ייצא לדרך ב${dateLabel}</p>
+      <p style="margin:0 0 18px;">ואנחנו נרגשים לפתוח אותו יחד עם<br />עורכת הדין והנוטריון יפעת בן דוד עמית</p>
+      <p style="margin:0 0 18px;">קישור להצטרפות:<br />${goldLink(link, link)}</p>
+      <p style="margin:0;">מצפה לנו מפגש מרתק, מחכים לך!</p>
+    `;
+  } else {
+    const anchorLabel = sessions.anchor ? formatHebrewFull(sessions.anchor.starts_at) : "";
+    const kickoffLine =
+      packageId === "premium_bundle"
+        ? `המפגש הראשון שלנו ייפתח בסדנא העתיד כבר כאן! ב${anchorLabel}`
+        : `המפגש הראשון שלנו ייצא לדרך ב${anchorLabel}`;
+    const linksHtml = sessions.sessions
+      .slice()
+      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
+      .map(
+        (s) => `<p style="margin:8px 0;">${goldLink(s.zoom_url || "#", sessionLinkLabel(s))}</p>`,
+      )
+      .join("");
+    bodyInner = `
+      <p style="margin:0 0 10px;">${WELCOME_INTRO[packageId]}</p>
+      <p style="margin:0 0 18px;">${kickoffLine}</p>
+      <p style="margin:0 0 10px;">ואנחנו נרגשים לפתוח אותו יחד עם<br />עורכת הדין והנוטריון יפעת בן דוד עמית</p>
+      <div style="margin:0 0 18px;">${linksHtml}</div>
+      <p style="margin:0;">מצפים לנו מפגשים מרתקים, מחכים לך!</p>
+    `;
+  }
+
+  const html = marketingShell(
+    `<h1 style="font-size:20px;font-weight:bold;margin:0 0 18px;">ברוכים הבאים לתוכנית עסקאות נדל"ן וליטיגציה!</h1>${bodyInner}`,
+    recipientEmail,
+  );
+
+  return { subject: WELCOME_SUBJECT, preheader, html };
+}
+
+export type ReminderEmail = { subject: string; html: string };
+
+// Builds the "day before" reminder email for a single package + session.
+export function buildReminderEmail(
+  packageId: string,
+  firstName: string,
+  session: Session,
+  recipientEmail: string,
+): ReminderEmail {
+  const dateLabel = formatHebrewFull(session.starts_at);
+  const hourLabel = formatIsraelTime(session.starts_at);
+  const verb = REMINDER_VERB[packageId] || "מתחיל המפגש שלנו";
+  const link = session.zoom_url || "#";
+  const bodyInner = `
+    <p style="margin:0 0 14px;">שלום ${firstName}</p>
+    <p style="margin:0 0 14px;">🎉 מחר, ${dateLabel} ${verb}</p>
+    <p style="margin:0 0 14px;">שים לב! כשאתה נכנס לזום ודא שהשם שלך מוצג בדיוק כפי שנרשמת באתר הוובינרים.</p>
+    <p style="margin:0 0 18px;">קישור להצטרפות:<br />${goldLink(link, link)}</p>
+    <p style="margin:0;">מצפה לנו מפגש מרתק מחר, מחכים לך!</p>
+  `;
+  const html = marketingShell(bodyInner, recipientEmail);
+  return { subject: `תזכורת - מחר בשעה ${hourLabel} מתחילים!`, html };
+}

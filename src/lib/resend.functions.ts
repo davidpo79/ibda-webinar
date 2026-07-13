@@ -1,9 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { syncResendContact } from "./resend.server";
-import { getNextOpenSession } from "./schedule.server";
+import { syncResendContact, sendRawEmail } from "./resend.server";
+import { getNextOpenSession, resolvePackageSessions } from "./schedule.server";
 import { recordRegistration } from "./registrations.server";
+import { scheduleReminder } from "./reminders.server";
 import { formatSessionDate } from "./format-date";
+import { buildWelcomeEmail } from "./email-templates.server";
 
 const SubscribeSchema = z.object({
   first_name: z.string().trim().min(1, "יש להזין שם פרטי"),
@@ -27,7 +29,7 @@ export const subscribeRegistration = createServerFn({ method: "POST" })
       openWebinarDateLabel = formatSessionDate(session?.starts_at);
     }
     await syncResendContact(data, openWebinarDateLabel);
-    await recordRegistration({
+    const registrationId = await recordRegistration({
       session_id: data.session_id ?? null,
       first_name: data.first_name,
       last_name: data.last_name,
@@ -36,6 +38,23 @@ export const subscribeRegistration = createServerFn({ method: "POST" })
       firm_name: data.firm_name,
       bar_license: data.bar_license,
       selected_packages: data.selected_packages,
+      core_single_lesson_index: data.core_single_lesson_index,
     });
+
+    // The free open webinar has no payment gate, so its rich welcome email
+    // (real Zoom link) and reminder scheduling fire immediately here. Paid
+    // packages get theirs once Sumit confirms payment — see
+    // updateResendPaymentStatusByEmail in resend.server.ts.
+    if (data.selected_packages.includes("open")) {
+      try {
+        const sessions = await resolvePackageSessions("open");
+        const welcome = buildWelcomeEmail("open", sessions, data.email);
+        if (welcome) await sendRawEmail(data.email, welcome.subject, welcome.html);
+        await scheduleReminder(registrationId, "open");
+      } catch (err) {
+        console.error("[subscribeRegistration] open-webinar welcome/reminder failed", err);
+      }
+    }
+
     return { ok: true };
   });

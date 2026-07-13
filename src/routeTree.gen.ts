@@ -16,6 +16,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
 import { Route as AdminScheduleRouteImport } from './routes/admin/schedule'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as ApiPublicUnsubscribeRouteImport } from './routes/api/public/unsubscribe'
 import { Route as ApiPublicSumitWebhookRouteImport } from './routes/api/public/sumit-webhook'
 import { Route as ApiPublicSumitReturnRouteImport } from './routes/api/public/sumit-return'
 
@@ -54,6 +55,11 @@ const AdminLoginRoute = AdminLoginRouteImport.update({
   path: '/admin/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicUnsubscribeRoute = ApiPublicUnsubscribeRouteImport.update({
+  id: '/api/public/unsubscribe',
+  path: '/api/public/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicSumitWebhookRoute = ApiPublicSumitWebhookRouteImport.update({
   id: '/api/public/sumit-webhook',
   path: '/api/public/sumit-webhook',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
+  '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
+  '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
+  '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
+    | '/api/public/unsubscribe'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
+    | '/api/public/unsubscribe'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
+    | '/api/public/unsubscribe'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   ApiPublicSumitReturnRoute: typeof ApiPublicSumitReturnRoute
   ApiPublicSumitWebhookRoute: typeof ApiPublicSumitWebhookRoute
+  ApiPublicUnsubscribeRoute: typeof ApiPublicUnsubscribeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/unsubscribe': {
+      id: '/api/public/unsubscribe'
+      path: '/api/public/unsubscribe'
+      fullPath: '/api/public/unsubscribe'
+      preLoaderRoute: typeof ApiPublicUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/sumit-webhook': {
       id: '/api/public/sumit-webhook'
       path: '/api/public/sumit-webhook'
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   ApiPublicSumitReturnRoute: ApiPublicSumitReturnRoute,
   ApiPublicSumitWebhookRoute: ApiPublicSumitWebhookRoute,
+  ApiPublicUnsubscribeRoute: ApiPublicUnsubscribeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

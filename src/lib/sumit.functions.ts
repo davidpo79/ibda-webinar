@@ -29,6 +29,7 @@ export const createSumitPayment = createServerFn({ method: "POST" })
 const ConfirmSchema = z.object({
   transactionId: z.string().min(1),
   email: z.string().email(),
+  package_id: z.string().optional(),
 });
 
 // Called from the success page to guarantee status update even if the
@@ -38,7 +39,11 @@ export const confirmSumitPayment = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const validation = await verifySumitTransaction(data.transactionId);
-      await updateResendPaymentStatusByEmail(data.email, validation.paid ? "שולם" : "נכשל");
+      await updateResendPaymentStatusByEmail(
+        data.email,
+        validation.paid ? "שולם" : "נכשל",
+        data.package_id,
+      );
       return { paid: validation.paid };
     } catch (err) {
       console.error("[confirmSumitPayment] error", err);

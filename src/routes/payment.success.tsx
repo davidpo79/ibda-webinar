@@ -21,9 +21,17 @@ function parseSearch(): {
   transactionId: string | null;
   orderReference: string | null;
   email: string | null;
+  packageId: string | null;
 } {
   if (typeof window === "undefined") {
-    return { statusCode: null, errorMessage: null, transactionId: null, orderReference: null, email: null };
+    return {
+      statusCode: null,
+      errorMessage: null,
+      transactionId: null,
+      orderReference: null,
+      email: null,
+      packageId: null,
+    };
   }
   const p = new URLSearchParams(window.location.search);
   return {
@@ -32,11 +40,13 @@ function parseSearch(): {
     transactionId: p.get("transactionId") || p.get("TransactionID"),
     orderReference: p.get("order_reference") || p.get("orderReference") || p.get("orderRef"),
     email: p.get("email"),
+    packageId: p.get("package"),
   };
 }
 
 function PaymentSuccessPage() {
-  const [{ statusCode, errorMessage, transactionId, orderReference, email }, setState] = useState(parseSearch);
+  const [{ statusCode, errorMessage, transactionId, orderReference, email, packageId }, setState] =
+    useState(parseSearch);
 
   useEffect(() => {
     setState(parseSearch());
@@ -52,15 +62,24 @@ function PaymentSuccessPage() {
   // Fallback: guarantee the payment-status update lands even if the webhook missed.
   useEffect(() => {
     if (!success || !email || !transactionId) return;
-    confirmSumitPayment({ data: { transactionId, email } }).catch((err) => {
+    confirmSumitPayment({
+      data: { transactionId, email, package_id: packageId || undefined },
+    }).catch((err) => {
       console.error("[payment-success] confirm error", err);
     });
-  }, [success, transactionId, email]);
+  }, [success, transactionId, email, packageId]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-background px-6 py-16" dir="rtl">
+    <main
+      className="min-h-screen flex items-center justify-center bg-background px-6 py-16"
+      dir="rtl"
+    >
       <div className="max-w-xl w-full">
-        {success ? <SuccessCard /> : <FailureCard errorMessage={errorMessage} statusCode={statusCode} />}
+        {success ? (
+          <SuccessCard />
+        ) : (
+          <FailureCard errorMessage={errorMessage} statusCode={statusCode} />
+        )}
       </div>
     </main>
   );
@@ -73,12 +92,11 @@ function SuccessCard() {
         <CheckCircle2 className="w-9 h-9 text-gold" />
       </div>
 
-      <h1 className="font-serif text-4xl md:text-5xl text-cream mb-4">
-        התשלום התקבל בהצלחה
-      </h1>
+      <h1 className="font-serif text-4xl md:text-5xl text-cream mb-4">התשלום התקבל בהצלחה</h1>
 
       <p className="text-muted-brown text-lg mb-8 leading-relaxed">
-        אנחנו מתרגשים שהצטרפת אלינו!<br />
+        אנחנו מתרגשים שהצטרפת אלינו!
+        <br />
         התשלום נקלט במערכת והמקום שלך שמור.
       </p>
 
@@ -88,7 +106,8 @@ function SuccessCard() {
           <div>
             <h2 className="font-serif text-xl text-cream mb-1">השלב הבא - בדיקת המייל</h2>
             <p className="text-muted-brown leading-relaxed">
-              בדקות הקרובות יישלח אליך מייל עם כל פרטי הוובינר: קישור הצפייה, מועדים, וחומרי הלימוד הנלווים.
+              בדקות הקרובות יישלח אליך מייל עם כל פרטי הוובינר: קישור הצפייה, מועדים, וחומרי הלימוד
+              הנלווים.
             </p>
           </div>
         </div>
@@ -98,7 +117,8 @@ function SuccessCard() {
           <div>
             <h3 className="font-medium text-cream mb-1">אם המייל לא הגיע - בדקו בתיקיית הספאם</h3>
             <p className="text-muted-brown text-sm leading-relaxed">
-              לעיתים המייל מסונן בטעות לתיקיית "דואר זבל" / "Spam" / "Promotions".&nbsp;<br />
+              לעיתים המייל מסונן בטעות לתיקיית "דואר זבל" / "Spam" / "Promotions".&nbsp;
+              <br />
               מומלץ לסמן את המייל כ"לא דואר זבל" כדי לוודא שתקבלו את כל העדכונים הבאים.
             </p>
           </div>
@@ -122,7 +142,13 @@ function SuccessCard() {
   );
 }
 
-function FailureCard({ errorMessage, statusCode }: { errorMessage: string | null | undefined; statusCode: string | null | undefined }) {
+function FailureCard({
+  errorMessage,
+  statusCode,
+}: {
+  errorMessage: string | null | undefined;
+  statusCode: string | null | undefined;
+}) {
   const reason = reasonForCode(statusCode, errorMessage);
 
   return (
@@ -131,9 +157,7 @@ function FailureCard({ errorMessage, statusCode }: { errorMessage: string | null
         <AlertTriangle className="w-9 h-9 text-red-400" />
       </div>
 
-      <h1 className="font-serif text-4xl md:text-5xl text-cream mb-4">
-        התשלום לא הושלם
-      </h1>
+      <h1 className="font-serif text-4xl md:text-5xl text-cream mb-4">התשלום לא הושלם</h1>
 
       <p className="text-muted-brown text-lg mb-6 leading-relaxed">
         לא נרשם חיוב בכרטיס. הפרטים שמילאתם נשמרו ואפשר לנסות שוב.
@@ -142,16 +166,17 @@ function FailureCard({ errorMessage, statusCode }: { errorMessage: string | null
       <div className="rounded-lg border border-red-500/30 bg-red-500/5 p-6 text-right mb-8">
         <h2 className="font-serif text-lg text-cream mb-2">סיבת הכישלון</h2>
         <p className="text-muted-brown leading-relaxed">{reason}</p>
-        {statusCode && (
-          <p className="text-muted-brown/70 text-xs mt-3">קוד שגיאה: {statusCode}</p>
-        )}
+        {statusCode && <p className="text-muted-brown/70 text-xs mt-3">קוד שגיאה: {statusCode}</p>}
       </div>
 
       <div className="rounded-lg border border-gold/20 bg-gold/5 p-5 text-right mb-8">
         <h3 className="font-medium text-cream mb-2">צריכים עזרה?</h3>
         <p className="text-muted-brown text-sm leading-relaxed">
           צוות התמיכה שלנו כאן בשבילכם. כתבו לנו ל־
-          <a href={`mailto:${SUPPORT_EMAIL}?subject=בעיה בתשלום`} className="text-gold hover:underline mx-1">
+          <a
+            href={`mailto:${SUPPORT_EMAIL}?subject=בעיה בתשלום`}
+            className="text-gold hover:underline mx-1"
+          >
             {SUPPORT_EMAIL}
           </a>
           ונחזור אליכם בהקדם.
@@ -176,7 +201,10 @@ function FailureCard({ errorMessage, statusCode }: { errorMessage: string | null
   );
 }
 
-function reasonForCode(code: string | null | undefined, message: string | null | undefined): string {
+function reasonForCode(
+  code: string | null | undefined,
+  message: string | null | undefined,
+): string {
   if (message) return message;
   switch (code) {
     case "1":

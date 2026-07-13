@@ -1,4 +1,8 @@
 import { Resend } from "resend";
+import { resolvePackageSessions } from "./schedule.server";
+import { findRecentRegistrationForPackage } from "./registrations.server";
+import { buildWelcomeEmail } from "./email-templates.server";
+import { scheduleReminder } from "./reminders.server";
 
 export type RegistrationSubscription = {
   first_name: string;
@@ -41,6 +45,30 @@ function resendClient(): Resend {
 
 function fromAddress() {
   return process.env.RESEND_FROM_EMAIL || "IBDA Webinars <webinar@ibda-law.com>";
+}
+
+// Used by src/lib/reminders.server.ts (and available for any other caller
+// that just needs to send a pre-built email) so the Resend client/from
+// address aren't duplicated per module.
+export async function sendRawEmail(to: string, subject: string, html: string): Promise<void> {
+  const resend = resendClient();
+  const { error } = await resend.emails.send({
+    from: fromAddress(),
+    to,
+    replyTo: "webinar@ibda-law.com",
+    subject,
+    html,
+  });
+  if (error) throw new Error(`Resend send failed: ${error.message}`);
+}
+
+export async function markContactUnsubscribed(email: string): Promise<void> {
+  const resend = resendClient();
+  const { error } = await resend.contacts.update({
+    email: email.toLowerCase(),
+    unsubscribed: true,
+  });
+  if (error) throw new Error(`Resend unsubscribe failed: ${error.message}`);
 }
 
 function packageLabels(data: RegistrationSubscription): string[] {
@@ -136,9 +164,48 @@ export async function syncResendContact(
   await sendConfirmationEmail(data, openWebinarDateLabel);
 }
 
+// Finds the buyer's original registration (for their name + which core
+// lesson they picked, if any), builds that package's real welcome email,
+// sends it, and schedules its reminder. Returns false (falling back to the
+// generic payment-status email) if no matching registration/session data
+// can be found — should only happen for data recorded before this system
+// existed.
+async function sendPackageWelcomeAfterPayment(email: string, packageId: string): Promise<boolean> {
+  const registration = await findRecentRegistrationForPackage(email, packageId);
+  if (!registration) return false;
+
+  const sessions = await resolvePackageSessions(packageId, registration.core_single_lesson_index);
+  const lessonTitle =
+    packageId === "core_single" && sessions.kind === "single" ? sessions.session?.title : undefined;
+  const welcome = buildWelcomeEmail(packageId, sessions, email, { lessonTitle });
+  if (!welcome) return false;
+
+  const resend = resendClient();
+  const { error } = await resend.emails.send({
+    from: fromAddress(),
+    to: email,
+    replyTo: "webinar@ibda-law.com",
+    subject: welcome.subject,
+    html: welcome.html,
+  });
+  if (error) {
+    console.error("[resend] package welcome email failed", error);
+    return false;
+  }
+
+  await scheduleReminder(registration.id, packageId, registration.core_single_lesson_index);
+  return true;
+}
+
+// `packageId` lets a successful payment trigger that package's real welcome
+// email (with its actual Zoom link) and schedule its reminder — replacing
+// the old generic "payment received, details will follow" placeholder now
+// that we have real content to send instead. Failure emails keep the
+// simple generic notice (nothing package-specific to say there).
 export async function updateResendPaymentStatusByEmail(
   email: string,
   status: "שולם" | "נכשל",
+  packageId?: string,
 ): Promise<void> {
   try {
     const resend = resendClient();
@@ -149,6 +216,11 @@ export async function updateResendPaymentStatusByEmail(
       properties: { payment_status: status },
     });
     if (updateError) console.error("[resend] payment status property update failed", updateError);
+
+    if (paid && packageId) {
+      const sentRichWelcome = await sendPackageWelcomeAfterPayment(email, packageId);
+      if (sentRichWelcome) return;
+    }
 
     const { error } = await resend.emails.send({
       from: fromAddress(),
