@@ -21,8 +21,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { IbdaLogo } from "@/components/brand/ibda-logo";
-import { InstructorPortrait } from "@/components/brand/instructor-portrait";
+import ibdaLogo from "@/assets/ibda-logo.png";
+import yifatPhoto from "@/assets/yifat.jpg";
 import {
   RegistrationModalContext,
   useRegistrationModal,
@@ -403,7 +403,7 @@ function TopBar() {
       <div className="sticky top-0 z-40 backdrop-blur-md bg-[color-mix(in_oklab,var(--ink)_88%,transparent)] border-b border-border/60">
         <div className="max-w-6xl mx-auto grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 sm:px-6 py-2 sm:py-4">
           <a href="#top" className="flex items-center gap-3 justify-self-start shrink-0">
-            <IbdaLogo className="text-2xl sm:text-4xl" />
+            <img src={ibdaLogo} alt="IBDA" className="h-9 sm:h-14 w-auto" />
             <span className="hidden sm:block text-xs tracking-[0.22em] text-muted-brown ltr-inline uppercase">
               IBDA · Law Firm
             </span>
@@ -710,7 +710,11 @@ function Hero() {
               />
             </svg>
             <div className="absolute inset-0 bg-sand rounded-sm ring-1 ring-gold/20" />
-            <InstructorPortrait className="absolute inset-2 w-[calc(100%-1rem)] h-[calc(100%-1rem)] rounded-sm" />
+            <img
+              src={yifatPhoto}
+              alt="עו״ד יפעת בן דוד עמית"
+              className="absolute inset-2 w-[calc(100%-1rem)] h-[calc(100%-1rem)] object-cover rounded-sm grayscale-[10%] mix-blend-luminosity opacity-95"
+            />
           </div>
           <div className="mt-6 text-center md:text-right">
             <div className="text-xs tracking-[0.24em] uppercase text-gold ltr-inline">Instructor</div>
@@ -1890,7 +1894,7 @@ function Footer() {
     <footer className="py-8 border-t border-border">
       <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="flex items-center gap-3">
-          <IbdaLogo className="text-xl" />
+          <img src={ibdaLogo} alt="IBDA" className="h-8 w-auto" />
           <span className="text-xs tracking-[0.22em] text-muted-brown ltr-inline uppercase">
             IBDA · Law Firm
           </span>
