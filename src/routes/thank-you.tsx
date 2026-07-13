@@ -347,6 +347,7 @@ const RegSchema = z.object({
   phone: z.string().trim().min(6, "מספר טלפון קצר מדי").max(20),
   firm_name: z.string().trim().max(120).optional().or(z.literal("")),
   bar_license: z.string().trim().max(20).optional().or(z.literal("")),
+  id_number: z.string().trim().max(20).optional().or(z.literal("")),
 });
 
 function RegistrationForm({ selected }: { selected: Set<string> }) {
@@ -356,19 +357,26 @@ function RegistrationForm({ selected }: { selected: Set<string> }) {
   const [phone, setPhone] = useState("");
   const [firm_name, setFirmName] = useState("");
   const [bar_license, setBarLicense] = useState("");
+  const [id_number, setIdNumber] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+  const requiresIdNumber = resolvePrimaryPackage(selected) != null;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setServerError(null);
-    const parsed = RegSchema.safeParse({ first_name, last_name, email, phone, firm_name, bar_license });
+    const parsed = RegSchema.safeParse({ first_name, last_name, email, phone, firm_name, bar_license, id_number });
     if (!parsed.success) {
       const errs: Record<string, string> = {};
       parsed.error.issues.forEach((i) => (errs[i.path.join(".")] = i.message));
       setErrors(errs);
       toast.error("יש לתקן את השדות המסומנים");
+      return;
+    }
+    if (requiresIdNumber && (parsed.data.id_number || "").trim().length < 5) {
+      setErrors({ id_number: "מספר ת.ז / ח.פ הכרחי לצורך הפקת חשבונית" });
+      toast.error("יש להזין מספר ת.ז או ח.פ תקין");
       return;
     }
     if (selected.size === 0) {
@@ -408,6 +416,7 @@ function RegistrationForm({ selected }: { selected: Set<string> }) {
             full_name: `${parsed.data.first_name} ${parsed.data.last_name}`.trim(),
             phone: parsed.data.phone,
             order_reference: orderRef,
+            id_number: parsed.data.id_number || "",
           },
         });
         if (typeof window !== "undefined" && payment_url) {
@@ -434,6 +443,16 @@ function RegistrationForm({ selected }: { selected: Set<string> }) {
         <RegField label="טלפון נייד" type="tel" required value={phone} onChange={setPhone} error={errors.phone} dir="ltr" />
         <RegField label="שם המשרד או חברה" value={firm_name} onChange={setFirmName} />
         <RegField label="מספר רישיון עריכת דין" value={bar_license} onChange={setBarLicense} dir="ltr" />
+        {requiresIdNumber && (
+          <RegField
+            label="ת.ז / ח.פ (לצורך הפקת חשבונית)"
+            required
+            value={id_number}
+            onChange={setIdNumber}
+            error={errors.id_number}
+            dir="ltr"
+          />
+        )}
       </fieldset>
 
       {serverError && (

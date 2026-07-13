@@ -33,6 +33,7 @@ type CreatePaymentInput = {
   full_name: string;
   phone: string;
   order_reference: string;
+  id_number: string;
 };
 
 type SumitValidation = {
@@ -111,6 +112,13 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
     Customer: {
       Name: data.full_name,
       EmailAddress: data.email,
+      Phone: data.phone.replace(/[^\d]/g, "") || undefined,
+      // Israeli ID or business/dealer number — required for a valid חשבונית.
+      // Accepted here (not only via Sumit's own hosted checkout UI) so it's
+      // captured uniformly across card, Bit, Apple Pay, and Google Pay —
+      // the wallet flows are native OS payment sheets with no room for an
+      // extra field on Sumit's side.
+      CompanyNumber: data.id_number.replace(/[^\d]/g, "") || undefined,
       ExternalIdentifier: data.order_reference,
       SearchMode: 0,
     },

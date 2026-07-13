@@ -10,6 +10,7 @@ const CreatePaymentSchema = z.object({
   full_name: z.string().min(1),
   phone: z.string().min(1),
   order_reference: z.string().min(1),
+  id_number: z.string().trim().min(5, "מספר ת.ז / ח.פ לא תקין"),
 });
 
 export const createSumitPayment = createServerFn({ method: "POST" })

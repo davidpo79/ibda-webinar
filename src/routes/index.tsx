@@ -1511,6 +1511,7 @@ const InlineRegSchema = z.object({
   phone: z.string().trim().min(6, "מספר טלפון קצר מדי").max(20),
   firm_name: z.string().trim().max(120).optional().or(z.literal("")),
   bar_license: z.string().trim().max(20).optional().or(z.literal("")),
+  id_number: z.string().trim().max(20).optional().or(z.literal("")),
 });
 
 function RegistrationSection() {
@@ -1521,6 +1522,7 @@ function RegistrationSection() {
   const [phone, setPhone] = useState("");
   const [firm_name, setFirmName] = useState("");
   const [bar_license, setBarLicense] = useState("");
+  const [id_number, setIdNumber] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -1541,11 +1543,16 @@ function RegistrationSection() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setServerError(null);
-    const parsed = InlineRegSchema.safeParse({ first_name, last_name, email, phone, firm_name, bar_license });
+    const parsed = InlineRegSchema.safeParse({ first_name, last_name, email, phone, firm_name, bar_license, id_number });
     if (!parsed.success) {
       const errs: Record<string, string> = {};
       parsed.error.issues.forEach((i) => (errs[i.path.join(".")] = i.message));
       setErrors(errs);
+      return;
+    }
+    if (hasPaid && (parsed.data.id_number || "").trim().length < 5) {
+      setErrors({ id_number: "מספר ת.ז / ח.פ הכרחי לצורך הפקת חשבונית" });
+      toast.error("יש להזין מספר ת.ז או ח.פ תקין");
       return;
     }
     if (selected.size === 0) {
@@ -1571,7 +1578,7 @@ function RegistrationSection() {
 
   async function performSubmit() {
     setConfirmOpen(false);
-    const parsed = InlineRegSchema.safeParse({ first_name, last_name, email, phone, firm_name, bar_license });
+    const parsed = InlineRegSchema.safeParse({ first_name, last_name, email, phone, firm_name, bar_license, id_number });
     if (!parsed.success) return;
     setSubmitting(true);
 
@@ -1612,6 +1619,7 @@ function RegistrationSection() {
             full_name: `${parsed.data.first_name} ${parsed.data.last_name}`.trim(),
             phone: parsed.data.phone,
             order_reference: orderRef,
+            id_number: parsed.data.id_number || "",
           },
         });
         if (typeof window !== "undefined" && payment_url) {
@@ -1660,6 +1668,16 @@ function RegistrationSection() {
                   <InlineField label="טלפון נייד" type="tel" required value={phone} onChange={setPhone} error={errors.phone} dir="ltr" />
                   <InlineField label="שם המשרד או חברה" value={firm_name} onChange={setFirmName} />
                   <InlineField label="מספר רישיון עריכת דין" value={bar_license} onChange={setBarLicense} dir="ltr" />
+                  {hasPaid && (
+                    <InlineField
+                      label="ת.ז / ח.פ (לצורך הפקת חשבונית)"
+                      required
+                      value={id_number}
+                      onChange={setIdNumber}
+                      error={errors.id_number}
+                      dir="ltr"
+                    />
+                  )}
                 </div>
 
                 <div className="hairline opacity-60" />
