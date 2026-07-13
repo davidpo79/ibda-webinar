@@ -1,11 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import {
-  createSumitPaymentPage,
-  markSumitOrder,
-  resolveSumitOrder,
-  verifySumitTransaction,
-} from "./sumit.server";
+import { createSumitPaymentPage, verifySumitTransaction } from "./sumit.server";
 import { updateResendPaymentStatusByEmail } from "./resend.server";
 
 const CreatePaymentSchema = z.object({
@@ -23,11 +18,8 @@ export const createSumitPayment = createServerFn({ method: "POST" })
   });
 
 const ConfirmSchema = z.object({
-  transactionId: z.string().min(1).optional(),
-  orderReference: z.string().min(1).optional(),
+  transactionId: z.string().min(1),
   email: z.string().email(),
-}).refine((input) => Boolean(input.transactionId || input.orderReference), {
-  message: "transactionId or orderReference is required",
 });
 
 // Called from the success page to guarantee status update even if the
@@ -36,19 +28,7 @@ export const confirmSumitPayment = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ConfirmSchema.parse(input))
   .handler(async ({ data }) => {
     try {
-      const storedOrder = await resolveSumitOrder({ orderReference: data.orderReference });
-      const transactionId = data.transactionId;
-      if (!transactionId) {
-        return { paid: false, error: "Missing Sumit transaction id" };
-      }
-
-      const validation = await verifySumitTransaction(transactionId);
-      await markSumitOrder({
-        orderReference: data.orderReference || storedOrder?.order_reference,
-        transactionId,
-        status: validation.paid ? "paid" : "failed",
-        raw: validation.raw,
-      });
+      const validation = await verifySumitTransaction(data.transactionId);
       await updateResendPaymentStatusByEmail(data.email, validation.paid ? "שולם" : "נכשל");
       return { paid: validation.paid };
     } catch (err) {

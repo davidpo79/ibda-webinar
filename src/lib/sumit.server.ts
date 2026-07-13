@@ -71,8 +71,15 @@ function cancelUrl(origin: string, data: CreatePaymentInput) {
   return url.toString();
 }
 
-function webhookUrl(origin: string) {
-  return new URL("/api/public/sumit-webhook", origin).toString();
+function webhookUrl(origin: string, data: CreatePaymentInput) {
+  // Sumit calls this URL verbatim (query string included), so embedding our
+  // own identifiers here — rather than relying on a database lookup — is
+  // enough for the webhook to resolve who paid without extra storage.
+  const url = new URL("/api/public/sumit-webhook", origin);
+  url.searchParams.set("orderRef", data.order_reference);
+  url.searchParams.set("email", data.email);
+  url.searchParams.set("package", data.package_id);
+  return url.toString();
 }
 
 // Creates a Sumit hosted payment page (redirect flow) and returns the URL
@@ -97,7 +104,7 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
     ExternalIdentifier: data.order_reference,
     RedirectURL: returnUrl(origin, data),
     CancelRedirectURL: cancelUrl(origin, data),
-    IPNURL: webhookUrl(origin),
+    IPNURL: webhookUrl(origin, data),
     Customer: {
       Name: data.full_name,
       EmailAddress: data.email,
@@ -131,13 +138,6 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
       `Sumit failed: ${json.UserErrorMessage || json.TechnicalErrorDetails || statusStr || text}`,
     );
   }
-
-  await rememberSumitOrder({
-    orderReference: data.order_reference,
-    email: data.email,
-    packageId: data.package_id,
-    status: "created",
-  });
 
   return { payment_url: link };
 }
@@ -229,74 +229,4 @@ export async function cancelSumitRecurring(customerToken: string) {
   const text = await res.text();
   if (!res.ok) throw new Error(`Sumit recurring cancel failed ${res.status}: ${text}`);
   return JSON.parse(text) as Record<string, unknown>;
-}
-
-// ---------------------------------------------------------------------------
-// Order bookkeeping (Supabase) — same pattern the Takbull integration used.
-// ---------------------------------------------------------------------------
-
-export async function rememberSumitOrder(order: {
-  orderReference: string;
-  email: string;
-  packageId: string;
-  status: string;
-}) {
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
-    await db.from("sumit_payment_orders").upsert(
-      {
-        order_reference: order.orderReference,
-        email: order.email.toLowerCase(),
-        package_id: order.packageId,
-        status: order.status,
-      },
-      { onConflict: "order_reference" },
-    );
-  } catch (err) {
-    console.error("[sumit] could not remember order", err);
-  }
-}
-
-export async function resolveSumitOrder(input: { orderReference?: string | null }) {
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
-    if (!input.orderReference) return null;
-    const { data, error } = await db
-      .from("sumit_payment_orders")
-      .select("*")
-      .eq("order_reference", input.orderReference)
-      .limit(1)
-      .maybeSingle();
-    if (error) throw error;
-    return data as null | { email?: string; package_id?: string; order_reference?: string };
-  } catch (err) {
-    console.error("[sumit] could not resolve order", err);
-    return null;
-  }
-}
-
-export async function markSumitOrder(input: {
-  orderReference?: string | null;
-  transactionId?: string | null;
-  status: string;
-  raw?: Record<string, unknown>;
-}) {
-  try {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const db = supabaseAdmin as any;
-    if (!input.orderReference) return;
-    await db
-      .from("sumit_payment_orders")
-      .update({
-        status: input.status,
-        transaction_id: input.transactionId || null,
-        raw_payload: input.raw || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("order_reference", input.orderReference);
-  } catch (err) {
-    console.error("[sumit] could not mark order", err);
-  }
 }

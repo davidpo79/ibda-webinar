@@ -1,12 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 async function handle(request: Request) {
-  const {
-    markSumitOrder,
-    parseSumitTransactionStatus,
-    resolveSumitOrder,
-    verifySumitTransaction,
-  } = await import("@/lib/sumit.server");
+  const { parseSumitTransactionStatus, verifySumitTransaction } = await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
 
   const url = new URL(request.url);
@@ -20,9 +15,7 @@ async function handle(request: Request) {
   const transactionId =
     params.get("TransactionID") || params.get("ChargeID") || params.get("documentid");
   const validFlag = params.get("valid");
-
-  const storedOrder = await resolveSumitOrder({ orderReference });
-  const email = params.get("email") || storedOrder?.email || null;
+  const email = params.get("email");
 
   let validation = parseSumitTransactionStatus(Object.fromEntries(params.entries()));
   if (cancelled) {
@@ -38,13 +31,6 @@ async function handle(request: Request) {
       console.error("[sumit-return] verify error", err);
     }
   }
-
-  await markSumitOrder({
-    orderReference,
-    transactionId,
-    status: validation.paid ? "paid" : "failed",
-    raw: validation.raw,
-  });
 
   if (email) {
     try {

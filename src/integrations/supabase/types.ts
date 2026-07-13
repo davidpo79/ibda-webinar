@@ -14,7 +14,7 @@ export type Database = {
   }
   public: {
     Tables: {
-      sumit_payment_orders: {
+      takbull_payment_orders: {
         Row: {
           created_at: string
           email: string
@@ -23,7 +23,7 @@ export type Database = {
           package_id: string
           raw_payload: Json | null
           status: string
-          transaction_id: string | null
+          uniq_id: string
           updated_at: string
         }
         Insert: {
@@ -34,7 +34,7 @@ export type Database = {
           package_id: string
           raw_payload?: Json | null
           status?: string
-          transaction_id?: string | null
+          uniq_id: string
           updated_at?: string
         }
         Update: {
@@ -45,7 +45,7 @@ export type Database = {
           package_id?: string
           raw_payload?: Json | null
           status?: string
-          transaction_id?: string | null
+          uniq_id?: string
           updated_at?: string
         }
         Relationships: []

@@ -2,9 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 async function handle(request: Request) {
   const {
-    markSumitOrder,
     parseSumitTransactionStatus,
-    resolveSumitOrder,
     verifySumitTransaction,
     verifySumitWebhookSignature,
   } = await import("@/lib/sumit.server");
@@ -47,8 +45,9 @@ async function handle(request: Request) {
   const orderReference =
     String(payload.ExternalIdentifier || payload.orderRef || payload.order_reference || "") ||
     null;
-  const storedOrder = await resolveSumitOrder({ orderReference });
-  const email = String(payload.email || payload.EmailAddress || storedOrder?.email || "") || null;
+  // email/package travel as query params on the IPNURL we generated
+  // ourselves, so no database lookup is needed to resolve who this is.
+  const email = String(payload.email || payload.EmailAddress || "") || null;
 
   console.log("[sumit-webhook] received", { transactionId, orderReference, hasEmail: Boolean(email) });
 
@@ -65,24 +64,11 @@ async function handle(request: Request) {
     validation = { paid: false, status: "verify_failed", raw: payload };
   }
 
-  await markSumitOrder({
-    orderReference,
-    transactionId,
-    status: validation.paid ? "paid" : "failed",
-    raw: validation.raw,
-  });
-
   if (email) {
     try {
       await updateResendPaymentStatusByEmail(email, validation.paid ? "שולם" : "נכשל");
     } catch (err) {
       console.error("[sumit-webhook] Resend update error", err);
-    }
-    try {
-      const { updateSheetPaymentStatusByEmail } = await import("@/lib/google-sheets.server");
-      await updateSheetPaymentStatusByEmail(email, validation.paid ? "שולם" : "נכשל");
-    } catch (err) {
-      console.error("[sumit-webhook] sheets status update error", err);
     }
   }
 

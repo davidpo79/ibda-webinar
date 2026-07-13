@@ -51,11 +51,11 @@ function PaymentSuccessPage() {
 
   // Fallback: guarantee the payment-status update lands even if the webhook missed.
   useEffect(() => {
-    if (!success || !email || (!transactionId && !orderReference)) return;
-    confirmSumitPayment({ data: { transactionId: transactionId || undefined, orderReference: orderReference || undefined, email } }).catch((err) => {
+    if (!success || !email || !transactionId) return;
+    confirmSumitPayment({ data: { transactionId, email } }).catch((err) => {
       console.error("[payment-success] confirm error", err);
     });
-  }, [success, transactionId, orderReference, email]);
+  }, [success, transactionId, email]);
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-background px-6 py-16" dir="rtl">

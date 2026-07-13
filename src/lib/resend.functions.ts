@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { syncResendContact } from "./resend.server";
-import { appendRegistrationToSheet } from "./google-sheets.server";
 
 const SubscribeSchema = z.object({
   first_name: z.string().trim().min(1, "יש להזין שם פרטי"),
@@ -18,14 +17,6 @@ const SubscribeSchema = z.object({
 export const subscribeRegistration = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SubscribeSchema.parse(input))
   .handler(async ({ data }) => {
-    // Resend sync (audience + confirmation email) is the primary flow — its
-    // failure fails the request. Sheets append is a backup and must not
-    // block registration.
     await syncResendContact(data);
-    try {
-      await appendRegistrationToSheet(data);
-    } catch (err) {
-      console.error("[subscribe] sheets backup failed (non-fatal)", err);
-    }
     return { ok: true };
   });
