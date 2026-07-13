@@ -47,31 +47,58 @@ function packageLabels(data: RegistrationSubscription): string[] {
     .filter(Boolean) as string[];
 }
 
-// Adds/updates the contact in the webinar audience. Resend's contacts API
-// only carries email/first-name/last-name/unsubscribed — richer profile data
-// (firm, bar license, selected packages, payment status) lives in the
-// Google Sheets backup, which is the system of record for that detail now
-// that ActiveCampaign's custom fields are gone.
+const CONTACT_PROPERTY_KEYS = [
+  "firm_name",
+  "bar_license",
+  "packages",
+  "payment_status",
+] as const;
+
+// Resend's contact properties (custom fields) must exist before a value can
+// be set for them — create them once per process, ignoring "already exists"
+// errors on every call after the first.
+let propertiesEnsured = false;
+async function ensureContactProperties() {
+  if (propertiesEnsured) return;
+  const resend = resendClient();
+  await Promise.all(
+    CONTACT_PROPERTY_KEYS.map((key) =>
+      resend.contactProperties.create({ key, type: "string" }).catch(() => {}),
+    ),
+  );
+  propertiesEnsured = true;
+}
+
+// Upserts the contact (global — no Audience needed, that's the deprecated
+// legacy Resend model) with the registration detail as contact properties,
+// replacing ActiveCampaign's custom fields.
 async function upsertResendContact(data: RegistrationSubscription) {
-  const audienceId = process.env.RESEND_AUDIENCE_ID;
-  if (!audienceId) throw new Error("Resend is not configured (RESEND_AUDIENCE_ID missing)");
+  await ensureContactProperties();
   const resend = resendClient();
   const email = data.email.toLowerCase();
+  const properties: Record<string, string> = {
+    firm_name: data.firm_name || "",
+    bar_license: data.bar_license || "",
+    packages: packageLabels(data).join(", "),
+    payment_status: data.selected_packages.some((p) => !FREE_PACKAGES.has(p))
+      ? "ממתין לתשלום"
+      : "הרשמה חינם",
+  };
 
   const created = await resend.contacts.create({
-    audienceId,
     email,
     firstName: data.first_name,
     lastName: data.last_name,
     unsubscribed: false,
+    properties,
   });
 
   if (created.error) {
     const updated = await resend.contacts.update({
-      audienceId,
       email,
       firstName: data.first_name,
       lastName: data.last_name,
+      properties,
     });
     if (updated.error) {
       throw new Error(`Resend contact upsert failed: ${updated.error.message}`);
@@ -101,9 +128,6 @@ export async function syncResendContact(data: RegistrationSubscription): Promise
   await sendConfirmationEmail(data);
 }
 
-// Payment status has no durable home in Resend's contact model, so this
-// function's job is the email notification itself — the durable status
-// update happens in Supabase (order row) and Google Sheets.
 export async function updateResendPaymentStatusByEmail(
   email: string,
   status: "שולם" | "נכשל",
@@ -111,6 +135,13 @@ export async function updateResendPaymentStatusByEmail(
   try {
     const resend = resendClient();
     const paid = status === "שולם";
+
+    const { error: updateError } = await resend.contacts.update({
+      email: email.toLowerCase(),
+      properties: { payment_status: status },
+    });
+    if (updateError) console.error("[resend] payment status property update failed", updateError);
+
     const { error } = await resend.emails.send({
       from: fromAddress(),
       to: email,
