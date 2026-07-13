@@ -113,10 +113,12 @@ export function startReminderScheduler(): void {
     return;
   }
 
+  console.log(`[reminders] scheduler started, sweeping every ${SWEEP_INTERVAL_MS / 60000} min`);
+
   const tick = async () => {
     try {
       const { checked, sent } = await runReminderSweep();
-      if (sent > 0) console.log(`[reminders] sweep sent ${sent}/${checked} due reminders`);
+      console.log(`[reminders] sweep checked ${checked} pending, sent ${sent}`);
     } catch (err) {
       console.error("[reminders] sweep failed", err);
     }
