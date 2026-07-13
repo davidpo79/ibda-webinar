@@ -376,3 +376,14 @@
   }
 }
 
+/* The browser's own calendar/clock icon on datetime-local inputs renders
+   dark-on-transparent by default, which disappears against our dark theme. */
+input[type="datetime-local"] {
+  color-scheme: dark;
+
+  &::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+  }
+}
+
