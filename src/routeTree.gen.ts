@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WebinarRouteImport } from './routes/webinar'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
 import { Route as ApiPublicSumitWebhookRouteImport } from './routes/api/public/sumit-webhook'
 import { Route as ApiPublicSumitReturnRouteImport } from './routes/api/public/sumit-return'
 
+const WebinarRoute = WebinarRouteImport.update({
+  id: '/webinar',
+  path: '/webinar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -37,12 +43,14 @@ const ApiPublicSumitReturnRoute = ApiPublicSumitReturnRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/webinar': typeof WebinarRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/webinar': typeof WebinarRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
@@ -50,6 +58,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/webinar': typeof WebinarRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
@@ -58,18 +67,21 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/webinar'
     | '/payment/success'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/webinar'
     | '/payment/success'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
   id:
     | '__root__'
     | '/'
+    | '/webinar'
     | '/payment/success'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
@@ -77,6 +89,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  WebinarRoute: typeof WebinarRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   ApiPublicSumitReturnRoute: typeof ApiPublicSumitReturnRoute
   ApiPublicSumitWebhookRoute: typeof ApiPublicSumitWebhookRoute
@@ -84,6 +97,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/webinar': {
+      id: '/webinar'
+      path: '/webinar'
+      fullPath: '/webinar'
+      preLoaderRoute: typeof WebinarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -117,6 +137,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  WebinarRoute: WebinarRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   ApiPublicSumitReturnRoute: ApiPublicSumitReturnRoute,
   ApiPublicSumitWebhookRoute: ApiPublicSumitWebhookRoute,

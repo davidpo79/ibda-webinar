@@ -178,6 +178,21 @@ function emailShell(bodyHtml: string): string {
 </body></html>`;
 }
 
+function exploreProgramsCta(): string {
+  const origin = (process.env.PUBLIC_SITE_URL || "").replace(/\/$/, "");
+  if (!origin) return "";
+  return `
+    <div style="background-color:#17150F;border:1px solid #C4A461;border-radius:8px;padding:18px 20px;margin-bottom:18px;text-align:center;">
+      <p style="color:#FFFDF7;font-size:14px;line-height:1.7;margin:0 0 14px;">
+        מוזמנים גם להציץ בסדרת הליבה ובסדנאות הפרימיום — מחיר ההרשמה המוקדמת
+        בתוקף ל-72 שעות מסיום הוובינר הפתוח.
+      </p>
+      <a href="${origin}" style="display:inline-block;background-color:#C4A461;color:#17150F;font-size:14px;font-weight:700;text-decoration:none;padding:10px 24px;border-radius:6px;">
+        לצפייה בכל התוכניות ובתמחור
+      </a>
+    </div>`;
+}
+
 function confirmationEmailHtml(input: RegistrationSubscription & { labels: string[]; hasPaid: boolean }): string {
   const itemsHtml = input.labels.map((l) => `<li style="margin-bottom:6px;">${l}</li>`).join("");
   return emailShell(`
@@ -191,6 +206,7 @@ function confirmationEmailHtml(input: RegistrationSubscription & { labels: strin
       <div style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">מסלולים שנבחרו</div>
       <ul style="color:#FFFDF7;font-size:14px;margin:0;padding-inline-start:18px;">${itemsHtml}</ul>
     </div>
+    ${input.hasPaid ? "" : exploreProgramsCta()}
     <p style="color:#D9D0BB;font-size:13px;line-height:1.7;">
       אם המייל לא מגיע לתיבה הראשית בהמשך, כדאי לבדוק בתיקיית הספאם/דואר זבל ולסמן אותנו כ"לא ספאם".
     </p>
