@@ -1,8 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Calendar, Check, MessageCircle } from "lucide-react";
+import { Calendar, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ibdaLogo from "@/assets/ibda-logo.png";
 import yifatPhoto from "@/assets/yifat.jpg";
@@ -113,7 +113,7 @@ function WebinarPage() {
             שאלות? webinar@ibda-law.com
           </a>
           <div className="mt-4">
-            <Link to="/" className="text-sm text-gold hover:underline">
+            <Link to="/thank-you" className="text-sm text-gold hover:underline">
               כבר יודעים שאתם רוצים את הסדרה המלאה? לצפייה בכל התוכניות ובתמחור
             </Link>
           </div>
@@ -130,6 +130,7 @@ function WebinarPage() {
 }
 
 function RegistrationForm() {
+  const navigate = useNavigate();
   const [first_name, setFirstName] = useState("");
   const [last_name, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -138,7 +139,6 @@ function RegistrationForm() {
   const [bar_license, setBarLicense] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
@@ -166,27 +166,12 @@ function RegistrationForm() {
           selected_packages: ["open"],
         },
       });
-      setSuccess(true);
+      navigate({ to: "/thank-you" });
     } catch (err) {
       console.error("[webinar] registration error", err);
       setServerError("אירעה תקלה בשליחת ההרשמה. אנא נסו שוב בעוד רגע.");
-    } finally {
       setSubmitting(false);
     }
-  }
-
-  if (success) {
-    return (
-      <div className="bg-card border border-gold/40 rounded-lg p-8 text-center fade-rise">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-full border border-gold text-gold mb-4">
-          <Check size={24} strokeWidth={1.5} />
-        </div>
-        <h3 className="font-serif text-3xl text-cream mb-4">ההרשמה בוצעה בהצלחה</h3>
-        <p className="text-muted-brown text-[16px] leading-[1.85] max-w-md mx-auto">
-          פרטי הגישה ומועד הוובינר יישלחו בקרוב לכתובת המייל שהזנת! שווה לבדוק גם בתיקיית הספאם.
-        </p>
-      </div>
-    );
   }
 
   return (

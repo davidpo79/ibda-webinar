@@ -24,6 +24,14 @@ const PACKAGE_LABELS: Record<string, string> = {
 
 const FREE_PACKAGES = new Set(["open"]);
 
+// Recap shown in the confirmation email when the "open" webinar is among the
+// selected packages. No join link exists in the system yet — access details
+// are sent separately, manually, closer to the session.
+const OPEN_WEBINAR_RECAP = {
+  title: "כמה זה עולה לעשות עסקת נדל״ן?",
+  dateLabel: "15.7 · 10:00",
+};
+
 let _resend: Resend | undefined;
 function resendClient(): Resend {
   const apiKey = process.env.RESEND_API_KEY;
@@ -187,14 +195,25 @@ function exploreProgramsCta(): string {
         מוזמנים גם להציץ בסדרת הליבה ובסדנאות הפרימיום — מחיר ההרשמה המוקדמת
         בתוקף ל-72 שעות מסיום הוובינר הפתוח.
       </p>
-      <a href="${origin}" style="display:inline-block;background-color:#C4A461;color:#17150F;font-size:14px;font-weight:700;text-decoration:none;padding:10px 24px;border-radius:6px;">
+      <a href="${origin}/thank-you" style="display:inline-block;background-color:#C4A461;color:#17150F;font-size:14px;font-weight:700;text-decoration:none;padding:10px 24px;border-radius:6px;">
         לצפייה בכל התוכניות ובתמחור
       </a>
     </div>`;
 }
 
+function webinarRecapHtml(): string {
+  return `
+    <div style="background-color:#17150F;border:1px solid #3A342A;border-radius:8px;padding:16px 20px;margin-bottom:18px;">
+      <div style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">פרטי הוובינר הפתוח</div>
+      <p style="color:#FFFDF7;font-size:15px;margin:0 0 6px;">${OPEN_WEBINAR_RECAP.title}</p>
+      <p style="color:#D9D0BB;font-size:13px;margin:0 0 10px;">${OPEN_WEBINAR_RECAP.dateLabel}</p>
+      <p style="color:#D9D0BB;font-size:13px;line-height:1.6;margin:0;">פרטי ההתחברות למפגש יישלחו אליך בנפרד, סמוך למועד.</p>
+    </div>`;
+}
+
 function confirmationEmailHtml(input: RegistrationSubscription & { labels: string[]; hasPaid: boolean }): string {
   const itemsHtml = input.labels.map((l) => `<li style="margin-bottom:6px;">${l}</li>`).join("");
+  const hasOpenWebinar = input.selected_packages.includes("open");
   return emailShell(`
     <h1 style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">שלום ${input.first_name},</h1>
     <p style="color:#D9D0BB;font-size:15px;line-height:1.8;margin:0 0 18px;">
@@ -202,6 +221,7 @@ function confirmationEmailHtml(input: RegistrationSubscription & { labels: strin
         ? "תודה שנרשמת! פרטי הגישה למפגשים יישלחו אליך בקרוב, לאחר השלמת התשלום."
         : "ההרשמה שלך לוובינר הפתוח התקבלה בהצלחה. נתראה שם!"}
     </p>
+    ${hasOpenWebinar ? webinarRecapHtml() : ""}
     <div style="background-color:#17150F;border:1px solid #3A342A;border-radius:8px;padding:16px 20px;margin-bottom:18px;">
       <div style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">מסלולים שנבחרו</div>
       <ul style="color:#FFFDF7;font-size:14px;margin:0;padding-inline-start:18px;">${itemsHtml}</ul>

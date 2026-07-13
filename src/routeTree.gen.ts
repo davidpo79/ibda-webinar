@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WebinarRouteImport } from './routes/webinar'
+import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
 import { Route as ApiPublicSumitWebhookRouteImport } from './routes/api/public/sumit-webhook'
@@ -18,6 +19,11 @@ import { Route as ApiPublicSumitReturnRouteImport } from './routes/api/public/su
 const WebinarRoute = WebinarRouteImport.update({
   id: '/webinar',
   path: '/webinar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ThankYouRoute = ThankYouRouteImport.update({
+  id: '/thank-you',
+  path: '/thank-you',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -43,6 +49,7 @@ const ApiPublicSumitReturnRoute = ApiPublicSumitReturnRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
@@ -67,6 +76,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/thank-you'
     | '/webinar'
     | '/payment/success'
     | '/api/public/sumit-return'
@@ -74,6 +84,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/thank-you'
     | '/webinar'
     | '/payment/success'
     | '/api/public/sumit-return'
@@ -81,6 +92,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/thank-you'
     | '/webinar'
     | '/payment/success'
     | '/api/public/sumit-return'
@@ -89,6 +101,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ThankYouRoute: typeof ThankYouRoute
   WebinarRoute: typeof WebinarRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   ApiPublicSumitReturnRoute: typeof ApiPublicSumitReturnRoute
@@ -102,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/webinar'
       fullPath: '/webinar'
       preLoaderRoute: typeof WebinarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/thank-you': {
+      id: '/thank-you'
+      path: '/thank-you'
+      fullPath: '/thank-you'
+      preLoaderRoute: typeof ThankYouRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -137,6 +157,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ThankYouRoute: ThankYouRoute,
   WebinarRoute: WebinarRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   ApiPublicSumitReturnRoute: ApiPublicSumitReturnRoute,
