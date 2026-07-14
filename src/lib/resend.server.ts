@@ -235,22 +235,25 @@ export async function updateResendPaymentStatusByEmail(
   }
 }
 
+// Email clients (Gmail's mobile app especially) don't reliably inherit
+// dir="rtl" from <html> into nested table cells — bidi punctuation ends up
+// misplaced unless every element carries its own explicit dir attribute.
 function emailShell(bodyHtml: string): string {
   return `<!DOCTYPE html>
 <html lang="he" dir="rtl"><head><meta charSet="utf-8" /></head>
-<body style="margin:0;padding:0;background-color:#17150F;font-family:Georgia,'Times New Roman',serif;">
-  <table role="presentation" width="100%" cellPadding="0" cellSpacing="0" style="background-color:#17150F;padding:32px 16px;">
-    <tr><td align="center">
-      <table role="presentation" width="100%" style="max-width:560px;background-color:#211E16;border:1px solid #3A342A;border-radius:12px;overflow:hidden;">
-        <tr><td style="padding:28px 32px 12px;text-align:center;border-bottom:1px solid #3A342A;">
-          <span style="color:#C4A461;font-size:22px;letter-spacing:1px;">IBDA</span>
-          <div style="color:#D9D0BB;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:4px;">Law Firm · Webinars</div>
+<body dir="rtl" style="margin:0;padding:0;background-color:#17150F;font-family:Georgia,'Times New Roman',serif;">
+  <table role="presentation" dir="rtl" width="100%" cellPadding="0" cellSpacing="0" style="background-color:#17150F;padding:32px 16px;">
+    <tr><td dir="rtl" align="center">
+      <table role="presentation" dir="rtl" width="100%" style="max-width:560px;background-color:#211E16;border:1px solid #3A342A;border-radius:12px;overflow:hidden;">
+        <tr><td dir="rtl" style="padding:28px 32px 12px;text-align:center;border-bottom:1px solid #3A342A;">
+          <span dir="rtl" style="color:#C4A461;font-size:22px;letter-spacing:1px;">IBDA</span>
+          <div dir="rtl" style="color:#D9D0BB;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:4px;">Law Firm · Webinars</div>
         </tr></td>
-        <tr><td style="padding:28px 32px;color:#FFFDF7;">
+        <tr><td dir="rtl" style="padding:28px 32px;color:#FFFDF7;">
           ${bodyHtml}
         </td></tr>
-        <tr><td style="padding:18px 32px;border-top:1px solid #3A342A;text-align:center;">
-          <span style="color:#D9D0BB;font-size:12px;">שאלות? <a href="mailto:webinar@ibda-law.com" style="color:#C4A461;">webinar@ibda-law.com</a></span>
+        <tr><td dir="rtl" style="padding:18px 32px;border-top:1px solid #3A342A;text-align:center;">
+          <span dir="rtl" style="color:#D9D0BB;font-size:12px;">שאלות? <a href="mailto:webinar@ibda-law.com" style="color:#C4A461;">webinar@ibda-law.com</a></span>
         </td></tr>
       </table>
     </td></tr>
@@ -262,12 +265,12 @@ function exploreProgramsCta(): string {
   const origin = (process.env.PUBLIC_SITE_URL || "").replace(/\/$/, "");
   if (!origin) return "";
   return `
-    <div style="background-color:#17150F;border:1px solid #C4A461;border-radius:8px;padding:18px 20px;margin-bottom:18px;text-align:center;">
-      <p style="color:#FFFDF7;font-size:14px;line-height:1.7;margin:0 0 14px;">
+    <div dir="rtl" style="background-color:#17150F;border:1px solid #C4A461;border-radius:8px;padding:18px 20px;margin-bottom:18px;text-align:center;">
+      <p dir="rtl" style="color:#FFFDF7;font-size:14px;line-height:1.7;margin:0 0 14px;">
         מוזמנים גם להציץ בסדרת הליבה ובסדנאות הפרימיום — מחיר ההרשמה המוקדמת
         בתוקף ל-72 שעות מסיום הוובינר הפתוח.
       </p>
-      <a href="${origin}/thank-you" style="display:inline-block;background-color:#C4A461;color:#17150F;font-size:14px;font-weight:700;text-decoration:none;padding:10px 24px;border-radius:6px;">
+      <a href="${origin}/thank-you" dir="rtl" style="display:inline-block;background-color:#C4A461;color:#17150F;font-size:14px;font-weight:700;text-decoration:none;padding:10px 24px;border-radius:6px;">
         לצפייה בכל התוכניות ובתמחור
       </a>
     </div>`;
@@ -275,11 +278,11 @@ function exploreProgramsCta(): string {
 
 function webinarRecapHtml(dateLabel: string | null): string {
   return `
-    <div style="background-color:#17150F;border:1px solid #3A342A;border-radius:8px;padding:16px 20px;margin-bottom:18px;">
-      <div style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">פרטי הוובינר הפתוח</div>
-      <p style="color:#FFFDF7;font-size:15px;margin:0 0 6px;">${OPEN_WEBINAR_RECAP_TITLE}</p>
-      ${dateLabel ? `<p style="color:#D9D0BB;font-size:13px;margin:0 0 10px;">${dateLabel}</p>` : ""}
-      <p style="color:#D9D0BB;font-size:13px;line-height:1.6;margin:0;">פרטי ההתחברות למפגש יישלחו אליך בנפרד, סמוך למועד.</p>
+    <div dir="rtl" style="background-color:#17150F;border:1px solid #3A342A;border-radius:8px;padding:16px 20px;margin-bottom:18px;">
+      <div dir="rtl" style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">פרטי הוובינר הפתוח</div>
+      <p dir="rtl" style="color:#FFFDF7;font-size:15px;margin:0 0 6px;">${OPEN_WEBINAR_RECAP_TITLE}</p>
+      ${dateLabel ? `<p dir="rtl" style="color:#D9D0BB;font-size:13px;margin:0 0 10px;">${dateLabel}</p>` : ""}
+      <p dir="rtl" style="color:#D9D0BB;font-size:13px;line-height:1.6;margin:0;">פרטי ההתחברות למפגש יישלחו אליך בנפרד, סמוך למועד.</p>
     </div>`;
 }
 
@@ -290,11 +293,13 @@ function confirmationEmailHtml(
     openWebinarDateLabel: string | null;
   },
 ): string {
-  const itemsHtml = input.labels.map((l) => `<li style="margin-bottom:6px;">${l}</li>`).join("");
+  const itemsHtml = input.labels
+    .map((l) => `<li dir="rtl" style="margin-bottom:6px;">${l}</li>`)
+    .join("");
   const hasOpenWebinar = input.selected_packages.includes("open");
   return emailShell(`
-    <h1 style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">שלום ${input.first_name},</h1>
-    <p style="color:#D9D0BB;font-size:15px;line-height:1.8;margin:0 0 18px;">
+    <h1 dir="rtl" style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">שלום ${input.first_name},</h1>
+    <p dir="rtl" style="color:#D9D0BB;font-size:15px;line-height:1.8;margin:0 0 18px;">
       ${
         input.hasPaid
           ? "תודה שנרשמת! פרטי הגישה למפגשים יישלחו אליך בקרוב, לאחר השלמת התשלום."
@@ -302,12 +307,12 @@ function confirmationEmailHtml(
       }
     </p>
     ${hasOpenWebinar ? webinarRecapHtml(input.openWebinarDateLabel) : ""}
-    <div style="background-color:#17150F;border:1px solid #3A342A;border-radius:8px;padding:16px 20px;margin-bottom:18px;">
-      <div style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">מסלולים שנבחרו</div>
-      <ul style="color:#FFFDF7;font-size:14px;margin:0;padding-inline-start:18px;">${itemsHtml}</ul>
+    <div dir="rtl" style="background-color:#17150F;border:1px solid #3A342A;border-radius:8px;padding:16px 20px;margin-bottom:18px;">
+      <div dir="rtl" style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">מסלולים שנבחרו</div>
+      <ul dir="rtl" style="color:#FFFDF7;font-size:14px;margin:0;padding-inline-start:18px;">${itemsHtml}</ul>
     </div>
     ${input.hasPaid ? "" : exploreProgramsCta()}
-    <p style="color:#D9D0BB;font-size:13px;line-height:1.7;">
+    <p dir="rtl" style="color:#D9D0BB;font-size:13px;line-height:1.7;">
       אם המייל לא מגיע לתיבה הראשית בהמשך, כדאי לבדוק בתיקיית הספאם/דואר זבל ולסמן אותנו כ"לא ספאם".
     </p>
   `);
@@ -316,9 +321,9 @@ function confirmationEmailHtml(
 function paymentStatusEmailHtml(paid: boolean): string {
   return emailShell(
     paid
-      ? `<h1 style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">התשלום התקבל בהצלחה</h1>
-         <p style="color:#D9D0BB;font-size:15px;line-height:1.8;">המקום שלך שמור. פרטי הוובינר יישלחו בהמשך לכתובת המייל הזו.</p>`
-      : `<h1 style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">התשלום לא הושלם</h1>
+      ? `<h1 dir="rtl" style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">התשלום התקבל בהצלחה</h1>
+         <p dir="rtl" style="color:#D9D0BB;font-size:15px;line-height:1.8;">המקום שלך שמור. פרטי הוובינר יישלחו בהמשך לכתובת המייל הזו.</p>`
+      : `<h1 dir="rtl" style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">התשלום לא הושלם</h1>
          <p style="color:#D9D0BB;font-size:15px;line-height:1.8;">לא נרשם חיוב בכרטיס. אפשר לנסות שוב מדף ההרשמה, או לפנות אלינו לעזרה.</p>`,
   );
 }

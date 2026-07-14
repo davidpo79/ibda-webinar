@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -1515,6 +1515,7 @@ const InlineRegSchema = z.object({
 });
 
 function RegistrationSection() {
+  const navigate = useNavigate();
   const { selected, toggle, coreLesson } = useRegistrationModal();
   const [first_name, setFirstName] = useState("");
   const [last_name, setLastName] = useState("");
@@ -1525,7 +1526,6 @@ function RegistrationSection() {
   const [id_number, setIdNumber] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [coreSingleLesson, setCoreSingleLesson] = useState<string>("");
@@ -1634,8 +1634,10 @@ function RegistrationSection() {
       }
     }
 
-    setSubmitting(false);
-    setSuccess(true);
+    // No paid package selected (free open-webinar registration) — send them
+    // to the full thank-you/offers page, same as the standalone /webinar
+    // flow, instead of a dead-end inline success card.
+    navigate({ to: "/thank-you" });
   }
 
 
@@ -1651,13 +1653,10 @@ function RegistrationSection() {
           </p>
         </div>
 
-        {success ? (
-          <SuccessCard />
-        ) : (
-          <form
-            onSubmit={onSubmit}
-            className="glass-gold rounded-2xl p-6 md:p-9 fade-rise"
-          >
+        <form
+          onSubmit={onSubmit}
+          className="glass-gold rounded-2xl p-6 md:p-9 fade-rise"
+        >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
               {/* Right column on desktop: personal details */}
               <div className="order-2 md:order-1 space-y-6">
@@ -1808,8 +1807,7 @@ function RegistrationSection() {
                 <span className="relative z-10">{submitting ? "שולח..." : "שריון מקום ואישור הרשמה"}</span>
               </button>
             </div>
-          </form>
-        )}
+        </form>
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -1906,26 +1904,6 @@ function InlineField({
     </label>
   );
 }
-
-function SuccessCard() {
-  return (
-    <div className="bg-card border border-gold/40 rounded-lg p-8 md:p-10 text-center fade-rise">
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border border-gold text-gold mb-5">
-        <Check size={28} strokeWidth={1.5} />
-      </div>
-      <h3 className="font-serif text-4xl md:text-5xl text-cream mb-6">ההרשמה בוצעה בהצלחה</h3>
-      <div className="hairline max-w-[120px] mx-auto mb-5" />
-      <p className="text-muted-brown text-[17px] leading-[1.85] max-w-lg mx-auto">
-        פרטי הגישה ומועדי הוובינר יישלחו בקרוב לכתובת המייל שהזנת!
-      </p>
-      <div className="mt-10 inline-flex items-center gap-3 text-sm text-cream bg-ink/60 border border-gold/25 rounded-md px-5 py-3">
-        <Calendar size={16} className="text-gold" />
-        <span>מצפים להיפגש איתך בוובינר!</span>
-      </div>
-    </div>
-  );
-}
-
 
 /* -------------------------- footer -------------------------- */
 

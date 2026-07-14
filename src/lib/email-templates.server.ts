@@ -31,30 +31,30 @@ function marketingShell(bodyHtml: string, recipientEmail: string): string {
     : "#";
   return `<!DOCTYPE html>
 <html lang="he" dir="rtl"><head><meta charSet="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
-<body style="margin:0;padding:0;background-color:#FFFFFF;font-family:'Lucida Grande','Lucida Sans Unicode',Arial,sans-serif;">
-  <table role="presentation" width="100%" cellPadding="0" cellSpacing="0" style="background-color:#FFFFFF;">
-    <tr><td align="center" style="padding:32px 16px;">
-      <table role="presentation" width="100%" style="max-width:560px;">
-        <tr><td align="center" style="padding-bottom:8px;">
+<body dir="rtl" style="margin:0;padding:0;background-color:#FFFFFF;font-family:'Lucida Grande','Lucida Sans Unicode',Arial,sans-serif;">
+  <table role="presentation" dir="rtl" width="100%" cellPadding="0" cellSpacing="0" style="background-color:#FFFFFF;">
+    <tr><td dir="rtl" align="center" style="padding:32px 16px;">
+      <table role="presentation" dir="rtl" width="100%" style="max-width:560px;">
+        <tr><td dir="rtl" align="center" style="padding-bottom:8px;">
           <img src="${logoUrl}" alt="IBDA" width="140" style="display:block;margin:0 auto;" />
-          <div style="color:#333333;font-size:12px;margin-top:6px;">בן דוד עמית | משרד עורכי דין</div>
+          <div dir="rtl" style="color:#333333;font-size:12px;margin-top:6px;">בן דוד עמית | משרד עורכי דין</div>
         </td></tr>
-        <tr><td style="padding:22px 8px;color:#333333;font-size:15px;line-height:1.9;text-align:center;">
+        <tr><td dir="rtl" style="padding:22px 8px;color:#333333;font-size:15px;line-height:1.9;text-align:center;">
           ${bodyHtml}
         </td></tr>
-        <tr><td align="center" style="padding:12px 8px 8px;">
+        <tr><td dir="rtl" align="center" style="padding:12px 8px 8px;">
           <img src="${heroUrl}" alt="עו״ד יפעת בן דוד עמית" width="220" style="display:block;margin:0 auto;border-radius:4px;" />
         </td></tr>
-        <tr><td align="center" style="padding:20px 8px 4px;">
+        <tr><td dir="rtl" align="center" style="padding:20px 8px 4px;">
           <img src="${logoUrl}" alt="IBDA" width="110" style="display:block;margin:0 auto;" />
-          <div style="color:#333333;font-size:11px;margin-top:6px;">בן דוד עמית | משרד עורכי דין</div>
+          <div dir="rtl" style="color:#333333;font-size:11px;margin-top:6px;">בן דוד עמית | משרד עורכי דין</div>
         </td></tr>
-        <tr><td align="center" style="padding:18px 8px 0;border-top:1px solid #eeeeee;">
-          <div style="color:#888888;font-size:11px;margin-top:14px;">Sent to: ${recipientEmail}</div>
-          <div style="margin-top:6px;">
+        <tr><td dir="rtl" align="center" style="padding:18px 8px 0;border-top:1px solid #eeeeee;">
+          <div dir="rtl" style="color:#888888;font-size:11px;margin-top:14px;">Sent to: ${recipientEmail}</div>
+          <div dir="rtl" style="margin-top:6px;">
             <a href="${unsubUrl}" style="color:#333333;font-size:11px;font-weight:bold;text-decoration:underline;">Unsubscribe</a>
           </div>
-          <div style="color:#aaaaaa;font-size:10px;margin-top:10px;">IBDA Law Firm — משרד עו״ד יפעת בן דוד עמית</div>
+          <div dir="rtl" style="color:#aaaaaa;font-size:10px;margin-top:10px;">IBDA Law Firm — משרד עו״ד יפעת בן דוד עמית</div>
         </td></tr>
       </table>
     </td></tr>
@@ -133,11 +133,11 @@ export function buildWelcomeEmail(
         ? `שמחים מאוד שהצטרפת אלינו לוובינר ${opts.lessonTitle || session?.title || ""}`
         : WELCOME_INTRO[packageId];
     bodyInner = `
-      <p style="margin:0 0 10px;">${intro}</p>
-      <p style="margin:0 0 10px;">המפגש שלנו ייצא לדרך ב${dateLabel}</p>
-      <p style="margin:0 0 18px;">ואנחנו נרגשים לפתוח אותו יחד עם<br />עורכת הדין והנוטריון יפעת בן דוד עמית</p>
-      <p style="margin:0 0 18px;">קישור להצטרפות:<br />${goldLink(link, link)}</p>
-      <p style="margin:0;">מצפה לנו מפגש מרתק, מחכים לך!</p>
+      <p dir="rtl" style="margin:0 0 10px;">${intro}</p>
+      <p dir="rtl" style="margin:0 0 10px;">המפגש שלנו ייצא לדרך ב${dateLabel}</p>
+      <p dir="rtl" style="margin:0 0 18px;">ואנחנו נרגשים לפתוח אותו יחד עם<br />עורכת הדין והנוטריון יפעת בן דוד עמית</p>
+      <p dir="rtl" style="margin:0 0 18px;">קישור להצטרפות:<br />${goldLink(link, link)}</p>
+      <p dir="rtl" style="margin:0;">מצפה לנו מפגש מרתק, מחכים לך!</p>
     `;
   } else {
     const anchorLabel = sessions.anchor ? formatHebrewFull(sessions.anchor.starts_at) : "";
@@ -149,20 +149,21 @@ export function buildWelcomeEmail(
       .slice()
       .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
       .map(
-        (s) => `<p style="margin:8px 0;">${goldLink(s.zoom_url || "#", sessionLinkLabel(s))}</p>`,
+        (s) =>
+          `<p dir="rtl" style="margin:8px 0;">${goldLink(s.zoom_url || "#", sessionLinkLabel(s))}</p>`,
       )
       .join("");
     bodyInner = `
-      <p style="margin:0 0 10px;">${WELCOME_INTRO[packageId]}</p>
-      <p style="margin:0 0 18px;">${kickoffLine}</p>
-      <p style="margin:0 0 10px;">ואנחנו נרגשים לפתוח אותו יחד עם<br />עורכת הדין והנוטריון יפעת בן דוד עמית</p>
-      <div style="margin:0 0 18px;">${linksHtml}</div>
-      <p style="margin:0;">מצפים לנו מפגשים מרתקים, מחכים לך!</p>
+      <p dir="rtl" style="margin:0 0 10px;">${WELCOME_INTRO[packageId]}</p>
+      <p dir="rtl" style="margin:0 0 18px;">${kickoffLine}</p>
+      <p dir="rtl" style="margin:0 0 10px;">ואנחנו נרגשים לפתוח אותו יחד עם<br />עורכת הדין והנוטריון יפעת בן דוד עמית</p>
+      <div dir="rtl" style="margin:0 0 18px;">${linksHtml}</div>
+      <p dir="rtl" style="margin:0;">מצפים לנו מפגשים מרתקים, מחכים לך!</p>
     `;
   }
 
   const html = marketingShell(
-    `<h1 style="font-size:20px;font-weight:bold;margin:0 0 18px;">ברוכים הבאים לתוכנית עסקאות נדל"ן וליטיגציה!</h1>${bodyInner}`,
+    `<h1 dir="rtl" style="font-size:20px;font-weight:bold;margin:0 0 18px;">ברוכים הבאים לתוכנית עסקאות נדל"ן וליטיגציה!</h1>${bodyInner}`,
     recipientEmail,
   );
 
@@ -183,11 +184,11 @@ export function buildReminderEmail(
   const verb = REMINDER_VERB[packageId] || "מתחיל המפגש שלנו";
   const link = session.zoom_url || "#";
   const bodyInner = `
-    <p style="margin:0 0 14px;">שלום ${firstName}</p>
-    <p style="margin:0 0 14px;">🎉 מחר, ${dateLabel} ${verb}</p>
-    <p style="margin:0 0 14px;">שים לב! כשאתה נכנס לזום ודא שהשם שלך מוצג בדיוק כפי שנרשמת באתר הוובינרים.</p>
-    <p style="margin:0 0 18px;">קישור להצטרפות:<br />${goldLink(link, link)}</p>
-    <p style="margin:0;">מצפה לנו מפגש מרתק מחר, מחכים לך!</p>
+    <p dir="rtl" style="margin:0 0 14px;">שלום ${firstName}</p>
+    <p dir="rtl" style="margin:0 0 14px;">🎉 מחר, ${dateLabel} ${verb}</p>
+    <p dir="rtl" style="margin:0 0 14px;">שים לב! כשאתה נכנס לזום ודא שהשם שלך מוצג בדיוק כפי שנרשמת באתר הוובינרים.</p>
+    <p dir="rtl" style="margin:0 0 18px;">קישור להצטרפות:<br />${goldLink(link, link)}</p>
+    <p dir="rtl" style="margin:0;">מצפה לנו מפגש מרתק מחר, מחכים לך!</p>
   `;
   const html = marketingShell(bodyInner, recipientEmail);
   return { subject: `תזכורת - מחר בשעה ${hourLabel} מתחילים!`, html };
