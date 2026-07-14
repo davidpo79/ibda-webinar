@@ -170,7 +170,26 @@ function AdminDashboard() {
               />
             </div>
           </div>
-          <div className="border border-cream/10 rounded-lg overflow-x-auto">
+          {/* Mobile: one card per lead — a fixed-width table doesn't fit a phone screen */}
+          <div className="md:hidden space-y-3">
+            {filteredRegistrations.map((r) => (
+              <LeadCard
+                key={r.id}
+                registration={r}
+                isOpen={expanded.has(r.id)}
+                onToggle={() => toggle(r.id)}
+                onSaved={() => router.invalidate()}
+              />
+            ))}
+            {filteredRegistrations.length === 0 && (
+              <div className="border border-cream/10 rounded-lg px-4 py-8 text-center text-muted-brown text-sm">
+                {registrations.length === 0 ? "אין עדיין לידים" : "אין לידים התואמים לסינון"}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop: full table */}
+          <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto">
             <table className="w-full text-sm min-w-[760px] table-fixed">
               <colgroup>
                 <col className="w-10" />
@@ -265,7 +284,20 @@ function AdminDashboard() {
               />
             </div>
           </div>
-          <div className="border border-cream/10 rounded-lg overflow-x-auto">
+          {/* Mobile: one card per order — a fixed-width table doesn't fit a phone screen */}
+          <div className="md:hidden space-y-3">
+            {filteredOrders.map((o) => (
+              <OrderCard key={o.id} order={o} />
+            ))}
+            {filteredOrders.length === 0 && (
+              <div className="border border-cream/10 rounded-lg px-4 py-8 text-center text-muted-brown text-sm">
+                {orders.length === 0 ? "אין עדיין רוכשים" : "אין רוכשים התואמים לסינון"}
+              </div>
+            )}
+          </div>
+
+          {/* Desktop: full table */}
+          <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto">
             <table className="w-full text-sm min-w-[760px] table-fixed">
               <colgroup>
                 <col className="w-[16%]" />
@@ -330,6 +362,82 @@ function AdminDashboard() {
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+// Mobile card for one lead — replaces the desktop table below the md
+// breakpoint, where a 6-column fixed-width table can't fit on a phone
+// screen without hiding columns behind horizontal scroll.
+function LeadCard({
+  registration: r,
+  isOpen,
+  onToggle,
+  onSaved,
+}: {
+  registration: RegistrationRow;
+  isOpen: boolean;
+  onToggle: () => void;
+  onSaved: () => void;
+}) {
+  return (
+    <div className="border border-cream/10 rounded-lg p-4 bg-ink/20">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-medium text-cream break-words">
+            {r.first_name} {r.last_name}
+          </div>
+          <div className="text-muted-brown text-sm ltr-inline break-all mt-1">{r.email}</div>
+          <div className="text-muted-brown text-sm ltr-inline mt-0.5">{r.phone}</div>
+        </div>
+        <button
+          onClick={onToggle}
+          aria-label="פרטים נוספים"
+          className="shrink-0 w-6 h-6 rounded border border-gold/40 text-gold flex items-center justify-center hover:bg-gold/10 transition-colors"
+        >
+          {isOpen ? "–" : "+"}
+        </button>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-brown">
+        <span className="break-words">{packagesLabel(r.selected_packages)}</span>
+        <span className="whitespace-nowrap">{formatSessionDate(r.created_at)}</span>
+      </div>
+      {isOpen && (
+        <div className="mt-4 pt-4 border-t border-cream/10">
+          <LeadDetailPanel registration={r} onSaved={onSaved} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Mobile card for one order — same reasoning as LeadCard above.
+function OrderCard({ order: o }: { order: OrderRow }) {
+  return (
+    <div className="border border-cream/10 rounded-lg p-4 bg-ink/20">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-medium text-cream break-words">
+            {PACKAGE_LABELS[o.package_id] || o.package_id}
+          </div>
+          <div className="text-muted-brown text-sm ltr-inline break-all mt-1">{o.email}</div>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 px-2 py-0.5 rounded text-xs font-semibold",
+            o.status === "paid" && "bg-green-500/15 text-green-400",
+            o.status === "failed" && "bg-destructive/15 text-destructive",
+            o.status === "created" && "bg-gold/15 text-gold",
+          )}
+        >
+          {STATUS_LABELS[o.status] ?? o.status}
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-brown">
+        <span className="whitespace-nowrap">{o.amount ? `₪${o.amount}` : "—"}</span>
+        <span className="whitespace-nowrap">{formatSessionDate(o.session_starts_at) || "—"}</span>
+        <span className="ltr-inline break-all">{o.order_reference}</span>
+      </div>
     </div>
   );
 }
