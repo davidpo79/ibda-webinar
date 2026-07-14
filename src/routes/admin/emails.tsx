@@ -230,7 +230,17 @@ function AdminEmailsPage() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-cream">תצוגה מקדימה</h2>
               {activePreview && (
-                <span className="text-xs text-muted-brown">{activePreview.label}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-brown">{activePreview.label}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewKey(null)}
+                    aria-label="סגירת תצוגה מקדימה"
+                    className="text-muted-brown hover:text-gold transition-colors text-lg leading-none w-5 h-5 flex items-center justify-center"
+                  >
+                    ×
+                  </button>
+                </div>
               )}
             </div>
             {activePreview ? (
