@@ -24,13 +24,15 @@ export const subscribeRegistration = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SubscribeSchema.parse(input))
   .handler(async ({ data }) => {
     let openWebinarDateLabel: string | null = null;
+    let resolvedSessionId = data.session_id ?? null;
     if (data.selected_packages.includes("open")) {
       const session = await getNextOpenSession();
       openWebinarDateLabel = formatSessionDate(session?.starts_at);
+      resolvedSessionId = resolvedSessionId ?? session?.id ?? null;
     }
     await syncResendContact(data, openWebinarDateLabel);
     const registrationId = await recordRegistration({
-      session_id: data.session_id ?? null,
+      session_id: resolvedSessionId,
       first_name: data.first_name,
       last_name: data.last_name,
       email: data.email,

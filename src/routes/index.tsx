@@ -1827,14 +1827,6 @@ function RegistrationSection() {
                     </p>
                   </div>
                 )}
-                <div className="rounded-md border border-gold/20 bg-gold/5 p-4">
-                  <p className="font-semibold text-cream mb-1">📧 פרטי הוובינר</p>
-                  <p>
-                    המייל עם קישור הצפייה ופרטי הוובינר עשוי להגיע לתיקיית
-                    <strong> הספאם / דואר זבל / Promotions</strong>. אנא בדקו שם
-                    וסמנו את המייל כ"לא ספאם" כדי לקבל את כל העדכונים.
-                  </p>
-                </div>
                 <p className="text-sm">
                   לשאלות ותמיכה ניתן לפנות אלינו במייל:{" "}
                   <a
