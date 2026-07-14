@@ -7,6 +7,7 @@ import {
   sendCouponToLeadAction,
 } from "@/lib/admin.functions";
 import type { RegistrationRow } from "@/lib/registrations.server";
+import type { OrderRow } from "@/lib/orders.server";
 import { formatSessionDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 

@@ -22,6 +22,7 @@ import { Route as AdminCouponsRouteImport } from './routes/admin/coupons'
 import { Route as ApiPublicUnsubscribeRouteImport } from './routes/api/public/unsubscribe'
 import { Route as ApiPublicSumitWebhookRouteImport } from './routes/api/public/sumit-webhook'
 import { Route as ApiPublicSumitReturnRouteImport } from './routes/api/public/sumit-return'
+import { Route as ApiAdminVerifyTransactionRouteImport } from './routes/api/admin/verify-transaction'
 
 const WebinarRoute = WebinarRouteImport.update({
   id: '/webinar',
@@ -88,6 +89,12 @@ const ApiPublicSumitReturnRoute = ApiPublicSumitReturnRouteImport.update({
   path: '/api/public/sumit-return',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminVerifyTransactionRoute =
+  ApiAdminVerifyTransactionRouteImport.update({
+    id: '/api/admin/verify-transaction',
+    path: '/api/admin/verify-transaction',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/admin/settings': typeof AdminSettingsRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
+  '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -115,6 +123,7 @@ export interface FileRoutesByTo {
   '/admin/settings': typeof AdminSettingsRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin': typeof AdminIndexRoute
+  '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -131,6 +140,7 @@ export interface FileRoutesById {
   '/admin/settings': typeof AdminSettingsRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
+  '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -148,6 +158,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/payment/success'
     | '/admin/'
+    | '/api/admin/verify-transaction'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
     | '/api/public/unsubscribe'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/payment/success'
     | '/admin'
+    | '/api/admin/verify-transaction'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
     | '/api/public/unsubscribe'
@@ -178,6 +190,7 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/payment/success'
     | '/admin/'
+    | '/api/admin/verify-transaction'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
     | '/api/public/unsubscribe'
@@ -194,6 +207,7 @@ export interface RootRouteChildren {
   AdminSettingsRoute: typeof AdminSettingsRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  ApiAdminVerifyTransactionRoute: typeof ApiAdminVerifyTransactionRoute
   ApiPublicSumitReturnRoute: typeof ApiPublicSumitReturnRoute
   ApiPublicSumitWebhookRoute: typeof ApiPublicSumitWebhookRoute
   ApiPublicUnsubscribeRoute: typeof ApiPublicUnsubscribeRoute
@@ -292,6 +306,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicSumitReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/admin/verify-transaction': {
+      id: '/api/admin/verify-transaction'
+      path: '/api/admin/verify-transaction'
+      fullPath: '/api/admin/verify-transaction'
+      preLoaderRoute: typeof ApiAdminVerifyTransactionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -306,6 +327,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminSettingsRoute: AdminSettingsRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   AdminIndexRoute: AdminIndexRoute,
+  ApiAdminVerifyTransactionRoute: ApiAdminVerifyTransactionRoute,
   ApiPublicSumitReturnRoute: ApiPublicSumitReturnRoute,
   ApiPublicSumitWebhookRoute: ApiPublicSumitWebhookRoute,
   ApiPublicUnsubscribeRoute: ApiPublicUnsubscribeRoute,
