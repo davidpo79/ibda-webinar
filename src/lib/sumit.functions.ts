@@ -6,6 +6,7 @@ import { recordOrder } from "./orders.server";
 import { resolvePackageSessions } from "./schedule.server";
 import { getValidCoupon, markCouponUsed } from "./coupons.server";
 import { getCurrentPrices } from "./pricing.server";
+import { isFreeCoreLesson } from "./core-lessons";
 
 const CreatePaymentSchema = z.object({
   package_ids: z.array(z.string()).min(1),
@@ -54,6 +55,11 @@ export const createSumitPayment = createServerFn({ method: "POST" })
     for (const id of data.package_ids) {
       if (id === "core_single" && lessons.length > 0) {
         for (const idx of lessons) {
+          // Lesson 8 ("פינוי מושכר") is free — no order/charge for it. Its
+          // registration is already recorded via subscribeRegistration
+          // (selected_packages + core_single_lesson_indexes), independent
+          // of any order, same as the free open-webinar flow.
+          if (isFreeCoreLesson(idx)) continue;
           const amount = applyDiscount(prices.core_single ?? 0, discountPercent);
           const resolved = await resolvePackageSessions("core_single", [idx]);
           const sessionId = resolved.kind === "single" ? (resolved.session?.id ?? null) : null;

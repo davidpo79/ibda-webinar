@@ -33,6 +33,7 @@ import { validateCoupon } from "@/lib/coupons.functions";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
 import { buildPricingDateLabels } from "@/lib/pricing-dates";
+import { isFreeCoreLesson } from "@/lib/core-lessons";
 import {
   saveContact,
   loadContact,
@@ -1650,12 +1651,20 @@ function RegistrationSection({
 
   const paidSelectedIds = Array.from(selected).filter((id) => id !== "open");
   const flatPricedIds = paidSelectedIds.filter((id) => id !== "core_single");
-  const hasPaid = paidSelectedIds.length > 0;
+  // Lesson 8 ("פינוי מושכר") is free even when picked under the otherwise-
+  // paid core_single package — don't count it toward the chargeable total.
+  const paidLessonCount = Array.from(coreSingleLessons).filter(
+    (idx) => !isFreeCoreLesson(idx),
+  ).length;
   const baseTotal =
     flatPricedIds.reduce((sum, id) => sum + currentPrice(id), 0) +
-    (selected.has("core_single") ? coreSingleLessons.size * currentPrice("core_single") : 0);
+    (selected.has("core_single") ? paidLessonCount * currentPrice("core_single") : 0);
   const discountPercent = couponApplied?.discountPercent ?? 0;
   const total = Math.round(baseTotal * (1 - discountPercent / 100));
+  // Whether this registration will actually be charged anything — distinct
+  // from "core_single is selected", since a core_single selection made up
+  // entirely of free lessons (e.g. only lesson 8) charges nothing.
+  const hasPaid = total > 0;
 
   async function applyCoupon() {
     if (!couponCode.trim()) return;
@@ -1742,7 +1751,11 @@ function RegistrationSection({
       return;
     }
 
-    if (paidSelectedIds.length > 0) {
+    // hasPaid reflects the actual chargeable total, not just whether a paid
+    // package id is selected — a core_single selection made up entirely of
+    // free lessons (e.g. only lesson 8) has nothing to charge for and skips
+    // Sumit entirely, same as a plain free open-webinar registration.
+    if (hasPaid) {
       try {
         const orderRef = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const { payment_url } = await createSumitPayment({
@@ -1769,9 +1782,9 @@ function RegistrationSection({
       }
     }
 
-    // No paid package selected (free open-webinar registration) — send them
-    // to the full thank-you/offers page, same as the standalone /webinar
-    // flow, instead of a dead-end inline success card.
+    // Nothing chargeable was selected (free open-webinar and/or free-only
+    // core lessons) — send them to the full thank-you/offers page, same as
+    // the standalone /webinar flow, instead of a dead-end inline success card.
     window.location.href = "/thank-you?registered=1";
   }
 
@@ -1957,6 +1970,7 @@ function RegistrationSection({
                             {coreSeries.map((lesson, idx) => {
                               const lessonIdx = idx + 1;
                               const lessonChecked = coreSingleLessons.has(lessonIdx);
+                              const lessonFree = isFreeCoreLesson(lessonIdx);
                               return (
                                 <label
                                   key={lessonIdx}
@@ -1973,9 +1987,14 @@ function RegistrationSection({
                                     checked={lessonChecked}
                                     onChange={() => toggleLesson(lessonIdx)}
                                   />
-                                  <span className="truncate">
+                                  <span className="truncate flex-1 min-w-0">
                                     {lessonIdx}. {lesson.t}
                                   </span>
+                                  {lessonFree && (
+                                    <span className="shrink-0 text-[10px] font-semibold tracking-[0.15em] uppercase px-1.5 py-0.5 rounded border border-gold/60 bg-gold/10 text-gold">
+                                      בחינם
+                                    </span>
+                                  )}
                                 </label>
                               );
                             })}

@@ -1,6 +1,7 @@
 import { getRequestUrl } from "@tanstack/react-start/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { getCurrentPrices } from "./pricing.server";
+import { isFreeCoreLesson } from "./core-lessons";
 
 const SUMIT_BASE_URL = process.env.SUMIT_BASE_URL || "https://api.sumit.co.il";
 
@@ -117,11 +118,23 @@ function webhookUrl(origin: string, data: CreatePaymentInput) {
 export async function createSumitPaymentPage(data: CreatePaymentInput) {
   const prices = await getCurrentPrices();
   const discount = data.discount_percent ?? 0;
-  const lessons = data.core_single_lesson_indexes ?? [];
+  const requestedLessons = data.core_single_lesson_indexes ?? [];
+  // Lesson 8 ("פינוי מושכר") is free — never a Sumit line item, regardless
+  // of what the caller passed. This is the actual charging boundary, so it
+  // enforces that independent of the client-side selection UI.
+  const lessons = requestedLessons.filter((idx) => !isFreeCoreLesson(idx));
+  // core_single_lesson_indexes being non-empty signals per-lesson pricing
+  // was intended. If every requested lesson turned out free, core_single
+  // has nothing left to charge for and must not fall back to a flat-rate
+  // line for it below.
+  const packageIds =
+    requestedLessons.length > 0 && lessons.length === 0
+      ? data.package_ids.filter((id) => id !== "core_single")
+      : data.package_ids;
 
   const items =
     lessons.length > 0
-      ? data.package_ids
+      ? packageIds
           .filter((id) => id !== "core_single")
           .map((id) => {
             const price = prices[id];
@@ -143,7 +156,7 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
               };
             }),
           )
-      : data.package_ids.map((id) => {
+      : packageIds.map((id) => {
           const price = prices[id];
           if (!price) throw new Error(`Unknown package: ${id}`);
           return {
@@ -152,6 +165,10 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
             UnitPrice: applyDiscount(price, discount),
           };
         });
+
+  if (items.length === 0) {
+    throw new Error("createSumitPaymentPage: nothing chargeable in this request");
+  }
 
   const origin = getSumitPublicOrigin();
   const payload = {

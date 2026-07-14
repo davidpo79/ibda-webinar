@@ -25,6 +25,7 @@ import { validateCoupon } from "@/lib/coupons.functions";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
 import { buildPricingDateLabels } from "@/lib/pricing-dates";
+import { isFreeCoreLesson } from "@/lib/core-lessons";
 import {
   saveContact,
   loadContact,
@@ -143,16 +144,25 @@ function ThankYouPage() {
     return pricing[id]?.currentPrice ?? PRICE_LOOKUP[id] ?? 0;
   }
 
+  // Lesson 8 ("פינוי מושכר") is free even when picked under the otherwise-
+  // paid core_single package — don't count it toward the item count/total.
+  const paidLessonCount = Array.from(coreSingleLessons).filter(
+    (idx) => !isFreeCoreLesson(idx),
+  ).length;
   const itemCount =
     Array.from(selected).filter((id) => id !== "core_single").length +
-    (selected.has("core_single") ? coreSingleLessons.size : 0);
+    (selected.has("core_single") ? paidLessonCount : 0);
   const baseTotal =
     Array.from(selected)
       .filter((id) => id !== "core_single")
       .reduce((sum, id) => sum + currentPrice(id), 0) +
-    (selected.has("core_single") ? coreSingleLessons.size * currentPrice("core_single") : 0);
+    (selected.has("core_single") ? paidLessonCount * currentPrice("core_single") : 0);
   const discountPercent = couponApplied?.discountPercent ?? 0;
   const total = Math.round(baseTotal * (1 - discountPercent / 100));
+  // Whether the current selection is actually chargeable — a core_single
+  // selection made up entirely of free lessons (e.g. only lesson 8) charges
+  // nothing, even though `selected` is non-empty.
+  const hasPaid = total > 0;
 
   function toggle(id: string) {
     setSelected((s) => {
@@ -300,6 +310,7 @@ function ThankYouPage() {
                       {coreSeriesResolved.map((s, i) => {
                         const idx = i + 1;
                         const lessonChecked = coreSingleLessons.has(idx);
+                        const lessonFree = isFreeCoreLesson(idx);
                         return (
                           <label
                             key={idx}
@@ -316,9 +327,14 @@ function ThankYouPage() {
                               checked={lessonChecked}
                               onChange={() => toggleLesson(idx)}
                             />
-                            <span className="truncate">
+                            <span className="truncate flex-1 min-w-0">
                               {idx}. {s.t} · {s.date}
                             </span>
+                            {lessonFree && (
+                              <span className="shrink-0 text-[10px] font-semibold tracking-[0.15em] uppercase px-1.5 py-0.5 rounded border border-gold/60 bg-gold/10 text-gold">
+                                בחינם
+                              </span>
+                            )}
                           </label>
                         );
                       })}
@@ -443,6 +459,7 @@ function ThankYouPage() {
             selected={selected}
             coreSingleLessons={coreSingleLessons}
             couponCode={couponApplied?.code}
+            hasPaid={hasPaid}
           />
         </div>
 
@@ -494,10 +511,12 @@ function RegistrationForm({
   selected,
   coreSingleLessons,
   couponCode,
+  hasPaid,
 }: {
   selected: Set<string>;
   coreSingleLessons: Set<number>;
   couponCode?: string;
+  hasPaid: boolean;
 }) {
   const savedContact = useRef(loadContact()).current;
   const [first_name, setFirstName] = useState(savedContact?.first_name ?? "");
@@ -510,7 +529,10 @@ function RegistrationForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const requiresIdNumber = selected.size > 0;
+  // Whether an invoice (and so an ID/company number) is needed — distinct
+  // from "a package is selected", since a core_single selection made up
+  // entirely of free lessons (e.g. only lesson 8) charges nothing.
+  const requiresIdNumber = hasPaid;
 
   useEffect(() => {
     saveContact({ first_name, last_name, email, phone, firm_name, bar_license, id_number });
@@ -564,13 +586,12 @@ function RegistrationForm({
       return;
     }
 
-    const paidPackages = Array.from(selected);
-    if (paidPackages.length > 0) {
+    if (hasPaid) {
       try {
         const orderRef = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const { payment_url } = await createSumitPayment({
           data: {
-            package_ids: paidPackages,
+            package_ids: Array.from(selected),
             email: parsed.data.email,
             full_name: `${parsed.data.first_name} ${parsed.data.last_name}`.trim(),
             phone: parsed.data.phone,
@@ -628,7 +649,9 @@ function RegistrationForm({
           disabled={submitting}
           className="btn-shimmer w-full max-w-md bg-gold text-ink py-4 rounded-md text-[15px] font-semibold hover:bg-gold-deep transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5"
         >
-          <span className="relative z-10">{submitting ? "מעבד..." : "המשך לתשלום"}</span>
+          <span className="relative z-10">
+            {submitting ? "מעבד..." : hasPaid ? "המשך לתשלום" : "השלמת הרשמה"}
+          </span>
         </button>
       </div>
     </form>
