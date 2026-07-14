@@ -16,6 +16,9 @@ export const Route = createFileRoute("/admin/emails")({
   component: AdminEmailsPage,
 });
 
+const SAVE_WARNING =
+  "השינוי יתעדכן מיד בריסנד (Resend) ויחול על כל המיילים שיישלחו ללקוחות הבאים, החל מהרגע הזה.";
+
 function AdminEmailsPage() {
   const router = useRouter();
   const { overrides, previews, packages, defaults } = Route.useLoaderData();
@@ -47,9 +50,14 @@ function AdminEmailsPage() {
   }, []);
 
   const [values, setValues] = useState<Record<string, string>>(initial);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // The last value actually persisted (from the initial load, or a
+  // successful per-field/bulk save) — compared against `values` to know
+  // which fields are dirty and what a "save all" should send.
+  const [baseline, setBaseline] = useState<Record<string, string>>(initial);
+  const [savingKeys, setSavingKeys] = useState<Set<string>>(new Set());
+  const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set());
+  const [errorByKey, setErrorByKey] = useState<Record<string, string>>({});
+  const [savingAll, setSavingAll] = useState(false);
   const [previewKey, setPreviewKey] = useState<string | null>(null);
 
   const previewByKey = useMemo(() => {
@@ -60,28 +68,63 @@ function AdminEmailsPage() {
 
   function setField(key: string, value: string) {
     setValues((v) => ({ ...v, [key]: value }));
-    setSaved(false);
+    setSavedKeys((s) => {
+      if (!s.has(key)) return s;
+      const n = new Set(s);
+      n.delete(key);
+      return n;
+    });
+    setErrorByKey((e) => {
+      if (!(key in e)) return e;
+      const n = { ...e };
+      delete n[key];
+      return n;
+    });
   }
 
-  async function onSave() {
-    setSaving(true);
-    setSaved(false);
-    setError(null);
+  async function saveField(key: string, label: string) {
+    const value = values[key] ?? "";
+    if (value === (baseline[key] ?? "")) return;
+    if (!window.confirm(`לשמור שינוי ב"${label}"?\n\n${SAVE_WARNING}`)) return;
+
+    setSavingKeys((s) => new Set(s).add(key));
     try {
-      const changes: Record<string, string> = {};
-      for (const [key, value] of Object.entries(values)) {
-        if (value !== (initial[key] ?? "")) changes[key] = value;
-      }
-      if (Object.keys(changes).length) {
-        await updateEmailContentAction({ data: { changes } });
-      }
-      setSaved(true);
+      await updateEmailContentAction({ data: { changes: { [key]: value } } });
+      setBaseline((b) => ({ ...b, [key]: value }));
+      setSavedKeys((s) => new Set(s).add(key));
       await router.invalidate();
     } catch (err) {
-      console.error("[admin/emails] save failed", err);
-      setError("שמירת התוכן נכשלה. נסו שוב.");
+      console.error("[admin/emails] field save failed", key, err);
+      setErrorByKey((e) => ({ ...e, [key]: "השמירה נכשלה. נסו שוב." }));
     } finally {
-      setSaving(false);
+      setSavingKeys((s) => {
+        const n = new Set(s);
+        n.delete(key);
+        return n;
+      });
+    }
+  }
+
+  const dirtyKeys = Object.keys(values).filter((k) => values[k] !== (baseline[k] ?? ""));
+
+  async function onSaveAll() {
+    if (!dirtyKeys.length) return;
+    if (!window.confirm(`לשמור ${dirtyKeys.length} שינויים שטרם נשמרו?\n\n${SAVE_WARNING}`)) {
+      return;
+    }
+    setSavingAll(true);
+    try {
+      const changes: Record<string, string> = {};
+      for (const key of dirtyKeys) changes[key] = values[key];
+      await updateEmailContentAction({ data: { changes } });
+      setBaseline((b) => ({ ...b, ...changes }));
+      setSavedKeys((s) => new Set([...s, ...dirtyKeys]));
+      await router.invalidate();
+    } catch (err) {
+      console.error("[admin/emails] bulk save failed", err);
+      window.alert("שמירת השינויים נכשלה. נסו שוב.");
+    } finally {
+      setSavingAll(false);
     }
   }
 
@@ -101,7 +144,8 @@ function AdminEmailsPage() {
           <p className="text-muted-brown text-sm leading-relaxed">
             כאן ניתן לערוך את הכותרות והטקסטים של כל המיילים האוטומטיים שהמערכת שולחת. שדה שנשאר ריק
             חוזר לברירת המחדל. לחצו על "תצוגה מקדימה" ליד כל שדה כדי לראות את המייל בצד, בדיוק כפי
-            שהוא נשלח בפועל.
+            שהוא נשלח בפועל. שמירת שדה מעדכנת מיד את התבנית בריסנד ותשפיע על כל המיילים שיישלחו
+            ללקוחות מרגע השמירה והלאה.
           </p>
 
           {packages.map((pkg) => (
@@ -111,9 +155,15 @@ function AdminEmailsPage() {
               </summary>
               <div className="space-y-4 mt-4">
                 <Field
+                  fieldKey={`welcome.${pkg.id}.subject`}
                   label="נושא מייל הברוכים הבאים"
                   value={values[`welcome.${pkg.id}.subject`] ?? ""}
+                  dirty={dirtyKeys.includes(`welcome.${pkg.id}.subject`)}
+                  saving={savingKeys.has(`welcome.${pkg.id}.subject`)}
+                  saved={savedKeys.has(`welcome.${pkg.id}.subject`)}
+                  error={errorByKey[`welcome.${pkg.id}.subject`]}
                   onChange={(v) => setField(`welcome.${pkg.id}.subject`, v)}
+                  onSave={() => saveField(`welcome.${pkg.id}.subject`, "נושא מייל הברוכים הבאים")}
                   onPreview={() => setPreviewKey(`welcome:${pkg.id}`)}
                 />
                 {pkg.id === "core_single" ? (
@@ -123,17 +173,29 @@ function AdminEmailsPage() {
                   </p>
                 ) : (
                   <Field
-                    label="פתיח מייל הברוכים הבאים"
+                    fieldKey={`welcome.${pkg.id}.intro`}
+                    label="גוף מייל הברוכים הבאים (פתיח)"
                     value={values[`welcome.${pkg.id}.intro`] ?? ""}
+                    dirty={dirtyKeys.includes(`welcome.${pkg.id}.intro`)}
+                    saving={savingKeys.has(`welcome.${pkg.id}.intro`)}
+                    saved={savedKeys.has(`welcome.${pkg.id}.intro`)}
+                    error={errorByKey[`welcome.${pkg.id}.intro`]}
                     onChange={(v) => setField(`welcome.${pkg.id}.intro`, v)}
+                    onSave={() => saveField(`welcome.${pkg.id}.intro`, "גוף מייל הברוכים הבאים")}
                     onPreview={() => setPreviewKey(`welcome:${pkg.id}`)}
                     multiline
                   />
                 )}
                 <Field
+                  fieldKey={`reminder.${pkg.id}.verb`}
                   label="ניסוח תזכורת יום לפני"
                   value={values[`reminder.${pkg.id}.verb`] ?? ""}
+                  dirty={dirtyKeys.includes(`reminder.${pkg.id}.verb`)}
+                  saving={savingKeys.has(`reminder.${pkg.id}.verb`)}
+                  saved={savedKeys.has(`reminder.${pkg.id}.verb`)}
+                  error={errorByKey[`reminder.${pkg.id}.verb`]}
                   onChange={(v) => setField(`reminder.${pkg.id}.verb`, v)}
+                  onSave={() => saveField(`reminder.${pkg.id}.verb`, "ניסוח תזכורת יום לפני")}
                   onPreview={() => setPreviewKey(`reminder:${pkg.id}`)}
                   hint='למשל: "מתחיל הוובינר שלנו"'
                 />
@@ -147,9 +209,15 @@ function AdminEmailsPage() {
             </summary>
             <div className="space-y-4 mt-4">
               <Field
+                fieldKey="coupon.intro"
                 label="פתיח מייל קוד הנחה"
                 value={values["coupon.intro"] ?? ""}
+                dirty={dirtyKeys.includes("coupon.intro")}
+                saving={savingKeys.has("coupon.intro")}
+                saved={savedKeys.has("coupon.intro")}
+                error={errorByKey["coupon.intro"]}
                 onChange={(v) => setField("coupon.intro", v)}
+                onSave={() => saveField("coupon.intro", "פתיח מייל קוד הנחה")}
                 onPreview={() => setPreviewKey("coupon")}
                 hint="ניתן להשתמש ב-{percent} כדי להציג את אחוז ההנחה"
                 multiline
@@ -163,9 +231,15 @@ function AdminEmailsPage() {
             </summary>
             <div className="space-y-4 mt-4">
               <Field
+                fieldKey="price_notice.intro"
                 label="פתיח מייל התראת מחיר"
                 value={values["price_notice.intro"] ?? ""}
+                dirty={dirtyKeys.includes("price_notice.intro")}
+                saving={savingKeys.has("price_notice.intro")}
+                saved={savedKeys.has("price_notice.intro")}
+                error={errorByKey["price_notice.intro"]}
                 onChange={(v) => setField("price_notice.intro", v)}
+                onSave={() => saveField("price_notice.intro", "פתיח מייל התראת מחיר")}
                 onPreview={() => setPreviewKey("price_notice")}
                 hint="ניתן להשתמש ב-{package}, {hours}, {price}"
                 multiline
@@ -183,45 +257,72 @@ function AdminEmailsPage() {
                 ברוכים הבאים הספציפי לתוכנית שנרכשה.
               </p>
               <Field
+                fieldKey="payment_status.paid.title"
                 label="כותרת — תשלום הצליח"
                 value={values["payment_status.paid.title"] ?? ""}
+                dirty={dirtyKeys.includes("payment_status.paid.title")}
+                saving={savingKeys.has("payment_status.paid.title")}
+                saved={savedKeys.has("payment_status.paid.title")}
+                error={errorByKey["payment_status.paid.title"]}
                 onChange={(v) => setField("payment_status.paid.title", v)}
+                onSave={() => saveField("payment_status.paid.title", "כותרת — תשלום הצליח")}
                 onPreview={() => setPreviewKey("payment_status_paid")}
               />
               <Field
+                fieldKey="payment_status.paid.body"
                 label="גוף — תשלום הצליח"
                 value={values["payment_status.paid.body"] ?? ""}
+                dirty={dirtyKeys.includes("payment_status.paid.body")}
+                saving={savingKeys.has("payment_status.paid.body")}
+                saved={savedKeys.has("payment_status.paid.body")}
+                error={errorByKey["payment_status.paid.body"]}
                 onChange={(v) => setField("payment_status.paid.body", v)}
+                onSave={() => saveField("payment_status.paid.body", "גוף — תשלום הצליח")}
                 onPreview={() => setPreviewKey("payment_status_paid")}
                 multiline
               />
               <Field
+                fieldKey="payment_status.failed.title"
                 label="כותרת — תשלום נכשל"
                 value={values["payment_status.failed.title"] ?? ""}
+                dirty={dirtyKeys.includes("payment_status.failed.title")}
+                saving={savingKeys.has("payment_status.failed.title")}
+                saved={savedKeys.has("payment_status.failed.title")}
+                error={errorByKey["payment_status.failed.title"]}
                 onChange={(v) => setField("payment_status.failed.title", v)}
+                onSave={() => saveField("payment_status.failed.title", "כותרת — תשלום נכשל")}
                 onPreview={() => setPreviewKey("payment_status_failed")}
               />
               <Field
+                fieldKey="payment_status.failed.body"
                 label="גוף — תשלום נכשל"
                 value={values["payment_status.failed.body"] ?? ""}
+                dirty={dirtyKeys.includes("payment_status.failed.body")}
+                saving={savingKeys.has("payment_status.failed.body")}
+                saved={savedKeys.has("payment_status.failed.body")}
+                error={errorByKey["payment_status.failed.body"]}
                 onChange={(v) => setField("payment_status.failed.body", v)}
+                onSave={() => saveField("payment_status.failed.body", "גוף — תשלום נכשל")}
                 onPreview={() => setPreviewKey("payment_status_failed")}
                 multiline
               />
             </div>
           </details>
 
-          <div className="flex items-center gap-4 pt-2">
+          <div className="flex items-center gap-4 pt-2 sticky bottom-4 bg-ink/95 backdrop-blur border border-cream/15 rounded-xl px-5 py-4">
             <button
               type="button"
-              onClick={onSave}
-              disabled={saving}
+              onClick={onSaveAll}
+              disabled={savingAll || !dirtyKeys.length}
               className="bg-gold text-ink px-6 py-2.5 rounded-md text-sm font-semibold hover:bg-gold-deep transition-colors disabled:opacity-60"
             >
-              {saving ? "שומר..." : "שמירת כל השינויים"}
+              {savingAll
+                ? "שומר..."
+                : dirtyKeys.length
+                  ? `שמירת ${dirtyKeys.length} שינויים`
+                  : "אין שינויים לשמירה"}
             </button>
-            {saved && !error && <span className="text-green-400 text-sm">נשמר בהצלחה</span>}
-            {error && <span className="text-destructive text-sm">{error}</span>}
+            <span className="text-muted-brown text-xs">{SAVE_WARNING}</span>
           </div>
         </div>
 
@@ -268,20 +369,31 @@ function AdminEmailsPage() {
 function Field({
   label,
   value,
+  dirty,
+  saving,
+  saved,
+  error,
   onChange,
+  onSave,
   onPreview,
   multiline,
   hint,
 }: {
+  fieldKey: string;
   label: string;
   value: string;
+  dirty: boolean;
+  saving: boolean;
+  saved: boolean;
+  error?: string;
   onChange: (v: string) => void;
+  onSave: () => void;
   onPreview: () => void;
   multiline?: boolean;
   hint?: string;
 }) {
   return (
-    <label className="block">
+    <div>
       <div className="flex items-center justify-between mb-1">
         <span className="text-[12px] text-muted-brown">{label}</span>
         <button type="button" onClick={onPreview} className="text-[11px] text-gold hover:underline">
@@ -290,20 +402,39 @@ function Field({
       </div>
       {multiline ? (
         <textarea
+          dir="rtl"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           rows={3}
-          className="w-full bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-gold resize-y"
+          className="w-full bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-sm text-cream text-right focus:outline-none focus:border-gold resize-y"
         />
       ) : (
         <input
+          dir="rtl"
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-gold"
+          className="w-full bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-sm text-cream text-right focus:outline-none focus:border-gold"
         />
       )}
-      {hint && <span className="text-[11px] text-muted-brown mt-1 block">{hint}</span>}
-    </label>
+      <div className="flex items-center gap-3 mt-1.5">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!dirty || saving}
+          className="border border-gold/50 text-gold px-3 py-1 rounded-md text-[11px] font-semibold hover:bg-gold/10 transition-colors disabled:opacity-40 disabled:cursor-default"
+        >
+          {saving ? "שומר..." : "שמירה"}
+        </button>
+        {hint && <span className="text-[11px] text-muted-brown">{hint}</span>}
+        {!hint && saved && !dirty && !error && (
+          <span className="text-green-400 text-[11px]">נשמר</span>
+        )}
+        {error && <span className="text-destructive text-[11px]">{error}</span>}
+      </div>
+      {hint && saved && !dirty && !error && (
+        <span className="text-green-400 text-[11px] block mt-0.5">נשמר</span>
+      )}
+    </div>
   );
 }
