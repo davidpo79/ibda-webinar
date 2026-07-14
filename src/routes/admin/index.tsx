@@ -7,7 +7,7 @@ import {
   sendCouponToLeadAction,
 } from "@/lib/admin.functions";
 import type { RegistrationRow } from "@/lib/registrations.server";
-import type { OrderRow } from "@/lib/orders.server";
+import type { OrderWithContact } from "@/lib/admin.functions";
 import { formatSessionDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
@@ -298,9 +298,11 @@ function AdminDashboard() {
 
           {/* Desktop: full table */}
           <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto">
-            <table className="w-full text-sm min-w-[900px] table-fixed">
+            <table className="w-full text-sm min-w-[1150px] table-fixed">
               <colgroup>
                 <col className="w-[190px]" />
+                <col className="w-[140px]" />
+                <col className="w-[110px]" />
                 <col className="w-[190px]" />
                 <col />
                 <col className="w-[90px]" />
@@ -310,6 +312,8 @@ function AdminDashboard() {
               <thead className="bg-sand/70 text-right">
                 <tr>
                   <th className="px-4 py-3 font-semibold">מספר עסקה</th>
+                  <th className="px-4 py-3 font-semibold">שם</th>
+                  <th className="px-4 py-3 font-semibold">טלפון</th>
                   <th className="px-4 py-3 font-semibold">אימייל</th>
                   <th className="px-4 py-3 font-semibold">מוצר</th>
                   <th className="px-4 py-3 font-semibold">סכום</th>
@@ -325,6 +329,10 @@ function AdminDashboard() {
                   >
                     <td className="px-4 py-3 text-muted-brown">
                       <span className="ltr-inline break-all">{o.order_reference}</span>
+                    </td>
+                    <td className="px-4 py-3 font-medium break-words">{o.buyer_name || "—"}</td>
+                    <td className="px-4 py-3 text-muted-brown">
+                      <span className="ltr-inline whitespace-nowrap">{o.buyer_phone || "—"}</span>
                     </td>
                     <td className="px-4 py-3 text-muted-brown">
                       <span className="ltr-inline break-all">{o.email}</span>
@@ -354,7 +362,7 @@ function AdminDashboard() {
                 ))}
                 {filteredOrders.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-muted-brown">
+                    <td colSpan={8} className="px-4 py-8 text-center text-muted-brown">
                       {orders.length === 0 ? "אין עדיין רוכשים" : "אין רוכשים התואמים לסינון"}
                     </td>
                   </tr>
@@ -418,7 +426,7 @@ function LeadCard({
 }
 
 // Mobile card for one order — same reasoning as LeadCard above.
-function OrderCard({ order: o }: { order: OrderRow }) {
+function OrderCard({ order: o }: { order: OrderWithContact }) {
   return (
     <div className="border border-cream/10 rounded-lg p-4 bg-ink/20">
       <div className="flex items-start justify-between gap-3">
@@ -426,7 +434,9 @@ function OrderCard({ order: o }: { order: OrderRow }) {
           <div className="font-medium text-cream break-words">
             {PACKAGE_LABELS[o.package_id] || o.package_id}
           </div>
-          <div className="text-muted-brown text-sm ltr-inline break-all mt-1">{o.email}</div>
+          <div className="text-muted-brown text-sm break-words mt-1">{o.buyer_name || "—"}</div>
+          <div className="text-muted-brown text-sm ltr-inline break-all mt-0.5">{o.email}</div>
+          <div className="text-muted-brown text-sm ltr-inline mt-0.5">{o.buyer_phone || "—"}</div>
         </div>
         <span
           className={cn(

@@ -31,13 +31,25 @@ export async function getNextOpenSession(): Promise<Session | null> {
   return fallback[0] ?? null;
 }
 
+// The shared "which cohort is current" rule: soonest upcoming row, falling
+// back to the most recently-past one if none is upcoming — so callers never
+// see nothing just because every scheduled date already happened.
+function pickCurrent(sessions: Session[]): Session | null {
+  if (sessions.length === 0) return null;
+  const now = Date.now();
+  const upcoming = sessions
+    .filter((s) => new Date(s.starts_at).getTime() > now)
+    .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+  if (upcoming[0]) return upcoming[0];
+  return sessions.slice().sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())[0];
+}
+
 // A lesson/workshop key can now have several cohort rows (the admin can
 // schedule a new future date without deleting the old one). "The" session
 // for a key is always the soonest upcoming row sharing it, falling back to
 // the most recent past one if none is upcoming — same rule as the open
 // webinar already used before this generalized to every key.
 function pickBestPerKey(rows: Session[]): Session[] {
-  const now = Date.now();
   const groups = new Map<string, Session[]>();
   const order: string[] = [];
   for (const row of rows) {
@@ -48,17 +60,37 @@ function pickBestPerKey(rows: Session[]): Session[] {
     }
     groups.get(groupKey)!.push(row);
   }
-  return order.map((groupKey) => {
-    const group = groups.get(groupKey)!;
-    const upcoming = group
-      .filter((s) => new Date(s.starts_at).getTime() > now)
-      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
-    if (upcoming[0]) return upcoming[0];
-    return group
-      .slice()
-      .sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())[0];
-  });
+  return order.map((groupKey) => pickCurrent(groups.get(groupKey)!)!);
 }
+
+// Re-resolves the currently-relevant cohort sharing a specific session's own
+// group (its key, or its type for keyless "open" rows) — lets a date that
+// was pinned to a since-superseded cohort track forward to the newer one.
+export function currentSessionForGroup(
+  sessions: Session[],
+  group: { key: string | null; type: SessionType },
+): Session | null {
+  return pickCurrent(
+    sessions.filter((s) => (group.key ? s.key === group.key : s.type === group.type && s.key === null)),
+  );
+}
+
+// Maps a standalone package id to the session(s) it covers, for order rows
+// that aren't pinned to a single session id (legacy comma-joined multi-
+// package rows — see orders.server.ts). core_single is skipped (no
+// candidates) since which lesson was bought isn't recoverable from the
+// package id alone once it's been merged into that comma list.
+export function candidateSessionsForPackage(packageId: string, sessions: Session[]): Session[] {
+  if (packageId === "open") return sessions.filter((s) => s.type === "open");
+  if (packageId === "core_full") return sessions.filter((s) => s.type === "core");
+  if (packageId === "premium_bundle") {
+    return sessions.filter((s) => s.type === "core" || s.type === "premium");
+  }
+  if (packageId === "core_single") return [];
+  return sessions.filter((s) => s.key === packageId);
+}
+
+export { pickCurrent };
 
 export async function getSessionByKey(key: string): Promise<Session | null> {
   const rows = await sql()<Session[]>`

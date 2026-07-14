@@ -1,4 +1,11 @@
 import { sql } from "./db.server";
+import {
+  getAllSessions,
+  currentSessionForGroup,
+  candidateSessionsForPackage,
+  pickCurrent,
+} from "./schedule.server";
+import type { Session, SessionType } from "./schedule.server";
 
 export type OrderStatus = "created" | "paid" | "failed";
 
@@ -15,6 +22,11 @@ export type OrderRow = {
   updated_at: string;
   session_title: string | null;
   session_starts_at: string | null;
+};
+
+type RawOrderRow = OrderRow & {
+  session_key: string | null;
+  session_type: SessionType | null;
 };
 
 // One row per (order_reference, package, session) — a single Sumit
@@ -54,14 +66,67 @@ export async function markOrderStatus(input: {
   `;
 }
 
+// A transaction that covered several packages at once can still be stored
+// as one row with a comma-joined package_id (from before per-package rows
+// existed) — expand each such row into one line item per product here, so
+// every consumer (the admin table, PACKAGE_LABELS lookups, the product
+// filter) always sees a single clean package id. Each line item's session
+// date is also re-resolved live against the current schedule rather than
+// trusting the (possibly since-superseded) session_id pinned at purchase
+// time, so it keeps tracking the next relevant cohort as dates pass. Pure
+// (no DB access) so it's unit-testable independent of listOrders below.
+export function buildOrderLineItems(rawRows: RawOrderRow[], sessions: Session[]): OrderRow[] {
+  const items: OrderRow[] = [];
+  for (const raw of rawRows) {
+    const packageIds = raw.package_id
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const hasLinkedSession = raw.session_type !== null;
+
+    packageIds.forEach((packageId, i) => {
+      const session =
+        packageIds.length === 1 && hasLinkedSession
+          ? currentSessionForGroup(sessions, {
+              key: raw.session_key,
+              type: raw.session_type as SessionType,
+            })
+          : pickCurrent(candidateSessionsForPackage(packageId, sessions));
+      items.push({
+        id: packageIds.length > 1 ? `${raw.id}:${i}` : raw.id,
+        order_reference: raw.order_reference,
+        transaction_id: raw.transaction_id,
+        email: raw.email,
+        package_id: packageId,
+        // Legacy combined rows don't carry a per-product price breakdown —
+        // keep the transaction's total on its first line item only rather
+        // than fabricating a split, and leave the rest blank.
+        amount: i === 0 ? raw.amount : null,
+        status: raw.status,
+        coupon_code: raw.coupon_code,
+        created_at: raw.created_at,
+        updated_at: raw.updated_at,
+        session_title: session?.title ?? null,
+        session_starts_at: session?.starts_at ?? null,
+      });
+    });
+  }
+  return items;
+}
+
 export async function listOrders(): Promise<OrderRow[]> {
-  return sql()<OrderRow[]>`
-    SELECT
-      o.id, o.order_reference, o.transaction_id, o.email, o.package_id, o.amount,
-      o.status, o.coupon_code, o.created_at, o.updated_at,
-      s.title AS session_title, s.starts_at AS session_starts_at
-    FROM orders o
-    LEFT JOIN sessions s ON s.id = o.session_id
-    ORDER BY o.created_at DESC
-  `;
+  const [rawRows, sessions] = await Promise.all([
+    sql()<RawOrderRow[]>`
+      SELECT
+        o.id, o.order_reference, o.transaction_id, o.email, o.package_id, o.amount,
+        o.status, o.coupon_code, o.created_at, o.updated_at,
+        s.title AS session_title, s.starts_at AS session_starts_at,
+        s.key AS session_key, s.type AS session_type
+      FROM orders o
+      LEFT JOIN sessions s ON s.id = o.session_id
+      ORDER BY o.created_at DESC
+    `,
+    getAllSessions(),
+  ]);
+  return buildOrderLineItems(rawRows, sessions);
 }

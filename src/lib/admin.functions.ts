@@ -8,7 +8,9 @@ import {
   verifyAdminPassword,
 } from "./admin-auth.server";
 import { listRegistrations, updateRegistrationContact } from "./registrations.server";
+import type { RegistrationRow } from "./registrations.server";
 import { listOrders } from "./orders.server";
+import type { OrderRow } from "./orders.server";
 import {
   getAllSessions,
   updateSessionDate,
@@ -55,10 +57,30 @@ export const adminLogout = createServerFn({ method: "POST" }).handler(async () =
   return { ok: true };
 });
 
+export type OrderWithContact = OrderRow & { buyer_name: string | null; buyer_phone: string | null };
+
+// Orders only carry an email — the buyer's name/phone live on their
+// registration. Joined here in memory (both lists are already loaded for
+// this page) rather than in SQL, keyed on the most recent registration per
+// email since a lead can register more than once.
+function attachContacts(orders: OrderRow[], registrations: RegistrationRow[]): OrderWithContact[] {
+  const contactByEmail = new Map<string, { name: string; phone: string }>();
+  for (const r of registrations) {
+    const key = r.email.toLowerCase();
+    if (!contactByEmail.has(key)) {
+      contactByEmail.set(key, { name: `${r.first_name} ${r.last_name}`.trim(), phone: r.phone });
+    }
+  }
+  return orders.map((o) => {
+    const contact = contactByEmail.get(o.email.toLowerCase());
+    return { ...o, buyer_name: contact?.name ?? null, buyer_phone: contact?.phone ?? null };
+  });
+}
+
 export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(async () => {
   assertAdminSession();
   const [registrations, orders] = await Promise.all([listRegistrations(), listOrders()]);
-  return { registrations, orders };
+  return { registrations, orders: attachContacts(orders, registrations) };
 });
 
 const UpdateRegistrationSchema = z.object({
