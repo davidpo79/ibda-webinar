@@ -197,15 +197,17 @@ async function sendPackageWelcomeAfterPayment(email: string, packageId: string):
   return true;
 }
 
-// `packageId` lets a successful payment trigger that package's real welcome
-// email (with its actual Zoom link) and schedule its reminder — replacing
-// the old generic "payment received, details will follow" placeholder now
-// that we have real content to send instead. Failure emails keep the
-// simple generic notice (nothing package-specific to say there).
+// `packageIds` lets a successful payment trigger each purchased package's
+// real welcome email (with its actual Zoom link) and schedule its reminder —
+// replacing the old generic "payment received, details will follow"
+// placeholder now that we have real content to send instead. A purchase can
+// cover several packages at once, so every id gets its own welcome +
+// reminder. Failure emails keep the simple generic notice (nothing
+// package-specific to say there).
 export async function updateResendPaymentStatusByEmail(
   email: string,
   status: "שולם" | "נכשל",
-  packageId?: string,
+  packageIds: string[] = [],
 ): Promise<void> {
   try {
     const resend = resendClient();
@@ -217,9 +219,11 @@ export async function updateResendPaymentStatusByEmail(
     });
     if (updateError) console.error("[resend] payment status property update failed", updateError);
 
-    if (paid && packageId) {
-      const sentRichWelcome = await sendPackageWelcomeAfterPayment(email, packageId);
-      if (sentRichWelcome) return;
+    if (paid && packageIds.length) {
+      const sent = await Promise.all(
+        packageIds.map((id) => sendPackageWelcomeAfterPayment(email, id)),
+      );
+      if (sent.some(Boolean)) return;
     }
 
     const { error } = await resend.emails.send({

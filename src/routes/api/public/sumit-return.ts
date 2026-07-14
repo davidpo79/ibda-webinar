@@ -18,7 +18,9 @@ async function handle(request: Request) {
     params.get("TransactionID") || params.get("ChargeID") || params.get("documentid");
   const validFlag = params.get("valid");
   const email = params.get("email");
+  // Comma-joined when the purchase covered several packages at once.
   const packageId = params.get("package");
+  const packageIds = packageId ? packageId.split(",").filter(Boolean) : [];
 
   let validation = parseSumitTransactionStatus(Object.fromEntries(params.entries()));
   if (cancelled) {
@@ -37,11 +39,7 @@ async function handle(request: Request) {
 
   if (email) {
     try {
-      await updateResendPaymentStatusByEmail(
-        email,
-        validation.paid ? "שולם" : "נכשל",
-        packageId ?? undefined,
-      );
+      await updateResendPaymentStatusByEmail(email, validation.paid ? "שולם" : "נכשל", packageIds);
     } catch (err) {
       console.error("[sumit-return] Resend update error", err);
     }

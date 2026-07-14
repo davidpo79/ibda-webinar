@@ -28,7 +28,7 @@ export function getPackagePrice(packageId: string): number | undefined {
 }
 
 type CreatePaymentInput = {
-  package_id: string;
+  package_ids: string[];
   email: string;
   full_name: string;
   phone: string;
@@ -62,7 +62,7 @@ function returnUrl(origin: string, data: CreatePaymentInput) {
   const url = new URL("/api/public/sumit-return", origin);
   url.searchParams.set("orderRef", data.order_reference);
   url.searchParams.set("email", data.email);
-  url.searchParams.set("package", data.package_id);
+  url.searchParams.set("package", data.package_ids.join(","));
   return url.toString();
 }
 
@@ -70,7 +70,7 @@ function cancelUrl(origin: string, data: CreatePaymentInput) {
   const url = new URL("/api/public/sumit-return", origin);
   url.searchParams.set("orderRef", data.order_reference);
   url.searchParams.set("email", data.email);
-  url.searchParams.set("package", data.package_id);
+  url.searchParams.set("package", data.package_ids.join(","));
   url.searchParams.set("cancelled", "1");
   return url.toString();
 }
@@ -82,28 +82,30 @@ function webhookUrl(origin: string, data: CreatePaymentInput) {
   const url = new URL("/api/public/sumit-webhook", origin);
   url.searchParams.set("orderRef", data.order_reference);
   url.searchParams.set("email", data.email);
-  url.searchParams.set("package", data.package_id);
+  url.searchParams.set("package", data.package_ids.join(","));
   return url.toString();
 }
 
 // Creates a Sumit hosted payment page (redirect flow) and returns the URL
 // the browser should be sent to. Mirrors /billing/payments/beginredirect/.
+// Accepts one or more package_ids so a visitor buying several packages at
+// once gets a single itemized invoice/charge instead of only ever being
+// charged for one of them.
 export async function createSumitPaymentPage(data: CreatePaymentInput) {
-  const price = PACKAGE_PRICES[data.package_id];
-  if (!price) {
-    throw new Error(`Unknown package: ${data.package_id}`);
-  }
+  const items = data.package_ids.map((id) => {
+    const price = PACKAGE_PRICES[id];
+    if (!price) throw new Error(`Unknown package: ${id}`);
+    return {
+      Item: { Name: PACKAGE_NAMES[id] || id },
+      Quantity: 1,
+      UnitPrice: price,
+    };
+  });
 
   const origin = getSumitPublicOrigin();
   const payload = {
     Credentials: sumitCredentials(),
-    Items: [
-      {
-        Item: { Name: PACKAGE_NAMES[data.package_id] || data.package_id },
-        Quantity: 1,
-        UnitPrice: price,
-      },
-    ],
+    Items: items,
     Currency: "ILS",
     ExternalIdentifier: data.order_reference,
     RedirectURL: returnUrl(origin, data),
@@ -149,7 +151,7 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
   // other Sumit endpoints, e.g. gettransaction). Confirmed against a live
   // response: {Data: {RedirectURL: "..."}, Status: 0, UserErrorMessage: null}.
   if (!link || json.UserErrorMessage) {
-    console.error("[Sumit] beginredirect rejected", { package: data.package_id, response: json });
+    console.error("[Sumit] beginredirect rejected", { packages: data.package_ids, response: json });
     throw new Error(
       `Sumit failed: ${json.UserErrorMessage || json.TechnicalErrorDetails || String(json.Status ?? "") || text}`,
     );

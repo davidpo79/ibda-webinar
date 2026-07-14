@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
@@ -23,6 +23,13 @@ import { subscribeRegistration } from "@/lib/resend.functions";
 import { createSumitPayment } from "@/lib/sumit.functions";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
+import {
+  saveContact,
+  loadContact,
+  saveSelection,
+  loadSelection,
+  parsePriceIls,
+} from "@/lib/checkout-client";
 
 export const Route = createFileRoute("/thank-you")({
   head: () => ({
@@ -78,11 +85,13 @@ const CANCELLATION_POLICY = [
   "פתיחת כל סדנא מותנית במינימום 15 נרשמים. במקרה של דחייה יינתן החזר מלא או זיכוי.",
 ];
 
-const PAID_PRIORITY = ["premium_bundle", "core_full", "premium_registration", "premium_partnership", "premium_litigation", "premium_ai", "core_single"];
+const VALID_PACKAGE_IDS = new Set(PRICING.map((p) => p.id));
+const PRICE_LOOKUP: Record<string, number> = Object.fromEntries(
+  PRICING.map((p) => [p.id, parsePriceIls(p.early)]),
+);
 
-function resolvePrimaryPackage(selected: Set<string>): string | null {
-  for (const id of PAID_PRIORITY) if (selected.has(id)) return id;
-  return null;
+function sanitizeSelection(ids: Set<string>): Set<string> {
+  return new Set(Array.from(ids).filter((id) => VALID_PACKAGE_IDS.has(id)));
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -97,7 +106,9 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function ThankYouPage() {
   const { openSession, coreSessions } = Route.useLoaderData();
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(() =>
+    sanitizeSelection(loadSelection("thank-you") ?? new Set()),
+  );
   const formRef = useRef<HTMLDivElement>(null);
 
   const openWebinarRecap = {
@@ -108,17 +119,14 @@ function ThankYouPage() {
     ...s,
     date: formatSessionDate(coreSessions[i]?.starts_at) || s.date,
   }));
+  const total = Array.from(selected).reduce((sum, id) => sum + (PRICE_LOOKUP[id] ?? 0), 0);
+
   function toggle(id: string) {
     setSelected((s) => {
       const n = new Set(s);
-      if (n.has(id)) {
-        n.delete(id);
-      } else {
-        n.add(id);
-        requestAnimationFrame(() =>
-          formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-        );
-      }
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      saveSelection("thank-you", n);
       return n;
     });
   }
@@ -175,7 +183,7 @@ function ThankYouPage() {
                     <span
                       className={cn(
                         "shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all",
-                        isChecked ? "bg-gold border-gold text-ink" : "border-taupe",
+                        isChecked ? "bg-gold border-gold text-ink" : "bg-cream border-cream",
                         isComingSoon && "opacity-50",
                       )}
                     >
@@ -238,6 +246,28 @@ function ThankYouPage() {
               );
             })}
           </div>
+
+          {selected.size > 0 && (
+            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-md border border-gold/40 bg-gold/10 px-5 py-4">
+              <div className="text-center sm:text-right">
+                <div className="text-[13px] text-muted-brown">
+                  {selected.size} {selected.size === 1 ? "פריט נבחר" : "פריטים נבחרו"}
+                </div>
+                <div className="text-xl font-serif text-gold ltr-inline">
+                  סה"כ ₪{total.toLocaleString()}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+                className="shrink-0 bg-gold text-ink px-6 py-2.5 rounded-md text-sm font-semibold hover:bg-gold-deep transition-colors"
+              >
+                המשך להרשמה
+              </button>
+            </div>
+          )}
         </section>
 
         <CollapsiblePanel title="9 מפגשי סדרת הליבה בפירוט">
@@ -329,17 +359,22 @@ const RegSchema = z.object({
 });
 
 function RegistrationForm({ selected }: { selected: Set<string> }) {
-  const [first_name, setFirstName] = useState("");
-  const [last_name, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [firm_name, setFirmName] = useState("");
-  const [bar_license, setBarLicense] = useState("");
-  const [id_number, setIdNumber] = useState("");
+  const savedContact = useRef(loadContact()).current;
+  const [first_name, setFirstName] = useState(savedContact?.first_name ?? "");
+  const [last_name, setLastName] = useState(savedContact?.last_name ?? "");
+  const [email, setEmail] = useState(savedContact?.email ?? "");
+  const [phone, setPhone] = useState(savedContact?.phone ?? "");
+  const [firm_name, setFirmName] = useState(savedContact?.firm_name ?? "");
+  const [bar_license, setBarLicense] = useState(savedContact?.bar_license ?? "");
+  const [id_number, setIdNumber] = useState(savedContact?.id_number ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const requiresIdNumber = resolvePrimaryPackage(selected) != null;
+  const requiresIdNumber = selected.size > 0;
+
+  useEffect(() => {
+    saveContact({ first_name, last_name, email, phone, firm_name, bar_license, id_number });
+  }, [first_name, last_name, email, phone, firm_name, bar_license, id_number]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -383,13 +418,13 @@ function RegistrationForm({ selected }: { selected: Set<string> }) {
       return;
     }
 
-    const primaryPaid = resolvePrimaryPackage(selected);
-    if (primaryPaid) {
+    const paidPackages = Array.from(selected);
+    if (paidPackages.length > 0) {
       try {
         const orderRef = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const { payment_url } = await createSumitPayment({
           data: {
-            package_id: primaryPaid,
+            package_ids: paidPackages,
             email: parsed.data.email,
             full_name: `${parsed.data.first_name} ${parsed.data.last_name}`.trim(),
             phone: parsed.data.phone,

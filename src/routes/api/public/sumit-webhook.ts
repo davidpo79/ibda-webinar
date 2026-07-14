@@ -45,7 +45,10 @@ async function handle(request: Request) {
   // email/package travel as query params on the IPNURL we generated
   // ourselves, so no database lookup is needed to resolve who this is.
   const email = String(payload.email || payload.EmailAddress || "") || null;
-  const packageId = String(payload.package || "") || null;
+  // Comma-joined when the purchase covered several packages at once.
+  const packageIds = String(payload.package || "")
+    .split(",")
+    .filter(Boolean);
 
   console.log("[sumit-webhook] received", {
     transactionId,
@@ -68,11 +71,7 @@ async function handle(request: Request) {
 
   if (email) {
     try {
-      await updateResendPaymentStatusByEmail(
-        email,
-        validation.paid ? "שולם" : "נכשל",
-        packageId ?? undefined,
-      );
+      await updateResendPaymentStatusByEmail(email, validation.paid ? "שולם" : "נכשל", packageIds);
     } catch (err) {
       console.error("[sumit-webhook] Resend update error", err);
     }

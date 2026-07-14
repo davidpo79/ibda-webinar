@@ -5,7 +5,7 @@ import { updateResendPaymentStatusByEmail } from "./resend.server";
 import { recordOrder } from "./orders.server";
 
 const CreatePaymentSchema = z.object({
-  package_id: z.string(),
+  package_ids: z.array(z.string()).min(1),
   email: z.string().email(),
   full_name: z.string().min(1),
   phone: z.string().min(1),
@@ -20,14 +20,17 @@ export const createSumitPayment = createServerFn({ method: "POST" })
     try {
       result = await createSumitPaymentPage(data);
     } catch (err) {
-      console.error("[createSumitPayment] failed", data.package_id, data.order_reference, err);
+      console.error("[createSumitPayment] failed", data.package_ids, data.order_reference, err);
       throw err;
     }
+    const amount = data.package_ids.reduce((sum, id) => sum + (getPackagePrice(id) ?? 0), 0);
     await recordOrder({
       orderReference: data.order_reference,
       email: data.email,
-      packageId: data.package_id,
-      amount: getPackagePrice(data.package_id) ?? 0,
+      // Comma-joined for a multi-package purchase — one Sumit transaction
+      // covers every selected item, so it's one order row, not several.
+      packageId: data.package_ids.join(","),
+      amount,
     });
     return result;
   });
@@ -35,6 +38,7 @@ export const createSumitPayment = createServerFn({ method: "POST" })
 const ConfirmSchema = z.object({
   transactionId: z.string().min(1),
   email: z.string().email(),
+  // Comma-joined package ids for a multi-package purchase (see CreatePaymentSchema).
   package_id: z.string().optional(),
 });
 
@@ -45,10 +49,11 @@ export const confirmSumitPayment = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     try {
       const validation = await verifySumitTransaction(data.transactionId);
+      const packageIds = data.package_id ? data.package_id.split(",").filter(Boolean) : [];
       await updateResendPaymentStatusByEmail(
         data.email,
         validation.paid ? "שולם" : "נכשל",
-        data.package_id,
+        packageIds,
       );
       return { paid: validation.paid };
     } catch (err) {

@@ -187,7 +187,7 @@ function AdminDashboard() {
                   <tr key={o.id} className="border-t border-cream/10 hover:bg-cream/[0.03]">
                     <td className="px-4 py-3 ltr-inline text-muted-brown">{o.order_reference}</td>
                     <td className="px-4 py-3 ltr-inline text-muted-brown">{o.email}</td>
-                    <td className="px-4 py-3">{PACKAGE_LABELS[o.package_id] || o.package_id}</td>
+                    <td className="px-4 py-3">{packagesLabel(o.package_id.split(","))}</td>
                     <td className="px-4 py-3">{o.amount ? `₪${o.amount}` : "—"}</td>
                     <td className="px-4 py-3">
                       <span

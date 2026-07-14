@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Calendar, MessageCircle } from "lucide-react";
@@ -9,6 +9,7 @@ import yifatPhoto from "@/assets/yifat.jpg";
 import { subscribeRegistration } from "@/lib/resend.functions";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
+import { saveContact, loadContact } from "@/lib/checkout-client";
 
 export const Route = createFileRoute("/webinar")({
   head: () => ({
@@ -136,15 +137,20 @@ function WebinarPage() {
 
 function RegistrationForm({ sessionId }: { sessionId?: string }) {
   const navigate = useNavigate();
-  const [first_name, setFirstName] = useState("");
-  const [last_name, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [firm_name, setFirmName] = useState("");
-  const [bar_license, setBarLicense] = useState("");
+  const savedContact = useRef(loadContact()).current;
+  const [first_name, setFirstName] = useState(savedContact?.first_name ?? "");
+  const [last_name, setLastName] = useState(savedContact?.last_name ?? "");
+  const [email, setEmail] = useState(savedContact?.email ?? "");
+  const [phone, setPhone] = useState(savedContact?.phone ?? "");
+  const [firm_name, setFirmName] = useState(savedContact?.firm_name ?? "");
+  const [bar_license, setBarLicense] = useState(savedContact?.bar_license ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
+
+  useEffect(() => {
+    saveContact({ first_name, last_name, email, phone, firm_name, bar_license });
+  }, [first_name, last_name, email, phone, firm_name, bar_license]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

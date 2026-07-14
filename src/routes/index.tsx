@@ -31,6 +31,13 @@ import { subscribeRegistration } from "@/lib/resend.functions";
 import { createSumitPayment } from "@/lib/sumit.functions";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
+import {
+  saveContact,
+  loadContact,
+  saveSelection,
+  loadSelection,
+  parsePriceIls,
+} from "@/lib/checkout-client";
 
 
 function AnimatedCardIcon({
@@ -297,6 +304,17 @@ const pricing: {
   { id: "core_single", t: "וובינר בודד מסדרת הליבה", price: "₪ 360", early: "₪ 180", duration: "90 דקות", note: "מחיר מוקדם ל 72 שעות מסיום הוובינר הפתוח.", cta: "רכישת וובינר בודד", comingSoon: true },
 ];
 
+const VALID_PACKAGE_IDS = new Set(pricing.map((p) => p.id));
+const PRICE_LOOKUP: Record<string, number> = Object.fromEntries(
+  pricing.map((p) => [p.id, parsePriceIls(p.early)]),
+);
+
+function sanitizeSelection(ids: Set<string>): Set<string> {
+  const s = new Set(Array.from(ids).filter((id) => VALID_PACKAGE_IDS.has(id)));
+  if (s.size === 0) s.add("open");
+  return s;
+}
+
 // External purchase URLs on ibda-law.com — checkout runs on that site.
 // Update each entry with the exact product URL once available.
 const PURCHASE_URLS: Record<string, string> = {
@@ -350,7 +368,9 @@ const cancellationPolicy = [
 
 function Landing() {
   const { openSession, coreSessions, premiumSessions } = Route.useLoaderData();
-  const [selected, setSelected] = useState<Set<string>>(new Set(["open"]));
+  const [selected, setSelected] = useState<Set<string>>(
+    () => sanitizeSelection(loadSelection("index") ?? new Set(["open"])),
+  );
   const [coreLesson, setCoreLesson] = useState<string>("");
 
   const openWebinarsResolved = openWebinars.map((w) => ({
@@ -372,6 +392,7 @@ function Landing() {
       const n = new Set(s);
       if (n.has(id)) n.delete(id);
       else n.add(id);
+      saveSelection("index", n);
       return n;
     });
   }, []);
@@ -387,6 +408,7 @@ function Landing() {
         if (s.has(packageId)) return s;
         const n = new Set(s);
         n.add(packageId);
+        saveSelection("index", n);
         return n;
       });
     }
@@ -1486,24 +1508,6 @@ const PAYMENT_LINKS: Record<string, string> = {
   premium_bundle: "https://payment-link-placeholder.com/premium-bundle",
 };
 
-// סדר עדיפויות לניתוב: החבילה היקרה או המקיפה ביותר מנצחת.
-const PAID_PRIORITY: string[] = [
-  "premium_bundle",
-  "core_full",
-  "premium_registration",
-  "premium_partnership",
-  "premium_litigation",
-  "premium_ai",
-  "core_single",
-];
-
-function resolvePrimaryPaidPackage(selected: Set<string>): string | null {
-  for (const id of PAID_PRIORITY) {
-    if (selected.has(id)) return id;
-  }
-  return null;
-}
-
 const InlineRegSchema = z.object({
   first_name: z.string().trim().min(1, "יש להזין שם פרטי").max(100),
   last_name: z.string().trim().min(1, "יש להזין שם משפחה").max(100),
@@ -1517,13 +1521,14 @@ const InlineRegSchema = z.object({
 function RegistrationSection() {
   const navigate = useNavigate();
   const { selected, toggle, coreLesson } = useRegistrationModal();
-  const [first_name, setFirstName] = useState("");
-  const [last_name, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [firm_name, setFirmName] = useState("");
-  const [bar_license, setBarLicense] = useState("");
-  const [id_number, setIdNumber] = useState("");
+  const savedContact = useRef(loadContact()).current;
+  const [first_name, setFirstName] = useState(savedContact?.first_name ?? "");
+  const [last_name, setLastName] = useState(savedContact?.last_name ?? "");
+  const [email, setEmail] = useState(savedContact?.email ?? "");
+  const [phone, setPhone] = useState(savedContact?.phone ?? "");
+  const [firm_name, setFirmName] = useState(savedContact?.firm_name ?? "");
+  const [bar_license, setBarLicense] = useState(savedContact?.bar_license ?? "");
+  const [id_number, setIdNumber] = useState(savedContact?.id_number ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -1538,7 +1543,13 @@ function RegistrationSection() {
     }
   }, [coreLesson, selected]);
 
-  const hasPaid = Boolean(resolvePrimaryPaidPackage(selected));
+  useEffect(() => {
+    saveContact({ first_name, last_name, email, phone, firm_name, bar_license, id_number });
+  }, [first_name, last_name, email, phone, firm_name, bar_license, id_number]);
+
+  const paidSelectedIds = Array.from(selected).filter((id) => id !== "open");
+  const hasPaid = paidSelectedIds.length > 0;
+  const total = paidSelectedIds.reduce((sum, id) => sum + (PRICE_LOOKUP[id] ?? 0), 0);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1582,8 +1593,6 @@ function RegistrationSection() {
     if (!parsed.success) return;
     setSubmitting(true);
 
-    const primaryPaid = resolvePrimaryPaidPackage(selected);
-
     try {
       await subscribeRegistration({
         data: {
@@ -1609,12 +1618,12 @@ function RegistrationSection() {
       return;
     }
 
-    if (primaryPaid) {
+    if (paidSelectedIds.length > 0) {
       try {
         const orderRef = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const { payment_url } = await createSumitPayment({
           data: {
-            package_id: primaryPaid,
+            package_ids: paidSelectedIds,
             email: parsed.data.email,
             full_name: `${parsed.data.first_name} ${parsed.data.last_name}`.trim(),
             phone: parsed.data.phone,
@@ -1714,7 +1723,7 @@ function RegistrationSection() {
                               <span
                                 className={cn(
                                   "shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all",
-                                  isChecked ? "bg-gold border-gold text-ink" : "border-taupe",
+                                  isChecked ? "bg-gold border-gold text-ink" : "bg-cream border-cream",
                                   isComingSoon && "opacity-50",
                                 )}
                               >
@@ -1795,6 +1804,15 @@ function RegistrationSection() {
                     <p className="text-destructive text-xs mt-2">{errors.packages}</p>
                   )}
                 </fieldset>
+
+                {paidSelectedIds.length > 0 && (
+                  <div className="mt-4 flex items-center justify-between gap-4 rounded-md border border-gold/40 bg-gold/10 px-5 py-3">
+                    <span className="text-[13px] text-muted-brown">
+                      {paidSelectedIds.length} {paidSelectedIds.length === 1 ? "פריט בתשלום נבחר" : "פריטים בתשלום נבחרו"}
+                    </span>
+                    <span className="text-lg font-serif text-gold ltr-inline">סה"כ ₪{total.toLocaleString()}</span>
+                  </div>
+                )}
               </div>
             </div>
 
