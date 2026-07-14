@@ -356,7 +356,7 @@ function AdminDashboard() {
                   <th className="px-4 py-3 font-semibold">מוצר</th>
                   <th className="px-4 py-3 font-semibold">סכום</th>
                   <th className="px-4 py-3 font-semibold">סטטוס</th>
-                  <th className="px-4 py-3 font-semibold">מועד המפגש</th>
+                  <th className="px-4 py-3 font-semibold">מועד המפגש הבא</th>
                 </tr>
               </thead>
               <tbody>
