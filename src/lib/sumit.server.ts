@@ -1,17 +1,8 @@
 import { getRequestUrl } from "@tanstack/react-start/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { getCurrentPrices } from "./pricing.server";
 
 const SUMIT_BASE_URL = process.env.SUMIT_BASE_URL || "https://api.sumit.co.il";
-
-const PACKAGE_PRICES: Record<string, number> = {
-  core_single: 180,
-  core_full: 1620,
-  premium_litigation: 360,
-  premium_registration: 1080,
-  premium_partnership: 540,
-  premium_ai: 360,
-  premium_bundle: 2700,
-};
 
 const PACKAGE_NAMES: Record<string, string> = {
   core_single: "וובינר בודד מסדרת הליבה",
@@ -23,8 +14,11 @@ const PACKAGE_NAMES: Record<string, string> = {
   premium_bundle: "חבילת פרימיום - הכל כלול",
 };
 
-export function getPackagePrice(packageId: string): number | undefined {
-  return PACKAGE_PRICES[packageId];
+// Current live price (already reflects an admin-scheduled increase past its
+// cutoff — see src/lib/pricing.server.ts). Async because it's DB-backed.
+export async function getPackagePrice(packageId: string): Promise<number | undefined> {
+  const prices = await getCurrentPrices();
+  return prices[packageId];
 }
 
 type CreatePaymentInput = {
@@ -34,7 +28,14 @@ type CreatePaymentInput = {
   phone: string;
   order_reference: string;
   id_number: string;
+  discount_percent?: number;
+  coupon_code?: string;
+  core_single_lesson_indexes?: number[];
 };
+
+function applyDiscount(price: number, discountPercent: number): number {
+  return Math.round(price * (1 - discountPercent / 100) * 100) / 100;
+}
 
 type SumitValidation = {
   paid: boolean;
@@ -58,19 +59,22 @@ export function getSumitPublicOrigin() {
   return `${reqUrl.protocol}//${reqUrl.host}`;
 }
 
-function returnUrl(origin: string, data: CreatePaymentInput) {
-  const url = new URL("/api/public/sumit-return", origin);
+function baseParams(url: URL, data: CreatePaymentInput) {
   url.searchParams.set("orderRef", data.order_reference);
   url.searchParams.set("email", data.email);
   url.searchParams.set("package", data.package_ids.join(","));
+  if (data.coupon_code) url.searchParams.set("coupon", data.coupon_code);
+}
+
+function returnUrl(origin: string, data: CreatePaymentInput) {
+  const url = new URL("/api/public/sumit-return", origin);
+  baseParams(url, data);
   return url.toString();
 }
 
 function cancelUrl(origin: string, data: CreatePaymentInput) {
   const url = new URL("/api/public/sumit-return", origin);
-  url.searchParams.set("orderRef", data.order_reference);
-  url.searchParams.set("email", data.email);
-  url.searchParams.set("package", data.package_ids.join(","));
+  baseParams(url, data);
   url.searchParams.set("cancelled", "1");
   return url.toString();
 }
@@ -80,9 +84,7 @@ function webhookUrl(origin: string, data: CreatePaymentInput) {
   // own identifiers here — rather than relying on a database lookup — is
   // enough for the webhook to resolve who paid without extra storage.
   const url = new URL("/api/public/sumit-webhook", origin);
-  url.searchParams.set("orderRef", data.order_reference);
-  url.searchParams.set("email", data.email);
-  url.searchParams.set("package", data.package_ids.join(","));
+  baseParams(url, data);
   return url.toString();
 }
 
@@ -92,15 +94,43 @@ function webhookUrl(origin: string, data: CreatePaymentInput) {
 // once gets a single itemized invoice/charge instead of only ever being
 // charged for one of them.
 export async function createSumitPaymentPage(data: CreatePaymentInput) {
-  const items = data.package_ids.map((id) => {
-    const price = PACKAGE_PRICES[id];
-    if (!price) throw new Error(`Unknown package: ${id}`);
-    return {
-      Item: { Name: PACKAGE_NAMES[id] || id },
-      Quantity: 1,
-      UnitPrice: price,
-    };
-  });
+  const prices = await getCurrentPrices();
+  const discount = data.discount_percent ?? 0;
+  const lessons = data.core_single_lesson_indexes ?? [];
+
+  const items =
+    lessons.length > 0
+      ? data.package_ids
+          .filter((id) => id !== "core_single")
+          .map((id) => {
+            const price = prices[id];
+            if (!price) throw new Error(`Unknown package: ${id}`);
+            return {
+              Item: { Name: PACKAGE_NAMES[id] || id },
+              Quantity: 1,
+              UnitPrice: applyDiscount(price, discount),
+            };
+          })
+          .concat(
+            lessons.map((idx) => {
+              const price = prices.core_single;
+              if (!price) throw new Error("Unknown package: core_single");
+              return {
+                Item: { Name: `${PACKAGE_NAMES.core_single} - מפגש ${idx}` },
+                Quantity: 1,
+                UnitPrice: applyDiscount(price, discount),
+              };
+            }),
+          )
+      : data.package_ids.map((id) => {
+          const price = prices[id];
+          if (!price) throw new Error(`Unknown package: ${id}`);
+          return {
+            Item: { Name: PACKAGE_NAMES[id] || id },
+            Quantity: 1,
+            UnitPrice: applyDiscount(price, discount),
+          };
+        });
 
   const origin = getSumitPublicOrigin();
   const payload = {

@@ -14,8 +14,11 @@ import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
+import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminScheduleRouteImport } from './routes/admin/schedule'
+import { Route as AdminPricingRouteImport } from './routes/admin/pricing'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
+import { Route as AdminCouponsRouteImport } from './routes/admin/coupons'
 import { Route as ApiPublicUnsubscribeRouteImport } from './routes/api/public/unsubscribe'
 import { Route as ApiPublicSumitWebhookRouteImport } from './routes/api/public/sumit-webhook'
 import { Route as ApiPublicSumitReturnRouteImport } from './routes/api/public/sumit-return'
@@ -45,14 +48,29 @@ const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
   path: '/payment/success',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSettingsRoute = AdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminScheduleRoute = AdminScheduleRouteImport.update({
   id: '/admin/schedule',
   path: '/admin/schedule',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPricingRoute = AdminPricingRouteImport.update({
+  id: '/admin/pricing',
+  path: '/admin/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
   path: '/admin/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCouponsRoute = AdminCouponsRouteImport.update({
+  id: '/admin/coupons',
+  path: '/admin/coupons',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicUnsubscribeRoute = ApiPublicUnsubscribeRouteImport.update({
@@ -75,8 +93,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/coupons': typeof AdminCouponsRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/pricing': typeof AdminPricingRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
@@ -87,8 +108,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/coupons': typeof AdminCouponsRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/pricing': typeof AdminPricingRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin': typeof AdminIndexRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
@@ -100,8 +124,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/coupons': typeof AdminCouponsRoute
   '/admin/login': typeof AdminLoginRoute
+  '/admin/pricing': typeof AdminPricingRoute
   '/admin/schedule': typeof AdminScheduleRoute
+  '/admin/settings': typeof AdminSettingsRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
@@ -114,8 +141,11 @@ export interface FileRouteTypes {
     | '/'
     | '/thank-you'
     | '/webinar'
+    | '/admin/coupons'
     | '/admin/login'
+    | '/admin/pricing'
     | '/admin/schedule'
+    | '/admin/settings'
     | '/payment/success'
     | '/admin/'
     | '/api/public/sumit-return'
@@ -126,8 +156,11 @@ export interface FileRouteTypes {
     | '/'
     | '/thank-you'
     | '/webinar'
+    | '/admin/coupons'
     | '/admin/login'
+    | '/admin/pricing'
     | '/admin/schedule'
+    | '/admin/settings'
     | '/payment/success'
     | '/admin'
     | '/api/public/sumit-return'
@@ -138,8 +171,11 @@ export interface FileRouteTypes {
     | '/'
     | '/thank-you'
     | '/webinar'
+    | '/admin/coupons'
     | '/admin/login'
+    | '/admin/pricing'
     | '/admin/schedule'
+    | '/admin/settings'
     | '/payment/success'
     | '/admin/'
     | '/api/public/sumit-return'
@@ -151,8 +187,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ThankYouRoute: typeof ThankYouRoute
   WebinarRoute: typeof WebinarRoute
+  AdminCouponsRoute: typeof AdminCouponsRoute
   AdminLoginRoute: typeof AdminLoginRoute
+  AdminPricingRoute: typeof AdminPricingRoute
   AdminScheduleRoute: typeof AdminScheduleRoute
+  AdminSettingsRoute: typeof AdminSettingsRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiPublicSumitReturnRoute: typeof ApiPublicSumitReturnRoute
@@ -197,6 +236,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PaymentSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/settings': {
+      id: '/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AdminSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/schedule': {
       id: '/admin/schedule'
       path: '/admin/schedule'
@@ -204,11 +250,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminScheduleRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/pricing': {
+      id: '/admin/pricing'
+      path: '/admin/pricing'
+      fullPath: '/admin/pricing'
+      preLoaderRoute: typeof AdminPricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/login': {
       id: '/admin/login'
       path: '/admin/login'
       fullPath: '/admin/login'
       preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/coupons': {
+      id: '/admin/coupons'
+      path: '/admin/coupons'
+      fullPath: '/admin/coupons'
+      preLoaderRoute: typeof AdminCouponsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/unsubscribe': {
@@ -239,8 +299,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ThankYouRoute: ThankYouRoute,
   WebinarRoute: WebinarRoute,
+  AdminCouponsRoute: AdminCouponsRoute,
   AdminLoginRoute: AdminLoginRoute,
+  AdminPricingRoute: AdminPricingRoute,
   AdminScheduleRoute: AdminScheduleRoute,
+  AdminSettingsRoute: AdminSettingsRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiPublicSumitReturnRoute: ApiPublicSumitReturnRoute,

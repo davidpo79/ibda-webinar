@@ -130,22 +130,29 @@ export type PackageSessions =
   | { kind: "list"; sessions: Session[]; anchor: Session | null };
 
 // Resolves which session(s) a given package_id refers to, for building
-// email content and for scheduling reminders. `coreSingleLessonIndex` (1-9)
-// disambiguates the `core_single` package, matching the lesson the buyer
-// picked at registration time.
+// email content and for scheduling reminders. `coreSingleLessonIndexes`
+// (each 1-9) disambiguates the `core_single` package, matching whichever
+// lesson(s) the buyer picked at checkout — a single lesson resolves like
+// any other single-session package, several lessons resolve like a "list"
+// package (core_full/premium_bundle) so each gets its own Zoom link and its
+// own day-before reminder.
 export async function resolvePackageSessions(
   packageId: string,
-  coreSingleLessonIndex?: number | null,
+  coreSingleLessonIndexes?: number[] | null,
 ): Promise<PackageSessions> {
   if (packageId === "open") {
     return { kind: "single", session: await getNextOpenSession() };
   }
   if (packageId === "core_single") {
-    const idx =
-      coreSingleLessonIndex && coreSingleLessonIndex >= 1 && coreSingleLessonIndex <= 9
-        ? coreSingleLessonIndex
-        : 1;
-    return { kind: "single", session: await getSessionByKey(`core_${idx}`) };
+    const indexes = (coreSingleLessonIndexes ?? []).filter((n) => n >= 1 && n <= 9);
+    if (indexes.length <= 1) {
+      const idx = indexes[0] ?? 1;
+      return { kind: "single", session: await getSessionByKey(`core_${idx}`) };
+    }
+    const sessions = (
+      await Promise.all(indexes.map((idx) => getSessionByKey(`core_${idx}`)))
+    ).filter((s): s is Session => Boolean(s));
+    return { kind: "list", sessions, anchor: earliestOf(sessions) };
   }
   if (packageId === "core_full") {
     const sessions = await getSessionsByType("core");

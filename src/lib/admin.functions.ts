@@ -15,6 +15,14 @@ import {
   createOpenSession,
   createSessionCohort,
 } from "./schedule.server";
+import { getAllPackagePricing, updatePackagePricing } from "./pricing.server";
+import {
+  listCoupons,
+  createGenericCoupon,
+  setCouponActive,
+  sendCouponEmailToRegistration,
+} from "./coupons.server";
+import { getEmailSendPolicy, updateEmailSendPolicy } from "./email-policy.server";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
@@ -117,4 +125,92 @@ export const createSessionCohortAction = createServerFn({ method: "POST" })
     assertAdminSession();
     const session = await createSessionCohort(data.key, data.startsAt);
     return { session };
+  });
+
+export const getAdminPricingData = createServerFn({ method: "GET" }).handler(async () => {
+  assertAdminSession();
+  return { pricing: await getAllPackagePricing() };
+});
+
+const UpdatePricingSchema = z.object({
+  packageId: z.string().min(1),
+  earlyPrice: z.number().positive(),
+  regularPrice: z.number().positive(),
+  cutoffAt: z.string().min(1).nullable(),
+});
+
+export const updatePackagePricingAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => UpdatePricingSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    await updatePackagePricing(data.packageId, {
+      earlyPrice: data.earlyPrice,
+      regularPrice: data.regularPrice,
+      cutoffAt: data.cutoffAt,
+    });
+    return { ok: true };
+  });
+
+export const getAdminCouponsData = createServerFn({ method: "GET" }).handler(async () => {
+  assertAdminSession();
+  return { coupons: await listCoupons() };
+});
+
+const CreateCouponSchema = z.object({
+  code: z.string().trim().min(3).max(40),
+  discountPercent: z.number().int().min(1).max(100),
+});
+
+export const createGenericCouponAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => CreateCouponSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    const coupon = await createGenericCoupon(data.code, data.discountPercent);
+    return { coupon };
+  });
+
+const SetCouponActiveSchema = z.object({ id: z.string().min(1), active: z.boolean() });
+
+export const setCouponActiveAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => SetCouponActiveSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    await setCouponActive(data.id, data.active);
+    return { ok: true };
+  });
+
+const SendCouponToLeadSchema = z.object({
+  registrationId: z.string().min(1),
+  discountPercent: z.number().int().min(1).max(100),
+});
+
+// Generates a single-use coupon for one lead and emails it to them directly
+// — the "send a discount code to a specific lead" flow from the admin leads
+// table (distinct from the reusable generic codes created above).
+export const sendCouponToLeadAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => SendCouponToLeadSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    const result = await sendCouponEmailToRegistration(data.registrationId, data.discountPercent);
+    return result;
+  });
+
+export const getAdminEmailPolicyData = createServerFn({ method: "GET" }).handler(async () => {
+  assertAdminSession();
+  return { policy: await getEmailSendPolicy() };
+});
+
+const UpdateEmailPolicySchema = z.object({
+  blockedWeekdays: z.array(z.number().int().min(0).max(6)),
+  allowedHourStart: z.number().int().min(0).max(23),
+  allowedHourEnd: z.number().int().min(1).max(24),
+  blockedDates: z.array(z.string().min(1)),
+});
+
+export const updateEmailSendPolicyAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => UpdateEmailPolicySchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    await updateEmailSendPolicy(data);
+    return { ok: true };
   });

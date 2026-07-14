@@ -5,6 +5,7 @@ async function handle(request: Request) {
     await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
   const { markOrderStatus } = await import("@/lib/orders.server");
+  const { markCouponUsed } = await import("@/lib/coupons.server");
 
   const rawBody = await request.text();
   if (!rawBody.trim()) {
@@ -49,6 +50,7 @@ async function handle(request: Request) {
   const packageIds = String(payload.package || "")
     .split(",")
     .filter(Boolean);
+  const couponCode = String(payload.coupon || "") || null;
 
   console.log("[sumit-webhook] received", {
     transactionId,
@@ -86,6 +88,14 @@ async function handle(request: Request) {
       });
     } catch (err) {
       console.error("[sumit-webhook] order status update error", err);
+    }
+  }
+
+  if (validation.paid && couponCode) {
+    try {
+      await markCouponUsed(couponCode);
+    } catch (err) {
+      console.error("[sumit-webhook] coupon mark-used error", err);
     }
   }
 

@@ -13,7 +13,7 @@ export type RegistrationSubscription = {
   bar_license?: string;
   selected_packages: string[];
   core_single_lesson?: string;
-  core_single_lesson_index?: number;
+  core_single_lesson_indexes?: number[];
 };
 
 const PACKAGE_LABELS: Record<string, string> = {
@@ -174,7 +174,7 @@ async function sendPackageWelcomeAfterPayment(email: string, packageId: string):
   const registration = await findRecentRegistrationForPackage(email, packageId);
   if (!registration) return false;
 
-  const sessions = await resolvePackageSessions(packageId, registration.core_single_lesson_index);
+  const sessions = await resolvePackageSessions(packageId, registration.core_single_lesson_indexes);
   const lessonTitle =
     packageId === "core_single" && sessions.kind === "single" ? sessions.session?.title : undefined;
   const welcome = buildWelcomeEmail(packageId, sessions, email, { lessonTitle });
@@ -193,7 +193,7 @@ async function sendPackageWelcomeAfterPayment(email: string, packageId: string):
     return false;
   }
 
-  await scheduleReminder(registration.id, packageId, registration.core_single_lesson_index);
+  await scheduleReminder(registration.id, packageId, registration.core_single_lesson_indexes);
   return true;
 }
 

@@ -5,6 +5,8 @@ export type RegistrationModalCtx = {
   selected: Set<string>;
   toggle: (id: string) => void;
   coreLesson?: string;
+  coreSingleLessons: Set<number>;
+  toggleLesson: (idx: number) => void;
 };
 
 export const RegistrationModalContext = createContext<RegistrationModalCtx>({
@@ -12,6 +14,8 @@ export const RegistrationModalContext = createContext<RegistrationModalCtx>({
   selected: new Set(),
   toggle: () => {},
   coreLesson: "",
+  coreSingleLessons: new Set(),
+  toggleLesson: () => {},
 });
 
 export const useRegistrationModal = () => useContext(RegistrationModalContext);

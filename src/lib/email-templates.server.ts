@@ -77,6 +77,7 @@ const WELCOME_PREHEADER: Record<string, string> = {
 
 const WELCOME_INTRO: Record<string, string> = {
   open: "שמחים מאוד שהצטרפת אלינו לשלב א'",
+  core_single: "שמחים מאוד שהצטרפת אלינו למפגשים שבחרת מסדרת הליבה",
   core_full: "שמחים מאוד שהצטרפת אלינו לסדנת הליבה",
   premium_bundle: "שמחים מאוד שהצטרפת אלינו לסדנת הליבה",
   premium_partnership: "שמחים מאוד שהצטרפת אלינו לסדנא שיתוף במקרקעין",

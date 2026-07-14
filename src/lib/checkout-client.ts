@@ -56,6 +56,50 @@ export function loadSelection(pageKey: string): Set<string> | null {
   }
 }
 
+const LESSONS_PREFIX = "ibda:lessons:";
+
+// Which core_single lessons (1-9) are selected — kept separate from the
+// package-id selection above since core_single is a quantity pick within
+// a single package id, not a set of package ids.
+export function saveLessonSelection(pageKey: string, indexes: Set<number>): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(LESSONS_PREFIX + pageKey, JSON.stringify(Array.from(indexes)));
+  } catch {
+    // ignore
+  }
+}
+
+export function loadLessonSelection(pageKey: string): Set<number> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(LESSONS_PREFIX + pageKey);
+    return raw ? new Set(JSON.parse(raw) as number[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+const COUPON_KEY = "ibda:coupon";
+
+export function saveCouponCode(code: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(COUPON_KEY, code);
+  } catch {
+    // ignore
+  }
+}
+
+export function loadCouponCode(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return sessionStorage.getItem(COUPON_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
 // Parses display strings like "₪ 1,620" into 1620. Used to sum a running
 // total for the selected packages without duplicating the price numbers
 // that already live in each page's pricing array.

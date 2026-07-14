@@ -2,9 +2,9 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { startReminderScheduler } from "./lib/reminders.server";
+import { startAutomationScheduler } from "./lib/reminders.server";
 
-startReminderScheduler();
+startAutomationScheduler();
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;

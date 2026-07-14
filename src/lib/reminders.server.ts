@@ -3,24 +3,45 @@ import { resolvePackageSessions, type Session, type SessionType } from "./schedu
 import { reminderDueAt } from "./format-date";
 import { buildReminderEmail } from "./email-templates.server";
 import { sendRawEmail } from "./resend.server";
+import { getEmailSendPolicy, isAllowedSendTime } from "./email-policy.server";
+import { runPriceIncreaseNoticeSweep } from "./pricing-notices.server";
 
-// Populates one registration_reminders row for (registration, package),
-// pointing at whatever session currently anchors that package. Called
+// Populates registration_reminders row(s) for (registration, package),
+// pointing at whatever session(s) currently anchor that package. Called
 // immediately for the free "open" package (no payment gate), or once Sumit
 // confirms payment for paid packages — never at raw form-submission time,
 // since a paid package isn't confirmed until the payment actually clears.
+//
+// core_single bought as several distinct lessons gets one reminder row per
+// lesson (each has its own date and its own Zoom link) rather than a single
+// reminder for just the earliest one — every other package still only ever
+// reminds once, anchored on its earliest session.
 export async function scheduleReminder(
   registrationId: string,
   packageId: string,
-  coreSingleLessonIndex?: number | null,
+  coreSingleLessonIndexes?: number[] | null,
 ): Promise<void> {
-  const resolved = await resolvePackageSessions(packageId, coreSingleLessonIndex);
+  if (packageId === "core_single" && (coreSingleLessonIndexes?.length ?? 0) > 1) {
+    for (const idx of coreSingleLessonIndexes!) {
+      const resolved = await resolvePackageSessions("core_single", [idx]);
+      const session = resolved.kind === "single" ? resolved.session : null;
+      if (!session) continue;
+      await sql()`
+        INSERT INTO registration_reminders (registration_id, package_id, session_id)
+        VALUES (${registrationId}, ${packageId}, ${session.id})
+        ON CONFLICT (registration_id, package_id, session_id) DO NOTHING
+      `;
+    }
+    return;
+  }
+
+  const resolved = await resolvePackageSessions(packageId, coreSingleLessonIndexes);
   const anchor = resolved.kind === "single" ? resolved.session : resolved.anchor;
   if (!anchor) return;
   await sql()`
     INSERT INTO registration_reminders (registration_id, package_id, session_id)
     VALUES (${registrationId}, ${packageId}, ${anchor.id})
-    ON CONFLICT (registration_id, package_id) DO NOTHING
+    ON CONFLICT (registration_id, package_id, session_id) DO NOTHING
   `;
 }
 
@@ -58,8 +79,16 @@ async function fetchPendingReminders(): Promise<DueReminderRow[]> {
 // threshold (per-package — see reminderDueAt) has passed. Safe to call
 // repeatedly: sent_at is only set after a successful send, guarded by a
 // WHERE ... AND sent_at IS NULL on the update, so an overlapping tick can't
-// double-send the same row.
+// double-send the same row. Gated by the admin-configured send-time policy
+// (Shabbat/holidays/allowed hours, see src/lib/email-policy.server.ts) — if
+// sending isn't allowed right now, the whole sweep is skipped and retried
+// next tick, so nothing is marked sent until it actually goes out.
 export async function runReminderSweep(): Promise<{ checked: number; sent: number }> {
+  const policy = await getEmailSendPolicy();
+  if (!isAllowedSendTime(new Date(), policy)) {
+    return { checked: 0, sent: 0 };
+  }
+
   const pending = await fetchPendingReminders();
   const now = Date.now();
   let sent = 0;
@@ -102,18 +131,19 @@ let started = false;
 
 // In-process scheduler (chosen over a separate Railway cron service) — a
 // single setInterval ticking in the same long-running web process that
-// already handles every request. Idempotent: calling this more than once
-// (e.g. from a hot-reloaded module) is a no-op after the first call.
-export function startReminderScheduler(): void {
+// already handles every request, running both the day-before reminder sweep
+// and the price-increase-notice sweep. Idempotent: calling this more than
+// once (e.g. from a hot-reloaded module) is a no-op after the first call.
+export function startAutomationScheduler(): void {
   if (started) return;
   started = true;
 
   if (!process.env.DATABASE_URL || !process.env.RESEND_API_KEY) {
-    console.warn("[reminders] scheduler not started — DATABASE_URL or RESEND_API_KEY missing");
+    console.warn("[automation] scheduler not started — DATABASE_URL or RESEND_API_KEY missing");
     return;
   }
 
-  console.log(`[reminders] scheduler started, sweeping every ${SWEEP_INTERVAL_MS / 60000} min`);
+  console.log(`[automation] scheduler started, sweeping every ${SWEEP_INTERVAL_MS / 60000} min`);
 
   const tick = async () => {
     try {
@@ -121,6 +151,12 @@ export function startReminderScheduler(): void {
       console.log(`[reminders] sweep checked ${checked} pending, sent ${sent}`);
     } catch (err) {
       console.error("[reminders] sweep failed", err);
+    }
+    try {
+      const { checked, sent } = await runPriceIncreaseNoticeSweep();
+      console.log(`[pricing-notices] sweep checked ${checked} due, sent ${sent}`);
+    } catch (err) {
+      console.error("[pricing-notices] sweep failed", err);
     }
   };
 

@@ -44,6 +44,13 @@ CREATE TABLE IF NOT EXISTS registrations (
 -- Column added after the table already existed in production.
 ALTER TABLE registrations ADD COLUMN IF NOT EXISTS core_single_lesson_index int;
 
+-- core_single is now a multi-select ("buy N individual lessons in one
+-- purchase") rather than a single dropdown pick — this array is the current
+-- source of truth going forward; the older singular column above is kept
+-- for rows recorded before this changed (readers fall back to wrapping it
+-- in a one-element array when the plural column is empty).
+ALTER TABLE registrations ADD COLUMN IF NOT EXISTS core_single_lesson_indexes int[];
+
 CREATE TABLE IF NOT EXISTS orders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   order_reference text NOT NULL,
@@ -63,13 +70,26 @@ CREATE TABLE IF NOT EXISTS orders (
 -- (order_reference, package_id), which still prevents duplicate inserts on
 -- webhook retries without collapsing separate packages into one row.
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_reference_key;
-CREATE UNIQUE INDEX IF NOT EXISTS orders_reference_package_unique ON orders (order_reference, package_id);
+DROP INDEX IF EXISTS orders_reference_package_unique;
 
 -- Column added after the table already existed in production — the session
 -- a given order row's package refers to (earliest session for a
 -- multi-session package like core_full/premium_bundle), shown in the admin
 -- buyers table.
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS session_id uuid REFERENCES sessions(id);
+
+-- core_single can now be bought as several distinct lessons in one purchase
+-- (see core_single_lesson_indexes below) — each lesson gets its own order
+-- row sharing package_id='core_single' but a different session_id, so the
+-- uniqueness key needs session_id too (order_reference, package_id) alone
+-- would collide on the second lesson row.
+CREATE UNIQUE INDEX IF NOT EXISTS orders_reference_package_session_unique
+  ON orders (order_reference, package_id, session_id);
+
+-- Which coupon (if any) was applied to this order — a per-lead single-use
+-- coupon is only marked used once the order actually reaches 'paid' (see
+-- src/lib/coupons.server.ts), never at payment-page-creation time.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code text;
 
 -- One row per (registration, package) that needs a "day before" reminder
 -- email. Populated at registration time; the in-process scheduler
@@ -84,6 +104,15 @@ CREATE TABLE IF NOT EXISTS registration_reminders (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (registration_id, package_id)
 );
+
+-- A core_single purchase can now cover several distinct lessons at once,
+-- each needing its own "day before" reminder (different date, different
+-- Zoom link) — so the old (registration_id, package_id) uniqueness, which
+-- only allowed one reminder per package per registration, is replaced with
+-- one that also includes session_id.
+ALTER TABLE registration_reminders DROP CONSTRAINT IF EXISTS registration_reminders_registration_id_package_id_key;
+CREATE UNIQUE INDEX IF NOT EXISTS registration_reminders_unique
+  ON registration_reminders (registration_id, package_id, session_id);
 
 -- Seed the current site's hardcoded dates so behavior is unchanged on first
 -- deploy — only the source of the dates moves into the database. Guarded by
@@ -138,3 +167,64 @@ UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/6wt1qTe
 -- Fixed personal Zoom room (Personal Meeting ID + embedded password) reused
 -- for every open-webinar cohort, not a per-cohort registration link.
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/j/83035753700?pwd=BgqbH9xvxrV7IcPJaZqBfvE4zG8PtG.1' WHERE type = 'open' AND zoom_url IS NULL;
+
+-- Discount codes. `registration_id` NULL = a reusable generic code the admin
+-- created from the coupons screen; non-NULL = a single-use code generated
+-- for one specific lead and emailed directly to them (marked used only once
+-- their order actually reaches 'paid' — see src/lib/coupons.server.ts).
+CREATE TABLE IF NOT EXISTS coupons (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code text UNIQUE NOT NULL,
+  discount_percent int NOT NULL CHECK (discount_percent > 0 AND discount_percent <= 100),
+  registration_id uuid REFERENCES registrations(id),
+  active boolean NOT NULL DEFAULT true,
+  used_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Per-package early/regular price and an optional cutoff after which the
+-- regular price takes effect automatically. `cutoff_at IS NULL` means "stay
+-- at the early price indefinitely" — matches the site's actual behavior
+-- before this table existed, so seeding it doesn't change anything until an
+-- admin deliberately sets a cutoff from /admin/pricing.
+-- price_increase_notified_at guards the 12-hours-before email (see
+-- src/lib/pricing.server.ts) against duplicate sends; it's reset to NULL
+-- whenever the admin edits the cutoff, so rescheduling allows a fresh notice.
+CREATE TABLE IF NOT EXISTS package_pricing (
+  package_id text PRIMARY KEY,
+  early_price numeric NOT NULL,
+  regular_price numeric NOT NULL,
+  cutoff_at timestamptz,
+  price_increase_notified_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Seeded from the prices already hardcoded on the site (PACKAGE_PRICES in
+-- sumit.server.ts was the "early" figure; the crossed-out marketing price
+-- in index.tsx/thank-you.tsx was "regular") — this table becomes the single
+-- source of truth for both going forward.
+INSERT INTO package_pricing (package_id, early_price, regular_price) VALUES
+  ('core_single', 180, 360),
+  ('core_full', 1620, 2520),
+  ('premium_litigation', 360, 480),
+  ('premium_registration', 1080, 1440),
+  ('premium_partnership', 540, 720),
+  ('premium_ai', 360, 480),
+  ('premium_bundle', 2700, 3720)
+ON CONFLICT (package_id) DO NOTHING;
+
+-- Singleton table (the `id boolean ... CHECK (id)` trick guarantees exactly
+-- one row) controlling when the automated schedulers (day-before reminders,
+-- price-increase notices) are allowed to actually send — so the admin can
+-- block Shabbat/holidays and set allowed hours from /admin/settings.
+-- blocked_weekdays: 0=Sunday..6=Saturday (default: Saturday only).
+-- blocked_dates: specific extra dates (holidays) the admin adds/removes.
+CREATE TABLE IF NOT EXISTS email_send_policy (
+  id boolean PRIMARY KEY DEFAULT true CHECK (id),
+  blocked_weekdays int[] NOT NULL DEFAULT '{6}',
+  allowed_hour_start int NOT NULL DEFAULT 8,
+  allowed_hour_end int NOT NULL DEFAULT 21,
+  blocked_dates date[] NOT NULL DEFAULT '{}',
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO email_send_policy (id) VALUES (true) ON CONFLICT (id) DO NOTHING;

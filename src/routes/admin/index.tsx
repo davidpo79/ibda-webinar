@@ -4,6 +4,7 @@ import {
   getAdminDashboardData,
   adminLogout,
   updateRegistrationAction,
+  sendCouponToLeadAction,
 } from "@/lib/admin.functions";
 import type { RegistrationRow } from "@/lib/registrations.server";
 import { formatSessionDate } from "@/lib/format-date";
@@ -97,7 +98,7 @@ function AdminDashboard() {
     const matchesLesson =
       leadLessonFilter === "all" ||
       (r.selected_packages.includes("core_single") &&
-        String(r.core_single_lesson_index) === leadLessonFilter);
+        (r.core_single_lesson_indexes ?? []).includes(Number(leadLessonFilter)));
     return matchesPackage && matchesLesson;
   });
   const filteredOrders = orders.filter((o) => {
@@ -127,6 +128,15 @@ function AdminDashboard() {
         <nav className="flex items-center gap-5 text-sm">
           <Link to="/admin/schedule" className="text-muted-brown hover:text-gold transition-colors">
             עריכת מועדים
+          </Link>
+          <Link to="/admin/pricing" className="text-muted-brown hover:text-gold transition-colors">
+            תמחור
+          </Link>
+          <Link to="/admin/coupons" className="text-muted-brown hover:text-gold transition-colors">
+            קופונים
+          </Link>
+          <Link to="/admin/settings" className="text-muted-brown hover:text-gold transition-colors">
+            הגדרות מייל
           </Link>
           <button onClick={onLogout} className="text-muted-brown hover:text-gold transition-colors">
             התנתקות
@@ -457,9 +467,87 @@ function LeadDetailPanel({
           <dd>{formatSessionDate(r.session_starts_at) || "—"}</dd>
         </div>
       </dl>
-      <button type="button" onClick={startEdit} className="text-xs text-gold hover:underline">
-        עריכת פרטי קשר
+      <div className="flex items-center gap-4">
+        <button type="button" onClick={startEdit} className="text-xs text-gold hover:underline">
+          עריכת פרטי קשר
+        </button>
+        <SendCouponControl registrationId={r.id} />
+      </div>
+    </div>
+  );
+}
+
+// Generates a one-time discount coupon for this lead and emails it to them
+// directly — the per-lead half of the coupon system (the other half,
+// reusable generic codes, lives on /admin/coupons).
+function SendCouponControl({ registrationId }: { registrationId: string }) {
+  const [open, setOpen] = useState(false);
+  const [discountPercent, setDiscountPercent] = useState("15");
+  const [sending, setSending] = useState(false);
+  const [sentCode, setSentCode] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSend() {
+    setSending(true);
+    setError(null);
+    try {
+      const result = await sendCouponToLeadAction({
+        data: { registrationId, discountPercent: Number(discountPercent) },
+      });
+      setSentCode(result.code);
+    } catch (err) {
+      console.error("[admin] send coupon failed", err);
+      setError("שליחת הקוד נכשלה");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs text-gold hover:underline"
+      >
+        שליחת קוד הנחה
       </button>
+    );
+  }
+
+  if (sentCode) {
+    return <span className="text-xs text-green-400">נשלח קוד {sentCode} במייל</span>;
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <select
+        value={discountPercent}
+        onChange={(e) => setDiscountPercent(e.target.value)}
+        className="bg-ink/40 border border-cream/15 rounded-md px-2 py-1 text-xs text-cream focus:outline-none focus:border-gold"
+      >
+        {[10, 15, 20, 25, 30, 40, 50].map((n) => (
+          <option key={n} value={n}>
+            {n}%
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={onSend}
+        disabled={sending}
+        className="bg-gold text-ink px-3 py-1 rounded-md text-xs font-semibold hover:bg-gold-deep transition-colors disabled:opacity-60"
+      >
+        {sending ? "שולח..." : "שליחה"}
+      </button>
+      <button
+        type="button"
+        onClick={() => setOpen(false)}
+        className="text-xs text-muted-brown hover:text-cream"
+      >
+        ביטול
+      </button>
+      {error && <span className="text-xs text-destructive">{error}</span>}
     </div>
   );
 }

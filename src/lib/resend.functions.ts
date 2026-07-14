@@ -16,7 +16,7 @@ const SubscribeSchema = z.object({
   bar_license: z.string().trim().optional(),
   selected_packages: z.array(z.string()),
   core_single_lesson: z.string().trim().optional(),
-  core_single_lesson_index: z.number().int().min(1).max(9).optional(),
+  core_single_lesson_indexes: z.array(z.number().int().min(1).max(9)).optional(),
   session_id: z.string().trim().optional(),
 });
 
@@ -40,7 +40,7 @@ export const subscribeRegistration = createServerFn({ method: "POST" })
       firm_name: data.firm_name,
       bar_license: data.bar_license,
       selected_packages: data.selected_packages,
-      core_single_lesson_index: data.core_single_lesson_index,
+      core_single_lesson_indexes: data.core_single_lesson_indexes,
     });
 
     // The free open webinar has no payment gate, so its rich welcome email

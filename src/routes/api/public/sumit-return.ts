@@ -5,11 +5,13 @@ async function handle(request: Request) {
     await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
   const { markOrderStatus } = await import("@/lib/orders.server");
+  const { markCouponUsed } = await import("@/lib/coupons.server");
 
   const url = new URL(request.url);
   const params = url.searchParams;
   const orderReference = params.get("orderRef") || params.get("order_reference");
   const cancelled = params.get("cancelled") === "1";
+  const couponCode = params.get("coupon");
 
   // Sumit appends its own identifiers on top of the ones we put in
   // RedirectURL/CancelRedirectURL — TransactionID (classic redirect) or the
@@ -54,6 +56,14 @@ async function handle(request: Request) {
       });
     } catch (err) {
       console.error("[sumit-return] order status update error", err);
+    }
+  }
+
+  if (validation.paid && couponCode) {
+    try {
+      await markCouponUsed(couponCode);
+    } catch (err) {
+      console.error("[sumit-return] coupon mark-used error", err);
     }
   }
 

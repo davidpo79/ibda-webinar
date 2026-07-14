@@ -29,6 +29,7 @@ import {
 } from "@/lib/registration-modal-context";
 import { subscribeRegistration } from "@/lib/resend.functions";
 import { createSumitPayment } from "@/lib/sumit.functions";
+import { validateCoupon } from "@/lib/coupons.functions";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
 import { buildPricingDateLabels } from "@/lib/pricing-dates";
@@ -37,6 +38,10 @@ import {
   loadContact,
   saveSelection,
   loadSelection,
+  saveLessonSelection,
+  loadLessonSelection,
+  saveCouponCode,
+  loadCouponCode,
   parsePriceIls,
 } from "@/lib/checkout-client";
 
@@ -302,7 +307,7 @@ const pricing: {
   { id: "premium_partnership", t: "סדנת שיתוף במקרקעין", price: "₪ 720", early: "₪ 540", duration: "שעתיים", note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל 72 שעות.", cta: "רכישת סדנת שיתוף" },
   { id: "premium_ai", t: "AI ואוטומציות בעבודת עורך הדין", price: "₪ 480", early: "₪ 360", duration: "שעתיים", note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל 72 שעות.", cta: "רכישת סדנת AI" },
   { id: "premium_bundle", t: "חבילת פרימיום הכל כלול", price: "₪ 3,720", early: "₪ 2,700", duration: "סדרה מלאה + 4 סדנאות", note: "סדרה מלאה בתוספת ארבע סדנאות הפרימיום. מחיר מוקדם ל 72 שעות.", featured: true, cta: "רכישת חבילת פרימיום" },
-  { id: "core_single", t: "וובינר בודד מסדרת הליבה", price: "₪ 360", early: "₪ 180", duration: "90 דקות", note: "מחיר מוקדם ל 72 שעות מסיום הוובינר הפתוח.", cta: "רכישת וובינר בודד", comingSoon: true },
+  { id: "core_single", t: "וובינר בודד מסדרת הליבה", price: "₪ 360", early: "₪ 180", duration: "90 דקות", note: "בחרו כמה שיעורים לרכוש — כל שיעור נחשב בנפרד.", cta: "רכישת וובינר בודד" },
 ];
 
 const VALID_PACKAGE_IDS = new Set(pricing.map((p) => p.id));
@@ -367,11 +372,19 @@ const cancellationPolicy = [
 /* -------------------------- page -------------------------- */
 
 function Landing() {
-  const { openSession, coreSessions, premiumSessions } = Route.useLoaderData();
+  const {
+    openSession,
+    coreSessions,
+    premiumSessions,
+    pricing: livePricing,
+  } = Route.useLoaderData();
   const [selected, setSelected] = useState<Set<string>>(
     () => sanitizeSelection(loadSelection("index") ?? new Set(["open"])),
   );
   const [coreLesson, setCoreLesson] = useState<string>("");
+  const [coreSingleLessons, setCoreSingleLessons] = useState<Set<number>>(
+    () => loadLessonSelection("index") ?? new Set(),
+  );
 
   const openWebinarsResolved = openWebinars.map((w) => ({
     ...w,
@@ -399,6 +412,16 @@ function Landing() {
     });
   }, []);
 
+  const toggleLesson = useCallback((idx: number) => {
+    setCoreSingleLessons((s) => {
+      const n = new Set(s);
+      if (n.has(idx)) n.delete(idx);
+      else n.add(idx);
+      saveLessonSelection("index", n);
+      return n;
+    });
+  }, []);
+
   const open = useCallback((packageId?: string, coreLessonTitle?: string) => {
     if (coreLessonTitle) {
       setCoreLesson(coreLessonTitle);
@@ -422,7 +445,9 @@ function Landing() {
   }, []);
 
   return (
-    <RegistrationModalContext.Provider value={{ open, selected, toggle, coreLesson }}>
+    <RegistrationModalContext.Provider
+      value={{ open, selected, toggle, coreLesson, coreSingleLessons, toggleLesson }}
+    >
       <div className="min-h-screen bg-ink text-cream font-sans">
         <AnnouncementBar dateISO={openWebinarsResolved[0].dateISO} />
         <TopBar scheduleItems={scheduleItemsResolved} />
@@ -431,8 +456,8 @@ function Landing() {
         <OpenWebinarsSection data={openWebinarsResolved} />
         <CoreSeriesSection data={coreSeriesResolved} />
         <PremiumSection data={premiumWorkshopsResolved} />
-        <PricingSection dateLabels={pricingDateLabels} />
-        <RegistrationSection dateLabels={pricingDateLabels} />
+        <PricingSection dateLabels={pricingDateLabels} livePricing={livePricing} />
+        <RegistrationSection dateLabels={pricingDateLabels} livePricing={livePricing} />
         <Footer />
       </div>
     </RegistrationModalContext.Provider>
@@ -1330,7 +1355,18 @@ function PremiumSection({ data }: { data: typeof premiumWorkshops }) {
 
 /* -------------------------- pricing -------------------------- */
 
-function PricingSection({ dateLabels }: { dateLabels: Record<string, string> }) {
+type LivePricing = Record<
+  string,
+  { currentPrice: number; earlyPrice: number; regularPrice: number; risen: boolean }
+>;
+
+function PricingSection({
+  dateLabels,
+  livePricing,
+}: {
+  dateLabels: Record<string, string>;
+  livePricing: LivePricing;
+}) {
   const [openGroup, setOpenGroup] = useState(false);
   const [openPolicy, setOpenPolicy] = useState(false);
   const { open } = useRegistrationModal();
@@ -1357,6 +1393,9 @@ function PricingSection({ dateLabels }: { dateLabels: Record<string, string> }) 
           {pricing.map((p) => {
             const isComingSoon = p.comingSoon;
             const dateLabel = dateLabels[p.id];
+            const risen = livePricing[p.id]?.risen ?? false;
+            const priceNow = livePricing[p.id]?.currentPrice ?? parsePriceIls(p.early);
+            const priceRegular = livePricing[p.id]?.regularPrice ?? parsePriceIls(p.price);
             const cardClasses = cn(
               "group relative bg-sand/70 backdrop-blur-2xl border border-cream/10 rounded-lg p-7 flex flex-col text-right shadow-[0_10px_40px_-20px_rgba(0,0,0,0.6)] transition-all duration-300",
               !isComingSoon && "hover:-translate-y-1 hover:border-gold/70 hover:shadow-[0_20px_50px_-15px_rgba(196,164,97,0.35)] cursor-pointer",
@@ -1388,16 +1427,30 @@ function PricingSection({ dateLabels }: { dateLabels: Record<string, string> }) 
                   <div className="font-serif text-4xl mb-3 text-cream font-medium">ללא תשלום</div>
                 ) : (
                   <>
-                    <div className={cn("font-serif text-2xl mb-1 ltr-inline line-through text-muted-brown", isComingSoon ? "opacity-30" : "opacity-50")}>
-                      {p.price}
-                    </div>
+                    {!risen && (
+                      <div
+                        className={cn(
+                          "font-serif text-2xl mb-1 ltr-inline line-through text-muted-brown",
+                          isComingSoon ? "opacity-30" : "opacity-50",
+                        )}
+                      >
+                        ₪ {priceRegular.toLocaleString()}
+                      </div>
+                    )}
                     <div className="flex items-baseline gap-2 mb-3">
                       <span className={cn("font-serif text-4xl ltr-inline font-medium", isComingSoon ? "text-cream/60" : "text-cream")}>
-                        {p.early}
+                        ₪ {priceNow.toLocaleString()}
                       </span>
-                      <span className={cn("text-[10px] tracking-[0.2em] uppercase font-semibold ltr-inline", isComingSoon ? "text-gold/60" : "text-gold")}>
-                        Early Bird
-                      </span>
+                      {!risen && (
+                        <span
+                          className={cn(
+                            "text-[10px] tracking-[0.2em] uppercase font-semibold ltr-inline",
+                            isComingSoon ? "text-gold/60" : "text-gold",
+                          )}
+                        >
+                          Early Bird
+                        </span>
+                      )}
                     </div>
                   </>
                 )}
@@ -1558,9 +1611,14 @@ const InlineRegSchema = z.object({
   id_number: z.string().trim().max(20).optional().or(z.literal("")),
 });
 
-function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string> }) {
-  const navigate = useNavigate();
-  const { selected, toggle, coreLesson } = useRegistrationModal();
+function RegistrationSection({
+  dateLabels,
+  livePricing,
+}: {
+  dateLabels: Record<string, string>;
+  livePricing: LivePricing;
+}) {
+  const { selected, toggle, coreSingleLessons, toggleLesson } = useRegistrationModal();
   const savedContact = useRef(loadContact()).current;
   const [first_name, setFirstName] = useState(savedContact?.first_name ?? "");
   const [last_name, setLastName] = useState(savedContact?.last_name ?? "");
@@ -1573,23 +1631,55 @@ function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [coreSingleLesson, setCoreSingleLesson] = useState<string>("");
+  const [couponCode, setCouponCode] = useState(() => loadCouponCode());
+  const [couponApplied, setCouponApplied] = useState<{
+    code: string;
+    discountPercent: number;
+  } | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponChecking, setCouponChecking] = useState(false);
   const coreSingleRef = useRef<HTMLDivElement>(null);
-  const coreSingleSelectRef = useRef<HTMLSelectElement>(null);
-
-  useEffect(() => {
-    if (coreLesson && selected.has("core_single")) {
-      setCoreSingleLesson(coreLesson);
-    }
-  }, [coreLesson, selected]);
 
   useEffect(() => {
     saveContact({ first_name, last_name, email, phone, firm_name, bar_license, id_number });
   }, [first_name, last_name, email, phone, firm_name, bar_license, id_number]);
 
+  function currentPrice(id: string): number {
+    return livePricing[id]?.currentPrice ?? PRICE_LOOKUP[id] ?? 0;
+  }
+
   const paidSelectedIds = Array.from(selected).filter((id) => id !== "open");
+  const flatPricedIds = paidSelectedIds.filter((id) => id !== "core_single");
   const hasPaid = paidSelectedIds.length > 0;
-  const total = paidSelectedIds.reduce((sum, id) => sum + (PRICE_LOOKUP[id] ?? 0), 0);
+  const baseTotal =
+    flatPricedIds.reduce((sum, id) => sum + currentPrice(id), 0) +
+    (selected.has("core_single") ? coreSingleLessons.size * currentPrice("core_single") : 0);
+  const discountPercent = couponApplied?.discountPercent ?? 0;
+  const total = Math.round(baseTotal * (1 - discountPercent / 100));
+
+  async function applyCoupon() {
+    if (!couponCode.trim()) return;
+    setCouponChecking(true);
+    setCouponError(null);
+    try {
+      const result = await validateCoupon({ data: { code: couponCode.trim() } });
+      if (result.valid) {
+        setCouponApplied({
+          code: couponCode.trim().toUpperCase(),
+          discountPercent: result.discount_percent,
+        });
+        saveCouponCode(couponCode.trim());
+      } else {
+        setCouponApplied(null);
+        setCouponError("קוד ההנחה לא תקין או שכבר נוצל");
+      }
+    } catch (err) {
+      console.error("[index] coupon validation error", err);
+      setCouponError("שגיאה בבדיקת הקוד, נסו שוב");
+    } finally {
+      setCouponChecking(false);
+    }
+  }
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1610,15 +1700,14 @@ function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string
       setErrors({ packages: "יש לבחור לפחות מסלול או חבילה אחת" });
       return;
     }
-    if (selected.has("core_single") && !coreSingleLesson) {
-      const msg = "יש לבחור את סוג המפגש הרצוי";
+    if (selected.has("core_single") && coreSingleLessons.size === 0) {
+      const msg = "יש לבחור לפחות שיעור אחד מסדרת הליבה";
       setErrors({ core_single_lesson: msg });
       setTimeout(() => {
         coreSingleRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-        coreSingleSelectRef.current?.focus();
       }, 50);
       toast.error(msg, {
-        description: "לא ניתן להשלים את ההרשמה ללא בחירת מפגש מסדרת הליבה.",
+        description: "לא ניתן להשלים את ההרשמה ללא בחירת שיעור מסדרת הליבה.",
         duration: 8000,
       });
       return;
@@ -1633,6 +1722,7 @@ function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string
     if (!parsed.success) return;
     setSubmitting(true);
 
+    const lessonIndexes = Array.from(coreSingleLessons);
     try {
       await subscribeRegistration({
         data: {
@@ -1643,13 +1733,7 @@ function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string
           firm_name: parsed.data.firm_name || "",
           bar_license: parsed.data.bar_license || "",
           selected_packages: Array.from(selected),
-          core_single_lesson: selected.has("core_single") ? coreSingleLesson : undefined,
-          core_single_lesson_index: selected.has("core_single")
-            ? (() => {
-                const idx = coreSeries.findIndex((l) => l.t === coreSingleLesson);
-                return idx >= 0 ? idx + 1 : undefined;
-              })()
-            : undefined,
+          core_single_lesson_indexes: selected.has("core_single") ? lessonIndexes : undefined,
         },
       });
     } catch (err) {
@@ -1669,6 +1753,8 @@ function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string
             phone: parsed.data.phone,
             order_reference: orderRef,
             id_number: parsed.data.id_number || "",
+            core_single_lesson_indexes: selected.has("core_single") ? lessonIndexes : undefined,
+            coupon_code: couponApplied?.code,
           },
         });
         if (typeof window !== "undefined" && payment_url) {
@@ -1689,8 +1775,6 @@ function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string
     window.location.href = "/thank-you?registered=1";
   }
 
-
-
   return (
     <section id="register" className="py-10 md:py-14 scroll-mt-24">
       <div className="max-w-6xl mx-auto px-6">
@@ -1702,177 +1786,268 @@ function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string
           </p>
         </div>
 
-        <form
-          onSubmit={onSubmit}
-          className="glass-gold rounded-2xl p-6 md:p-9 fade-rise"
-        >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
-              {/* Right column on desktop: personal details */}
-              <div className="order-2 md:order-1 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <InlineField label="שם פרטי" required value={first_name} onChange={setFirstName} error={errors.first_name} />
-                  <InlineField label="שם משפחה" required value={last_name} onChange={setLastName} error={errors.last_name} />
-                  <InlineField label="אימייל" type="email" required value={email} onChange={setEmail} error={errors.email} dir="ltr" />
-                  <InlineField label="טלפון נייד" type="tel" required value={phone} onChange={setPhone} error={errors.phone} dir="ltr" />
-                  <InlineField label="שם המשרד או חברה" value={firm_name} onChange={setFirmName} />
-                  <InlineField label="מספר רישיון עריכת דין" value={bar_license} onChange={setBarLicense} dir="ltr" />
-                  {hasPaid && (
-                    <InlineField
-                      label="ת.ז / ח.פ (לצורך הפקת חשבונית)"
-                      required
-                      value={id_number}
-                      onChange={setIdNumber}
-                      error={errors.id_number}
-                      dir="ltr"
-                    />
-                  )}
-                </div>
-
-                <div className="hairline opacity-60" />
-
-                {serverError && (
-                  <div className="text-sm text-destructive bg-destructive/5 border border-destructive/30 rounded p-3">
-                    {serverError}
-                  </div>
+        <form onSubmit={onSubmit} className="glass-gold rounded-2xl p-6 md:p-9 fade-rise">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
+            {/* Right column on desktop: personal details */}
+            <div className="order-2 md:order-1 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <InlineField
+                  label="שם פרטי"
+                  required
+                  value={first_name}
+                  onChange={setFirstName}
+                  error={errors.first_name}
+                />
+                <InlineField
+                  label="שם משפחה"
+                  required
+                  value={last_name}
+                  onChange={setLastName}
+                  error={errors.last_name}
+                />
+                <InlineField
+                  label="אימייל"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={setEmail}
+                  error={errors.email}
+                  dir="ltr"
+                />
+                <InlineField
+                  label="טלפון נייד"
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={setPhone}
+                  error={errors.phone}
+                  dir="ltr"
+                />
+                <InlineField label="שם המשרד או חברה" value={firm_name} onChange={setFirmName} />
+                <InlineField
+                  label="מספר רישיון עריכת דין"
+                  value={bar_license}
+                  onChange={setBarLicense}
+                  dir="ltr"
+                />
+                {hasPaid && (
+                  <InlineField
+                    label="ת.ז / ח.פ (לצורך הפקת חשבונית)"
+                    required
+                    value={id_number}
+                    onChange={setIdNumber}
+                    error={errors.id_number}
+                    dir="ltr"
+                  />
                 )}
               </div>
 
-              {/* Left column on desktop: sticky package selection */}
-              <div className="order-1 md:order-2 md:sticky md:top-24 space-y-3">
-                <fieldset className="space-y-3">
-                  <legend className="text-[12px] tracking-[0.24em] uppercase text-gold font-semibold mb-3">
-                    בחירת מסלולים וחבילות
-                  </legend>
-                  <div className="grid gap-2.5">
-                    {pricing.map((p) => {
-                      const isChecked = selected.has(p.id);
-                      const isComingSoon = p.comingSoon;
-                      const dateLabel = dateLabels[p.id];
-                      return (
-                        <div key={p.id} className="space-y-2">
-                          <label
-                            className={cn(
-                              "flex items-center justify-between gap-4 rounded-md border px-4 py-3 transition-colors",
-                              isComingSoon
-                                ? "border-cream/10 bg-ink/20 cursor-not-allowed opacity-60"
-                                : isChecked
-                                  ? "border-gold bg-gold/10 cursor-pointer"
-                                  : "border-cream/15 bg-ink/30 hover:border-gold/50 cursor-pointer",
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span
-                                className={cn(
-                                  "shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all",
-                                  isChecked ? "bg-gold border-gold text-ink" : "bg-cream border-cream",
-                                  isComingSoon && "opacity-50",
-                                )}
-                              >
-                                {isChecked && <Check size={13} strokeWidth={3} />}
-                              </span>
-                              <input
-                                type="checkbox"
-                                className="sr-only"
-                                checked={isChecked}
-                                disabled={isComingSoon}
-                                onChange={() => !isComingSoon && toggle(p.id)}
-                              />
-                              <div className="flex flex-col">
-                                <span className={cn("text-[15px] font-medium", isComingSoon ? "text-cream/70" : "text-cream")}>{p.t}</span>
-                                {(p.duration || dateLabel) && (
-                                  <span
-                                    className={cn(
-                                      "text-[13px] tracking-[0.14em] uppercase mt-0.5",
-                                      isComingSoon ? "text-muted-brown/50" : "text-muted-brown",
-                                    )}
-                                  >
-                                    {[p.duration, dateLabel].filter(Boolean).join(" · ")}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 whitespace-nowrap">
-                              {isComingSoon && (
-                                <span className="text-[11px] tracking-[0.18em] uppercase font-semibold text-gold/80 bg-gold/10 border border-gold/30 px-2 py-1 rounded">
-                                  בקרוב
-                                </span>
-                              )}
-                              {!p.free && p.price && (
-                                <span className={cn("text-muted-brown ltr-inline text-[13px] line-through", isComingSoon ? "opacity-30" : "opacity-60")}>
-                                  {p.price}
-                                </span>
-                              )}
-                              <span className={cn("ltr-inline text-[14px] font-semibold", isComingSoon ? "text-gold/50" : "text-gold")}>
-                                {p.free ? "ללא תשלום" : p.early}
-                              </span>
-                            </div>
-                          </label>
+              <div className="hairline opacity-60" />
 
-                          {p.id === "core_single" && isChecked && !isComingSoon && (
-                            <div
-                              ref={coreSingleRef}
+              {serverError && (
+                <div className="text-sm text-destructive bg-destructive/5 border border-destructive/30 rounded p-3">
+                  {serverError}
+                </div>
+              )}
+            </div>
+
+            {/* Left column on desktop: sticky package selection */}
+            <div className="order-1 md:order-2 md:sticky md:top-24 space-y-3">
+              <fieldset className="space-y-3">
+                <legend className="text-[12px] tracking-[0.24em] uppercase text-gold font-semibold mb-3">
+                  בחירת מסלולים וחבילות
+                </legend>
+                <div className="grid gap-2.5">
+                  {pricing.map((p) => {
+                    const isChecked = selected.has(p.id);
+                    const isComingSoon = p.comingSoon;
+                    const dateLabel = dateLabels[p.id];
+                    const risen = livePricing[p.id]?.risen ?? false;
+                    const priceNow = currentPrice(p.id);
+                    const priceRegular = livePricing[p.id]?.regularPrice ?? parsePriceIls(p.price);
+                    return (
+                      <div key={p.id} className="space-y-2">
+                        <label
+                          className={cn(
+                            "flex items-center justify-between gap-4 rounded-md border px-4 py-3 transition-colors",
+                            isComingSoon
+                              ? "border-cream/10 bg-ink/20 cursor-not-allowed opacity-60"
+                              : isChecked
+                                ? "border-gold bg-gold/10 cursor-pointer"
+                                : "border-cream/15 bg-ink/30 hover:border-gold/50 cursor-pointer",
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span
                               className={cn(
-                                "mr-8 rounded-md border p-3 transition-colors",
-                                errors.core_single_lesson
-                                  ? "border-destructive bg-destructive/10 animate-pulse"
-                                  : "border-gold/40 bg-ink/40",
+                                "shrink-0 w-5 h-5 rounded border flex items-center justify-center transition-all",
+                                isChecked
+                                  ? "bg-gold border-gold text-ink"
+                                  : "bg-cream border-cream",
+                                isComingSoon && "opacity-50",
                               )}
                             >
-                              <label className="block text-[12px] tracking-[0.18em] uppercase text-gold font-semibold mb-2">
-                                בחרו את המפגש הרצוי
-                              </label>
-                              <select
-                                ref={coreSingleSelectRef}
-                                value={coreSingleLesson}
-                                onChange={(e) => setCoreSingleLesson(e.target.value)}
+                              {isChecked && <Check size={13} strokeWidth={3} />}
+                            </span>
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={isChecked}
+                              disabled={isComingSoon}
+                              onChange={() => !isComingSoon && toggle(p.id)}
+                            />
+                            <div className="flex flex-col">
+                              <span
                                 className={cn(
-                                  "w-full bg-ink/60 border text-cream rounded px-3 py-2 text-[14px] focus:outline-none",
-                                  errors.core_single_lesson
-                                    ? "border-destructive focus:border-destructive"
-                                    : "border-cream/20 focus:border-gold",
+                                  "text-[15px] font-medium",
+                                  isComingSoon ? "text-cream/70" : "text-cream",
                                 )}
                               >
-                                <option value="">בחרו מפגש</option>
-                                {coreSeries.map((lesson, idx) => (
-                                  <option key={idx} value={lesson.t}>
-                                    {idx + 1}. {lesson.t}
-                                  </option>
-                                ))}
-                              </select>
-                              {errors.core_single_lesson && (
-                                <p className="text-destructive text-xs mt-2 font-semibold">{errors.core_single_lesson}</p>
+                                {p.t}
+                              </span>
+                              {(p.duration || dateLabel) && (
+                                <span
+                                  className={cn(
+                                    "text-[13px] tracking-[0.14em] uppercase mt-0.5",
+                                    isComingSoon ? "text-muted-brown/50" : "text-muted-brown",
+                                  )}
+                                >
+                                  {[p.duration, dateLabel].filter(Boolean).join(" · ")}
+                                </span>
                               )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {errors.packages && (
-                    <p className="text-destructive text-xs mt-2">{errors.packages}</p>
-                  )}
-                </fieldset>
+                          </div>
+                          <div className="flex items-center gap-2 whitespace-nowrap">
+                            {isComingSoon && (
+                              <span className="text-[11px] tracking-[0.18em] uppercase font-semibold text-gold/80 bg-gold/10 border border-gold/30 px-2 py-1 rounded">
+                                בקרוב
+                              </span>
+                            )}
+                            {!p.free && !risen && (
+                              <span
+                                className={cn(
+                                  "text-muted-brown ltr-inline text-[13px] line-through",
+                                  isComingSoon ? "opacity-30" : "opacity-60",
+                                )}
+                              >
+                                ₪ {priceRegular.toLocaleString()}
+                              </span>
+                            )}
+                            <span
+                              className={cn(
+                                "ltr-inline text-[14px] font-semibold",
+                                isComingSoon ? "text-gold/50" : "text-gold",
+                              )}
+                            >
+                              {p.free ? "ללא תשלום" : `₪ ${priceNow.toLocaleString()}`}
+                            </span>
+                          </div>
+                        </label>
 
-                {paidSelectedIds.length > 0 && (
-                  <div className="mt-4 flex items-center justify-between gap-4 rounded-md border border-gold/40 bg-gold/10 px-5 py-3">
-                    <span className="text-[13px] text-muted-brown">
-                      {paidSelectedIds.length} {paidSelectedIds.length === 1 ? "פריט בתשלום נבחר" : "פריטים בתשלום נבחרו"}
-                    </span>
-                    <span className="text-lg font-serif text-gold ltr-inline">סה"כ ₪{total.toLocaleString()}</span>
-                  </div>
+                        {p.id === "core_single" && isChecked && !isComingSoon && (
+                          <div
+                            ref={coreSingleRef}
+                            className={cn(
+                              "mr-8 rounded-md border p-3 transition-colors grid sm:grid-cols-2 gap-2",
+                              errors.core_single_lesson
+                                ? "border-destructive bg-destructive/10 animate-pulse"
+                                : "border-gold/40 bg-ink/40",
+                            )}
+                          >
+                            {coreSeries.map((lesson, idx) => {
+                              const lessonIdx = idx + 1;
+                              const lessonChecked = coreSingleLessons.has(lessonIdx);
+                              return (
+                                <label
+                                  key={lessonIdx}
+                                  className={cn(
+                                    "flex items-center gap-2 rounded-md border px-3 py-2 text-[13px] cursor-pointer transition-colors",
+                                    lessonChecked
+                                      ? "border-gold/60 bg-gold/5 text-cream"
+                                      : "border-cream/10 bg-ink/20 text-muted-brown hover:border-gold/30",
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="accent-gold"
+                                    checked={lessonChecked}
+                                    onChange={() => toggleLesson(lessonIdx)}
+                                  />
+                                  <span className="truncate">
+                                    {lessonIdx}. {lesson.t}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                            {errors.core_single_lesson && (
+                              <p className="text-destructive text-xs mt-2 font-semibold col-span-full">
+                                {errors.core_single_lesson}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {errors.packages && (
+                  <p className="text-destructive text-xs mt-2">{errors.packages}</p>
                 )}
-              </div>
-            </div>
+              </fieldset>
 
-            <div className="mt-8 flex justify-center">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="btn-shimmer w-full max-w-md bg-gold text-ink py-4 rounded-md text-[15px] font-semibold hover:bg-gold-deep transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5"
-              >
-                <span className="relative z-10">{submitting ? "שולח..." : "שריון מקום ואישור הרשמה"}</span>
-              </button>
+              {paidSelectedIds.length > 0 && (
+                <div className="mt-4 space-y-3 rounded-md border border-gold/40 bg-gold/10 px-5 py-3">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => {
+                        setCouponCode(e.target.value);
+                        setCouponError(null);
+                      }}
+                      placeholder="קוד הנחה (אופציונלי)"
+                      className="flex-1 bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-[13px] text-cream placeholder:text-muted-brown/60 focus:outline-none focus:border-gold ltr-inline"
+                    />
+                    <button
+                      type="button"
+                      onClick={applyCoupon}
+                      disabled={couponChecking || !couponCode.trim()}
+                      className="shrink-0 border border-gold/50 text-gold px-3 py-2 rounded-md text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-50"
+                    >
+                      {couponChecking ? "בודק..." : "החלת קוד"}
+                    </button>
+                  </div>
+                  {couponApplied && (
+                    <div className="text-[12px] text-green-400">
+                      קוד {couponApplied.code} הופעל — הנחה של {couponApplied.discountPercent}%
+                    </div>
+                  )}
+                  {couponError && <div className="text-[12px] text-destructive">{couponError}</div>}
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-[13px] text-muted-brown">
+                      {paidSelectedIds.length}{" "}
+                      {paidSelectedIds.length === 1 ? "פריט בתשלום נבחר" : "פריטים בתשלום נבחרו"}
+                    </span>
+                    <span className="text-lg font-serif text-gold ltr-inline">
+                      סה"כ ₪{total.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
+          </div>
+
+          <div className="mt-8 flex justify-center">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn-shimmer w-full max-w-md bg-gold text-ink py-4 rounded-md text-[15px] font-semibold hover:bg-gold-deep transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed hover:-translate-y-0.5"
+            >
+              <span className="relative z-10">
+                {submitting ? "שולח..." : "שריון מקום ואישור הרשמה"}
+              </span>
+            </button>
+          </div>
         </form>
       </div>
 
@@ -1888,8 +2063,8 @@ function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string
                   <div className="rounded-md border border-gold/30 bg-gold/5 p-4">
                     <p className="font-semibold text-cream mb-1">📄 חשבונית מס</p>
                     <p>
-                      לאחר השלמת הרכישה בעמוד התשלום, תישלח אליך בדקות הקרובות
-                      חשבונית מס במייל מטעם <strong>בן דוד עמית, חברת עורכי דין</strong>.
+                      לאחר השלמת הרכישה בעמוד התשלום, תישלח אליך בדקות הקרובות חשבונית מס במייל מטעם{" "}
+                      <strong>בן דוד עמית, חברת עורכי דין</strong>.
                     </p>
                   </div>
                 )}
