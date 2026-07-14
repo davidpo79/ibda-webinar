@@ -369,15 +369,13 @@ function AdminDashboard() {
                     <Fragment key={group.order_reference}>
                       <tr className="border-t border-cream/10 hover:bg-cream/[0.03] align-top">
                         <td className="px-4 py-3">
-                          {isMulti && (
-                            <button
-                              onClick={() => toggleOrder(group.order_reference)}
-                              aria-label="פרטי מוצרים"
-                              className="w-6 h-6 rounded border border-gold/40 text-gold flex items-center justify-center hover:bg-gold/10 transition-colors"
-                            >
-                              {isOpen ? "–" : "+"}
-                            </button>
-                          )}
+                          <button
+                            onClick={() => toggleOrder(group.order_reference)}
+                            aria-label="פרטי מוצרים"
+                            className="w-6 h-6 rounded border border-gold/40 text-gold flex items-center justify-center hover:bg-gold/10 transition-colors"
+                          >
+                            {isOpen ? "–" : "+"}
+                          </button>
                         </td>
                         <td className="px-4 py-3 text-muted-brown">
                           <span className="ltr-inline break-all">{group.order_reference}</span>
@@ -394,9 +392,7 @@ function AdminDashboard() {
                           <span className="ltr-inline break-all">{head.email}</span>
                         </td>
                         <td className="px-4 py-3 break-words">
-                          {isMulti
-                            ? `${group.items.length} מוצרים`
-                            : PACKAGE_LABELS[head.package_id] || head.package_id}
+                          {packagesLabel(group.items.map((item) => item.package_id))}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           {totalAmount ? `₪${totalAmount}` : "—"}
@@ -408,8 +404,7 @@ function AdminDashboard() {
                           {isMulti ? "—" : formatSessionDate(head.session_starts_at) || "—"}
                         </td>
                       </tr>
-                      {isMulti &&
-                        isOpen &&
+                      {isOpen &&
                         group.items.map((item) => (
                           <tr key={item.id} className="border-t border-cream/10 bg-ink/40">
                             <td colSpan={5} />
