@@ -52,6 +52,27 @@ function sumitCredentials() {
   return { CompanyID: Number(companyId), APIKey: apiKey };
 }
 
+// /creditguy/gateway/gettransaction/ (and /creditguy/gateway/getreferencenumbers/)
+// are the only endpoints in Sumit's official API that authenticate with a
+// distinct "Public API Key" field (Credentials.APIPublicKey) rather than the
+// regular APIKey used everywhere else, including the sibling
+// /creditguy/gateway/transaction/ and /billing/payments/beginredirect/ calls —
+// confirmed directly against Sumit's own Swagger docs. This value needs to be
+// fetched from the Sumit dashboard and set as SUMIT_API_PUBLIC_KEY; it is not
+// derivable from the existing private SUMIT_API_KEY. Until it's configured,
+// this falls back to SUMIT_API_KEY under the correct field name — which may
+// still be rejected by Sumit, but verifySumitTransaction already throws on
+// that rejection rather than reporting a false "not paid", so callers fall
+// back to the signed webhook/return payload instead.
+function sumitGatewayVerifyCredentials() {
+  const apiPublicKey = process.env.SUMIT_API_PUBLIC_KEY || process.env.SUMIT_API_KEY;
+  const companyId = process.env.SUMIT_COMPANY_ID;
+  if (!apiPublicKey || !companyId) {
+    throw new Error("Sumit credentials are not configured");
+  }
+  return { CompanyID: Number(companyId), APIPublicKey: apiPublicKey };
+}
+
 export function getSumitPublicOrigin() {
   const configured = process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.APP_URL;
   if (configured) return configured.replace(/\/$/, "");
@@ -193,17 +214,12 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
 // Verifies a completed transaction directly against Sumit — never trust the
 // browser redirect or an unsigned webhook payload on its own.
 //
-// Credentials.APIKey (same field/value as every other endpoint here) is
-// confirmed correct for this endpoint against a real working reference
-// implementation of this exact call — a "PublicAPIKey"/"APIPublicKey" field
-// is a red herring here; that's only for Sumit's separate card-vault
-// tokenization endpoint, unrelated to transaction verification. If Sumit
-// still rejects the request with "CompanyID/PublicAPIKey are missing"
-// despite the correct field, the account's API key most likely lacks
-// CreditGuy Gateway access — that needs enabling on Sumit's side (dashboard
-// or support), not a code change.
+// Per Sumit's official Swagger docs, this specific endpoint requires
+// Credentials.APIPublicKey — a genuinely separate credential from the
+// APIKey used by every other endpoint in this file (beginredirect, charge,
+// recurring, etc.). See sumitGatewayVerifyCredentials() above.
 export async function verifySumitTransaction(transactionId: string): Promise<SumitValidation> {
-  const payload = { Credentials: sumitCredentials(), UniqueIdentifier: transactionId };
+  const payload = { Credentials: sumitGatewayVerifyCredentials(), UniqueIdentifier: transactionId };
   const res = await fetch(`${SUMIT_BASE_URL}/creditguy/gateway/gettransaction/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

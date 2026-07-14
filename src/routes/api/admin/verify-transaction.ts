@@ -7,14 +7,14 @@ import { createFileRoute } from "@tanstack/react-router";
 // correction — sets the order to paid and sends the customer their real
 // welcome email(s), same as a successful webhook would have).
 //
-// Sumit's /creditguy/gateway/gettransaction/ endpoint currently rejects our
-// credentials outright ("CompanyID/PublicAPIKey are missing") regardless of
-// which field name we send them under — this looks like it needs a
-// genuinely separate "public" API key from Sumit's own dashboard, not just
-// a renamed field, and isn't something guessable from our side. Until
-// that's resolved, forcePaid=1 lets an admin who has independently
-// confirmed the payment in Sumit's own dashboard apply the fix without
-// depending on that endpoint at all.
+// Sumit's /creditguy/gateway/gettransaction/ endpoint requires a genuinely
+// separate "Public API Key" credential (Credentials.APIPublicKey, confirmed
+// via Sumit's official Swagger docs) — not derivable from the existing
+// private SUMIT_API_KEY. Until SUMIT_API_PUBLIC_KEY is configured with the
+// real value from Sumit's dashboard, this call may still be rejected.
+// forcePaid=1 lets an admin who has independently confirmed the payment in
+// Sumit's own dashboard apply the fix without depending on that endpoint at
+// all.
 async function handle(request: Request) {
   const { parseCookie, isValidSessionCookie, ADMIN_COOKIE_NAME } =
     await import("@/lib/admin-auth.server");
