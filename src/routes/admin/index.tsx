@@ -190,14 +190,14 @@ function AdminDashboard() {
 
           {/* Desktop: full table */}
           <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto">
-            <table className="w-full text-sm min-w-[760px] table-fixed">
+            <table className="w-full text-sm min-w-[820px] table-fixed">
               <colgroup>
                 <col className="w-10" />
-                <col className="w-[15%]" />
-                <col className="w-[19%]" />
-                <col className="w-[13%]" />
-                <col className="w-[32%]" />
-                <col className="w-[13%]" />
+                <col className="w-[140px]" />
+                <col className="w-[190px]" />
+                <col className="w-[110px]" />
+                <col />
+                <col className="w-[130px]" />
               </colgroup>
               <thead className="bg-sand/70 text-right">
                 <tr>
@@ -298,14 +298,14 @@ function AdminDashboard() {
 
           {/* Desktop: full table */}
           <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto">
-            <table className="w-full text-sm min-w-[760px] table-fixed">
+            <table className="w-full text-sm min-w-[900px] table-fixed">
               <colgroup>
-                <col className="w-[16%]" />
-                <col className="w-[19%]" />
-                <col className="w-[30%]" />
-                <col className="w-[11%]" />
-                <col className="w-[11%]" />
-                <col className="w-[13%]" />
+                <col className="w-[190px]" />
+                <col className="w-[190px]" />
+                <col />
+                <col className="w-[90px]" />
+                <col className="w-[100px]" />
+                <col className="w-[130px]" />
               </colgroup>
               <thead className="bg-sand/70 text-right">
                 <tr>

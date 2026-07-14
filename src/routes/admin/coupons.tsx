@@ -66,7 +66,7 @@ function AdminCouponsPage() {
       <header className="border-b border-border/60 px-6 py-4 flex items-center justify-between">
         <h1 className="font-serif text-xl text-gold">קופוני הנחה</h1>
         <Link to="/admin" className="text-sm text-muted-brown hover:text-gold transition-colors">
-          חזרה ללידים ולרוכשים
+          חזרה למסך הראשי
         </Link>
       </header>
 
