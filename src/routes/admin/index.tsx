@@ -387,8 +387,12 @@ function LeadCard({
           <div className="font-medium text-cream break-words">
             {r.first_name} {r.last_name}
           </div>
-          <div className="text-muted-brown text-sm ltr-inline break-all mt-1">{r.email}</div>
-          <div className="text-muted-brown text-sm ltr-inline mt-0.5">{r.phone}</div>
+          <div className="text-muted-brown text-sm mt-1">
+            <span className="ltr-inline break-all">{r.email}</span>
+          </div>
+          <div className="text-muted-brown text-sm mt-0.5">
+            <span className="ltr-inline">{r.phone}</span>
+          </div>
         </div>
         <button
           onClick={onToggle}
