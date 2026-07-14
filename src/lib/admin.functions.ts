@@ -7,7 +7,7 @@ import {
   isValidSessionCookie,
   verifyAdminPassword,
 } from "./admin-auth.server";
-import { listRegistrations } from "./registrations.server";
+import { listRegistrations, updateRegistrationContact } from "./registrations.server";
 import { listOrders } from "./orders.server";
 import {
   getAllSessions,
@@ -52,6 +52,26 @@ export const getAdminDashboardData = createServerFn({ method: "GET" }).handler(a
   const [registrations, orders] = await Promise.all([listRegistrations(), listOrders()]);
   return { registrations, orders };
 });
+
+const UpdateRegistrationSchema = z.object({
+  id: z.string().min(1),
+  first_name: z.string().trim().min(1),
+  last_name: z.string().trim().min(1),
+  email: z.string().trim().email(),
+  phone: z.string().trim().min(1),
+  firm_name: z.string().trim().optional(),
+  bar_license: z.string().trim().optional(),
+});
+
+// Lets the admin correct a lead's contact details (e.g. a phone number that
+// ended up pasted into the email field at submission time).
+export const updateRegistrationAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => UpdateRegistrationSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    await updateRegistrationContact(data.id, data);
+    return { ok: true };
+  });
 
 export const getAdminScheduleData = createServerFn({ method: "GET" }).handler(async () => {
   assertAdminSession();

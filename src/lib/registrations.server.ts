@@ -57,6 +57,34 @@ export async function findRecentRegistrationForPackage(
   return rows[0] ?? null;
 }
 
+export type RegistrationContactUpdate = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  firm_name?: string;
+  bar_license?: string;
+};
+
+// Lets the admin correct a lead's contact details from the dashboard — e.g.
+// a phone number that ended up pasted into the email field at submission
+// time. Doesn't touch selected_packages/session_id.
+export async function updateRegistrationContact(
+  id: string,
+  data: RegistrationContactUpdate,
+): Promise<void> {
+  await sql()`
+    UPDATE registrations SET
+      first_name = ${data.first_name},
+      last_name = ${data.last_name},
+      email = ${data.email},
+      phone = ${data.phone},
+      firm_name = ${data.firm_name ?? null},
+      bar_license = ${data.bar_license ?? null}
+    WHERE id = ${id}
+  `;
+}
+
 // Every submission is its own row — a lead who registers twice (e.g. for a
 // later cohort) shows up as two separate entries, not merged by email.
 export async function listRegistrations(): Promise<RegistrationRow[]> {

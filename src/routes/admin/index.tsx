@@ -1,6 +1,11 @@
-import { createFileRoute, redirect, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate, useRouter, Link } from "@tanstack/react-router";
 import { Fragment, useState } from "react";
-import { getAdminDashboardData, adminLogout } from "@/lib/admin.functions";
+import {
+  getAdminDashboardData,
+  adminLogout,
+  updateRegistrationAction,
+} from "@/lib/admin.functions";
+import type { RegistrationRow } from "@/lib/registrations.server";
 import { formatSessionDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +80,7 @@ const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label]) => ({ 
 function AdminDashboard() {
   const { registrations, orders } = Route.useLoaderData();
   const navigate = useNavigate();
+  const router = useRouter();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [leadPackageFilter, setLeadPackageFilter] = useState("all");
   const [orderPackageFilter, setOrderPackageFilter] = useState("all");
@@ -190,44 +196,7 @@ function AdminDashboard() {
                         <tr className="border-t border-cream/10 bg-ink/40">
                           <td />
                           <td colSpan={5} className="px-4 py-4">
-                            <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-2 text-[13px]">
-                              <div>
-                                <dt className="text-muted-brown">שם פרטי</dt>
-                                <dd>{r.first_name}</dd>
-                              </div>
-                              <div>
-                                <dt className="text-muted-brown">שם משפחה</dt>
-                                <dd>{r.last_name}</dd>
-                              </div>
-                              <div>
-                                <dt className="text-muted-brown">אימייל</dt>
-                                <dd className="ltr-inline">{r.email}</dd>
-                              </div>
-                              <div>
-                                <dt className="text-muted-brown">טלפון</dt>
-                                <dd className="ltr-inline">{r.phone}</dd>
-                              </div>
-                              <div>
-                                <dt className="text-muted-brown">שם משרד/חברה</dt>
-                                <dd>{r.firm_name || "—"}</dd>
-                              </div>
-                              <div>
-                                <dt className="text-muted-brown">מספר רישיון עו״ד</dt>
-                                <dd className="ltr-inline">{r.bar_license || "—"}</dd>
-                              </div>
-                              <div>
-                                <dt className="text-muted-brown">מסלולים</dt>
-                                <dd>{packagesLabel(r.selected_packages)}</dd>
-                              </div>
-                              <div>
-                                <dt className="text-muted-brown">מפגש/קוהורט</dt>
-                                <dd>{r.session_title || "—"}</dd>
-                              </div>
-                              <div>
-                                <dt className="text-muted-brown">מועד המפגש</dt>
-                                <dd>{formatSessionDate(r.session_starts_at) || "—"}</dd>
-                              </div>
-                            </dl>
+                            <LeadDetailPanel registration={r} onSaved={() => router.invalidate()} />
                           </td>
                         </tr>
                       )}
@@ -333,5 +302,171 @@ function AdminDashboard() {
         </section>
       </main>
     </div>
+  );
+}
+
+// Lead contact details, view mode by default with an "עריכת פרטי קשר" toggle
+// into an editable form — used to fix e.g. a phone number that ended up
+// pasted into the email field at submission time.
+function LeadDetailPanel({
+  registration: r,
+  onSaved,
+}: {
+  registration: RegistrationRow;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [first_name, setFirstName] = useState(r.first_name);
+  const [last_name, setLastName] = useState(r.last_name);
+  const [email, setEmail] = useState(r.email);
+  const [phone, setPhone] = useState(r.phone);
+  const [firm_name, setFirmName] = useState(r.firm_name || "");
+  const [bar_license, setBarLicense] = useState(r.bar_license || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function startEdit() {
+    setFirstName(r.first_name);
+    setLastName(r.last_name);
+    setEmail(r.email);
+    setPhone(r.phone);
+    setFirmName(r.firm_name || "");
+    setBarLicense(r.bar_license || "");
+    setError(null);
+    setEditing(true);
+  }
+
+  async function onSave() {
+    setSaving(true);
+    setError(null);
+    try {
+      await updateRegistrationAction({
+        data: {
+          id: r.id,
+          first_name: first_name.trim(),
+          last_name: last_name.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          firm_name: firm_name.trim(),
+          bar_license: bar_license.trim(),
+        },
+      });
+      setEditing(false);
+      onSaved();
+    } catch (err) {
+      console.error("[admin] update registration failed", err);
+      setError("שמירה נכשלה. ודאו שהאימייל תקין ונסו שוב.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <EditField label="שם פרטי" value={first_name} onChange={setFirstName} />
+          <EditField label="שם משפחה" value={last_name} onChange={setLastName} />
+          <EditField label="אימייל" value={email} onChange={setEmail} dir="ltr" />
+          <EditField label="טלפון" value={phone} onChange={setPhone} dir="ltr" />
+          <EditField label="שם משרד/חברה" value={firm_name} onChange={setFirmName} />
+          <EditField
+            label="מספר רישיון עו״ד"
+            value={bar_license}
+            onChange={setBarLicense}
+            dir="ltr"
+          />
+        </div>
+        {error && <p className="text-destructive text-xs">{error}</p>}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving}
+            className="bg-gold text-ink px-4 py-2 rounded-md text-xs font-semibold hover:bg-gold-deep transition-colors disabled:opacity-60"
+          >
+            {saving ? "שומר..." : "שמירה"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditing(false)}
+            className="text-xs text-muted-brown hover:text-cream"
+          >
+            ביטול
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-2 text-[13px]">
+        <div>
+          <dt className="text-muted-brown">שם פרטי</dt>
+          <dd>{r.first_name}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-brown">שם משפחה</dt>
+          <dd>{r.last_name}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-brown">אימייל</dt>
+          <dd className="ltr-inline break-all">{r.email}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-brown">טלפון</dt>
+          <dd className="ltr-inline">{r.phone}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-brown">שם משרד/חברה</dt>
+          <dd>{r.firm_name || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-brown">מספר רישיון עו״ד</dt>
+          <dd className="ltr-inline">{r.bar_license || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-brown">מסלולים</dt>
+          <dd>{packagesLabel(r.selected_packages)}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-brown">מפגש/קוהורט</dt>
+          <dd>{r.session_title || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-muted-brown">מועד המפגש</dt>
+          <dd>{formatSessionDate(r.session_starts_at) || "—"}</dd>
+        </div>
+      </dl>
+      <button type="button" onClick={startEdit} className="text-xs text-gold hover:underline">
+        עריכת פרטי קשר
+      </button>
+    </div>
+  );
+}
+
+function EditField({
+  label,
+  value,
+  onChange,
+  dir,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  dir?: "ltr" | "rtl";
+}) {
+  return (
+    <label className="block">
+      <span className="text-[12px] text-muted-brown mb-1 block">{label}</span>
+      <input
+        type="text"
+        dir={dir}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-[13px] text-cream focus:outline-none focus:border-gold"
+      />
+    </label>
   );
 }
