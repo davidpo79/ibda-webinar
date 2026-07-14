@@ -227,11 +227,11 @@ function AdminDashboard() {
                         <td className="px-4 py-3 font-medium break-words">
                           {r.first_name} {r.last_name}
                         </td>
-                        <td className="px-4 py-3 ltr-inline text-muted-brown break-all">
-                          {r.email}
+                        <td className="px-4 py-3 text-muted-brown">
+                          <span className="ltr-inline break-all">{r.email}</span>
                         </td>
-                        <td className="px-4 py-3 ltr-inline text-muted-brown whitespace-nowrap">
-                          {r.phone}
+                        <td className="px-4 py-3 text-muted-brown">
+                          <span className="ltr-inline whitespace-nowrap">{r.phone}</span>
                         </td>
                         <td className="px-4 py-3 text-muted-brown break-words">
                           {packagesLabel(r.selected_packages)}
@@ -323,10 +323,12 @@ function AdminDashboard() {
                     key={o.id}
                     className="border-t border-cream/10 hover:bg-cream/[0.03] align-top"
                   >
-                    <td className="px-4 py-3 ltr-inline text-muted-brown break-all">
-                      {o.order_reference}
+                    <td className="px-4 py-3 text-muted-brown">
+                      <span className="ltr-inline break-all">{o.order_reference}</span>
                     </td>
-                    <td className="px-4 py-3 ltr-inline text-muted-brown break-all">{o.email}</td>
+                    <td className="px-4 py-3 text-muted-brown">
+                      <span className="ltr-inline break-all">{o.email}</span>
+                    </td>
                     <td className="px-4 py-3 break-words">
                       {PACKAGE_LABELS[o.package_id] || o.package_id}
                     </td>

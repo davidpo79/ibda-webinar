@@ -165,7 +165,9 @@ function CouponTable({
         <tbody>
           {coupons.map((c) => (
             <tr key={c.id} className="border-t border-cream/10">
-              <td className="px-4 py-3 ltr-inline font-medium">{c.code}</td>
+              <td className="px-4 py-3 font-medium">
+                <span className="ltr-inline">{c.code}</span>
+              </td>
               <td className="px-4 py-3">{c.discount_percent}%</td>
               <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
                 {formatSessionDate(c.created_at)}
