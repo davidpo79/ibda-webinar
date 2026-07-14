@@ -31,6 +31,7 @@ import { subscribeRegistration } from "@/lib/resend.functions";
 import { createSumitPayment } from "@/lib/sumit.functions";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
+import { buildPricingDateLabels } from "@/lib/pricing-dates";
 import {
   saveContact,
   loadContact,
@@ -386,6 +387,7 @@ function Landing() {
     const session = premiumSessions.find((p) => p.key === PREMIUM_WORKSHOP_IDS[i]);
     return { ...w, date: formatSessionDate(session?.starts_at) || w.date };
   });
+  const pricingDateLabels = buildPricingDateLabels(coreSessions, premiumSessions);
 
   const toggle = useCallback((id: string) => {
     setSelected((s) => {
@@ -429,8 +431,8 @@ function Landing() {
         <OpenWebinarsSection data={openWebinarsResolved} />
         <CoreSeriesSection data={coreSeriesResolved} />
         <PremiumSection data={premiumWorkshopsResolved} />
-        <PricingSection />
-        <RegistrationSection />
+        <PricingSection dateLabels={pricingDateLabels} />
+        <RegistrationSection dateLabels={pricingDateLabels} />
         <Footer />
       </div>
     </RegistrationModalContext.Provider>
@@ -496,15 +498,15 @@ const scheduleItems: ScheduleItem[] = ([
   { kind: "סדנה", title: "העתיד כבר כאן! AI ואוטומציות בעבודת עורך הדין", date: "21.7 · 10:00", sortKey: "2026-07-21T10:00" },
   { kind: "סדרת הליבה", title: "מפגש 1 · המפה המשפטית", date: "26.7 · 10:00", sortKey: "2026-07-26T10:00" },
   { kind: "סדרת הליבה", title: "מפגש 2 · דגשים בבדיקות מקדמיות", date: "27.7 · 10:00", sortKey: "2026-07-27T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 3 · לב העסקה — חלק א׳", date: "28.7 · 10:00", sortKey: "2026-07-28T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 4 · לב העסקה — חלק ב׳", date: "30.7 · 10:00", sortKey: "2026-07-30T10:00" },
+  { kind: "סדרת הליבה", title: "מפגש 3 · לב העסקה - חלק א׳", date: "28.7 · 10:00", sortKey: "2026-07-28T10:00" },
+  { kind: "סדרת הליבה", title: "מפגש 4 · לב העסקה - חלק ב׳", date: "30.7 · 10:00", sortKey: "2026-07-30T10:00" },
   { kind: "סדרת הליבה", title: "מפגש 5 · המשכנתא", date: "3.8 · 10:00", sortKey: "2026-08-03T10:00" },
   { kind: "סדרת הליבה", title: "מפגש 6 · מעמד החתימה ורישום הזכויות", date: "4.8 · 10:00", sortKey: "2026-08-04T10:00" },
   { kind: "סדרת הליבה", title: "מפגש 7 · הסכם השכירות", date: "9.8 · 10:00", sortKey: "2026-08-09T10:00" },
   { kind: "סדרת הליבה", title: "מפגש 8 · פינוי מושכר", date: "11.8 · 10:00", sortKey: "2026-08-11T10:00" },
   { kind: "סדרת הליבה", title: "מפגש 9 · העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים", date: "12.8 · 10:00", sortKey: "2026-08-12T10:00" },
   { kind: "סדנה", title: "רישום בית משותף (סדנה יומית · 4 שעות)", date: "13.8 · 09:00", sortKey: "2026-08-13T09:00" },
-  { kind: "סדנה", title: "ליטיגציה בנדל״ן — סוגיות נבחרות", date: "16.8 · 10:00", sortKey: "2026-08-16T10:00" },
+  { kind: "סדנה", title: "ליטיגציה בנדל״ן - סוגיות נבחרות", date: "16.8 · 10:00", sortKey: "2026-08-16T10:00" },
   { kind: "סדנה", title: "שיתוף במקרקעין", date: "17.8 · 10:00", sortKey: "2026-08-17T10:00" },
 ] as ScheduleItem[]).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
@@ -1291,7 +1293,7 @@ function PremiumSection({ data }: { data: typeof premiumWorkshops }) {
 
 /* -------------------------- pricing -------------------------- */
 
-function PricingSection() {
+function PricingSection({ dateLabels }: { dateLabels: Record<string, string> }) {
   const [openGroup, setOpenGroup] = useState(false);
   const [openPolicy, setOpenPolicy] = useState(false);
   const { open } = useRegistrationModal();
@@ -1317,6 +1319,7 @@ function PricingSection() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {pricing.map((p) => {
             const isComingSoon = p.comingSoon;
+            const dateLabel = dateLabels[p.id];
             const cardClasses = cn(
               "group relative bg-sand/70 backdrop-blur-2xl border border-cream/10 rounded-lg p-7 flex flex-col text-right shadow-[0_10px_40px_-20px_rgba(0,0,0,0.6)] transition-all duration-300",
               !isComingSoon && "hover:-translate-y-1 hover:border-gold/70 hover:shadow-[0_20px_50px_-15px_rgba(196,164,97,0.35)] cursor-pointer",
@@ -1338,9 +1341,9 @@ function PricingSection() {
                 <div className="text-sm tracking-[0.22em] uppercase font-semibold mb-2 text-gold">
                   {p.t}
                 </div>
-                {p.duration && (
+                {(p.duration || dateLabel) && (
                   <div className="text-[13px] tracking-[0.18em] uppercase text-muted-brown font-semibold mb-3">
-                    {p.duration}
+                    {[p.duration, dateLabel].filter(Boolean).join(" · ")}
                   </div>
                 )}
 
@@ -1518,7 +1521,7 @@ const InlineRegSchema = z.object({
   id_number: z.string().trim().max(20).optional().or(z.literal("")),
 });
 
-function RegistrationSection() {
+function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string> }) {
   const navigate = useNavigate();
   const { selected, toggle, coreLesson } = useRegistrationModal();
   const savedContact = useRef(loadContact()).current;
@@ -1707,6 +1710,7 @@ function RegistrationSection() {
                     {pricing.map((p) => {
                       const isChecked = selected.has(p.id);
                       const isComingSoon = p.comingSoon;
+                      const dateLabel = dateLabels[p.id];
                       return (
                         <div key={p.id} className="space-y-2">
                           <label
@@ -1738,8 +1742,15 @@ function RegistrationSection() {
                               />
                               <div className="flex flex-col">
                                 <span className={cn("text-[15px] font-medium", isComingSoon ? "text-cream/70" : "text-cream")}>{p.t}</span>
-                                {p.duration && (
-                                  <span className={cn("text-[13px] tracking-[0.14em] uppercase mt-0.5", isComingSoon ? "text-muted-brown/50" : "text-muted-brown")}>{p.duration}</span>
+                                {(p.duration || dateLabel) && (
+                                  <span
+                                    className={cn(
+                                      "text-[13px] tracking-[0.14em] uppercase mt-0.5",
+                                      isComingSoon ? "text-muted-brown/50" : "text-muted-brown",
+                                    )}
+                                  >
+                                    {[p.duration, dateLabel].filter(Boolean).join(" · ")}
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -1784,7 +1795,7 @@ function RegistrationSection() {
                                     : "border-cream/20 focus:border-gold",
                                 )}
                               >
-                                <option value="">— בחרו מפגש —</option>
+                                <option value="">בחרו מפגש</option>
                                 {coreSeries.map((lesson, idx) => (
                                   <option key={idx} value={lesson.t}>
                                     {idx + 1}. {lesson.t}

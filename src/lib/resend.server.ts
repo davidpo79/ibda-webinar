@@ -75,7 +75,7 @@ function packageLabels(data: RegistrationSubscription): string[] {
   return data.selected_packages
     .map((id) => {
       if (id === "core_single" && data.core_single_lesson) {
-        return `וובינר בודד — ${data.core_single_lesson}`;
+        return `וובינר בודד: ${data.core_single_lesson}`;
       }
       return PACKAGE_LABELS[id];
     })
@@ -271,7 +271,7 @@ function exploreProgramsCta(): string {
   return `
     <div dir="rtl" style="background-color:#17150F;border:1px solid #C4A461;border-radius:8px;padding:18px 20px;margin-bottom:18px;text-align:center;">
       <p dir="rtl" style="color:#FFFDF7;font-size:14px;line-height:1.7;margin:0 0 14px;">
-        מוזמנים גם להציץ בסדרת הליבה ובסדנאות הפרימיום — מחיר ההרשמה המוקדמת
+        מוזמנים גם להציץ בסדרת הליבה ובסדנאות הפרימיום. מחיר ההרשמה המוקדמת
         בתוקף ל-72 שעות מסיום הוובינר הפתוח.
       </p>
       <a href="${origin}/thank-you" dir="rtl" style="display:inline-block;background-color:#C4A461;color:#17150F;font-size:14px;font-weight:700;text-decoration:none;padding:10px 24px;border-radius:6px;">

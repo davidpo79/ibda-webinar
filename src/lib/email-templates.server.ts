@@ -54,7 +54,7 @@ function marketingShell(bodyHtml: string, recipientEmail: string): string {
           <div dir="rtl" style="margin-top:6px;">
             <a href="${unsubUrl}" style="color:#333333;font-size:11px;font-weight:bold;text-decoration:underline;">Unsubscribe</a>
           </div>
-          <div dir="rtl" style="color:#aaaaaa;font-size:10px;margin-top:10px;">IBDA Law Firm — משרד עו״ד יפעת בן דוד עמית</div>
+          <div dir="rtl" style="color:#aaaaaa;font-size:10px;margin-top:10px;">IBDA Law Firm | משרד עו״ד יפעת בן דוד עמית</div>
         </td></tr>
       </table>
     </td></tr>
@@ -104,7 +104,7 @@ function sessionLinkLabel(s: Session): string {
   // premium workshops are listed by title alone.
   const prefix = s.type === "core" ? `מפגש ${s.sort_order} - ` : "";
   const dateLabel = formatHebrewFull(s.starts_at) || "";
-  return `${prefix}${s.title} — ${dateLabel}`;
+  return `${prefix}${s.title} · ${dateLabel}`;
 }
 
 export type WelcomeEmail = { subject: string; preheader: string; html: string };

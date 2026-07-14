@@ -17,7 +17,7 @@ export const Route = createFileRoute("/webinar")({
       { title: "הרשמה לוובינר הפתוח · IBDA" },
       {
         name: "description",
-        content: "הרשמה חינמית לוובינר הפתוח של IBDA — כמה זה עולה לעשות עסקת נדל\"ן?",
+        content: 'הרשמה חינמית לוובינר הפתוח של IBDA: כמה זה עולה לעשות עסקת נדל"ן?',
       },
     ],
   }),

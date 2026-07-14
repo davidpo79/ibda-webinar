@@ -23,6 +23,7 @@ import { subscribeRegistration } from "@/lib/resend.functions";
 import { createSumitPayment } from "@/lib/sumit.functions";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
+import { buildPricingDateLabels } from "@/lib/pricing-dates";
 import {
   saveContact,
   loadContact,
@@ -35,7 +36,7 @@ export const Route = createFileRoute("/thank-you")({
   head: () => ({
     meta: [
       { title: "תודה שנרשמת · IBDA" },
-      { name: "description", content: "תודה שנרשמת לוובינר הפתוח של IBDA — הצצה לתוכניות ההמשך." },
+      { name: "description", content: "תודה שנרשמת לוובינר הפתוח של IBDA. הצצה לתוכניות ההמשך." },
     ],
   }),
   loader: async () => getScheduleData(),
@@ -105,7 +106,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function ThankYouPage() {
-  const { openSession, coreSessions } = Route.useLoaderData();
+  const { openSession, coreSessions, premiumSessions } = Route.useLoaderData();
   const [selected, setSelected] = useState<Set<string>>(() =>
     sanitizeSelection(loadSelection("thank-you") ?? new Set()),
   );
@@ -119,6 +120,7 @@ function ThankYouPage() {
     ...s,
     date: formatSessionDate(coreSessions[i]?.starts_at) || s.date,
   }));
+  const pricingDateLabels = buildPricingDateLabels(coreSessions, premiumSessions);
   const total = Array.from(selected).reduce((sum, id) => sum + (PRICE_LOOKUP[id] ?? 0), 0);
 
   function toggle(id: string) {
@@ -146,7 +148,7 @@ function ThankYouPage() {
           </div>
           <h1 className="font-serif text-4xl sm:text-5xl text-cream mb-4">תודה שנרשמת לוובינר הפתוח!</h1>
           <p className="text-muted-brown text-[17px] leading-[1.85] max-w-xl mx-auto mb-5">
-            "{openWebinarRecap.title}" — פרטי ההתחברות למפגש יישלחו אליך בנפרד, סמוך למועד.
+            "{openWebinarRecap.title}". פרטי ההתחברות למפגש יישלחו אליך בנפרד, סמוך למועד.
           </p>
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-cream bg-gold/10 border border-gold/40 px-4 py-2 rounded-md">
             <Calendar size={16} className="text-gold" />
@@ -157,7 +159,7 @@ function ThankYouPage() {
         <section className="mb-10">
           <div className="text-center mb-8">
             <SectionLabel>What's Next</SectionLabel>
-            <h2 className="font-serif text-3xl md:text-4xl text-gold">בזמן שממתינים לוובינר — הכירו את ההמשך</h2>
+            <h2 className="font-serif text-3xl md:text-4xl text-gold">בזמן שממתינים לוובינר, הכירו את ההמשך</h2>
             <p className="mt-4 text-muted-brown max-w-2xl mx-auto">
               מחיר ההרשמה המוקדמת בתוקף ל-72 שעות מסיום הוובינר הפתוח.
             </p>
@@ -167,6 +169,7 @@ function ThankYouPage() {
             {PRICING.map((p) => {
               const isChecked = selected.has(p.id);
               const isComingSoon = p.comingSoon;
+              const dateLabel = pricingDateLabels[p.id];
               return (
                 <label
                   key={p.id}
@@ -205,14 +208,14 @@ function ThankYouPage() {
                       >
                         {p.t}
                       </span>
-                      {p.duration && (
+                      {(p.duration || dateLabel) && (
                         <span
                           className={cn(
                             "text-[13px] tracking-[0.14em] uppercase mt-0.5",
                             isComingSoon ? "text-muted-brown/50" : "text-muted-brown",
                           )}
                         >
-                          {p.duration}
+                          {[p.duration, dateLabel].filter(Boolean).join(" · ")}
                         </span>
                       )}
                     </div>
