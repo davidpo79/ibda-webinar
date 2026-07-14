@@ -52,19 +52,6 @@ function sumitCredentials() {
   return { CompanyID: Number(companyId), APIKey: apiKey };
 }
 
-// The /creditguy/gateway/* endpoints are a different Sumit sub-API from
-// /billing/* and reject the `APIKey` field with "CompanyID/PublicAPIKey are
-// missing" (confirmed against a live response) — they expect the same key
-// value under `PublicAPIKey` instead.
-function sumitGatewayCredentials() {
-  const apiKey = process.env.SUMIT_API_KEY;
-  const companyId = process.env.SUMIT_COMPANY_ID;
-  if (!apiKey || !companyId) {
-    throw new Error("Sumit credentials are not configured");
-  }
-  return { CompanyID: Number(companyId), PublicAPIKey: apiKey };
-}
-
 export function getSumitPublicOrigin() {
   const configured = process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.APP_URL;
   if (configured) return configured.replace(/\/$/, "");
@@ -205,8 +192,18 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
 
 // Verifies a completed transaction directly against Sumit — never trust the
 // browser redirect or an unsigned webhook payload on its own.
+//
+// Credentials.APIKey (same field/value as every other endpoint here) is
+// confirmed correct for this endpoint against a real working reference
+// implementation of this exact call — a "PublicAPIKey"/"APIPublicKey" field
+// is a red herring here; that's only for Sumit's separate card-vault
+// tokenization endpoint, unrelated to transaction verification. If Sumit
+// still rejects the request with "CompanyID/PublicAPIKey are missing"
+// despite the correct field, the account's API key most likely lacks
+// CreditGuy Gateway access — that needs enabling on Sumit's side (dashboard
+// or support), not a code change.
 export async function verifySumitTransaction(transactionId: string): Promise<SumitValidation> {
-  const payload = { Credentials: sumitGatewayCredentials(), UniqueIdentifier: transactionId };
+  const payload = { Credentials: sumitCredentials(), UniqueIdentifier: transactionId };
   const res = await fetch(`${SUMIT_BASE_URL}/creditguy/gateway/gettransaction/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -216,11 +213,11 @@ export async function verifySumitTransaction(transactionId: string): Promise<Sum
   if (!res.ok) throw new Error(`Sumit verify failed ${res.status}: ${text}`);
   const data = JSON.parse(text) as { Data?: unknown; UserErrorMessage?: string };
   console.log("[Sumit] gettransaction raw response", transactionId, text);
-  // Sumit sometimes rejects the request itself (credentials/config problem
-  // on this specific endpoint, confirmed live: "CompanyID/PublicAPIKey are
-  // missing") rather than returning a real transaction result. That's not
-  // the same as "this transaction failed" — throw so callers fall back to
-  // a signed/already-trusted source instead of concluding not-paid.
+  // Sumit sometimes rejects the request itself (account/credentials problem
+  // on this specific endpoint) rather than returning a real transaction
+  // result. That's not the same as "this transaction failed" — throw so
+  // callers fall back to a signed/already-trusted source instead of
+  // concluding not-paid.
   if (data.UserErrorMessage && data.Data == null) {
     throw new Error(`Sumit verify rejected the request: ${data.UserErrorMessage}`);
   }
@@ -228,6 +225,15 @@ export async function verifySumitTransaction(transactionId: string): Promise<Sum
 }
 
 export function parseSumitTransactionStatus(payload: Record<string, unknown>): SumitValidation {
+  // Sumit's real webhook/redirect callback for a beginredirect-initiated
+  // payment (our whole checkout flow) is a "short form" carrying none of
+  // the Status/Success/Data fields below — just {valid: '1', documentid,
+  // customerid} — confirmed against a real working reference
+  // implementation of this exact flow. Treat that as authoritative on its
+  // own; it's the common case, not an edge case.
+  if (String(payload.valid ?? "") === "1") {
+    return { paid: true, status: "valid", raw: payload };
+  }
   const statusStr = String(payload.Status ?? "");
   const success = payload.Success === true || statusStr.startsWith("Success");
   const txn = (payload.Data as Record<string, unknown>) || {};

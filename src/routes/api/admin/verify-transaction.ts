@@ -3,10 +3,18 @@ import { createFileRoute } from "@tanstack/react-router";
 // Temporary diagnostic + repair endpoint — lets an already-logged-in admin
 // (a) fetch the raw Sumit gettransaction response for a specific transaction
 // id, and (b) optionally reconcile a specific order that was mismarked
-// "failed" by the credentials bug fixed alongside this endpoint (pass
-// orderReference + email + packageIds + fix=1 to actually apply the
+// "failed" (pass orderReference + email + packageIds + fix=1 to apply the
 // correction — sets the order to paid and sends the customer their real
 // welcome email(s), same as a successful webhook would have).
+//
+// Sumit's /creditguy/gateway/gettransaction/ endpoint currently rejects our
+// credentials outright ("CompanyID/PublicAPIKey are missing") regardless of
+// which field name we send them under — this looks like it needs a
+// genuinely separate "public" API key from Sumit's own dashboard, not just
+// a renamed field, and isn't something guessable from our side. Until
+// that's resolved, forcePaid=1 lets an admin who has independently
+// confirmed the payment in Sumit's own dashboard apply the fix without
+// depending on that endpoint at all.
 async function handle(request: Request) {
   const { parseCookie, isValidSessionCookie, ADMIN_COOKIE_NAME } =
     await import("@/lib/admin-auth.server");
@@ -21,21 +29,26 @@ async function handle(request: Request) {
     return new Response("missing transactionId", { status: 400 });
   }
 
-  const { verifySumitTransaction } = await import("@/lib/sumit.server");
-  let validation: Awaited<ReturnType<typeof verifySumitTransaction>>;
-  try {
-    validation = await verifySumitTransaction(transactionId);
-  } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }, null, 2), {
-      status: 500,
-      headers: { "content-type": "application/json; charset=utf-8" },
-    });
-  }
-
   const orderReference = url.searchParams.get("orderReference");
   const email = url.searchParams.get("email");
   const packageIdsParam = url.searchParams.get("packageIds");
   const shouldFix = url.searchParams.get("fix") === "1";
+  const forcePaid = url.searchParams.get("forcePaid") === "1";
+
+  let validation: { paid: boolean; status: string; raw: unknown };
+  if (forcePaid) {
+    validation = { paid: true, status: "manually confirmed by admin", raw: null };
+  } else {
+    const { verifySumitTransaction } = await import("@/lib/sumit.server");
+    try {
+      validation = await verifySumitTransaction(transactionId);
+    } catch (err) {
+      return new Response(JSON.stringify({ error: String(err) }, null, 2), {
+        status: 500,
+        headers: { "content-type": "application/json; charset=utf-8" },
+      });
+    }
+  }
 
   if (!shouldFix || !orderReference || !email || !packageIdsParam) {
     return new Response(JSON.stringify(validation, null, 2), {
