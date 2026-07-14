@@ -19,10 +19,13 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- re-run (IF NOT EXISTS guards it).
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS zoom_url text;
 
--- 'core'/'premium' sessions are fixed single slots (one row per key, ever);
--- 'open' cohorts repeat over time with no fixed key, so the uniqueness only
--- applies where a key is actually set.
-CREATE UNIQUE INDEX IF NOT EXISTS sessions_key_unique ON sessions (key) WHERE key IS NOT NULL;
+-- 'core'/'premium' sessions used to be fixed single slots (one row per key),
+-- but the admin can now schedule a new future cohort for any lesson or
+-- workshop without losing the old one (mirrors how 'open' cohorts already
+-- worked) — so `key` is no longer unique. src/lib/schedule.server.ts always
+-- resolves "the" session for a key as the soonest upcoming row sharing it
+-- (falling back to the most recent past one), never assuming a single row.
+DROP INDEX IF EXISTS sessions_key_unique;
 
 CREATE TABLE IF NOT EXISTS registrations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -68,8 +71,12 @@ CREATE TABLE IF NOT EXISTS registration_reminders (
 );
 
 -- Seed the current site's hardcoded dates so behavior is unchanged on first
--- deploy — only the source of the dates moves into the database.
-INSERT INTO sessions (type, key, title, starts_at, sort_order) VALUES
+-- deploy — only the source of the dates moves into the database. Guarded by
+-- key existence (not a unique constraint, now that a key can have several
+-- cohort rows) so this never re-seeds a key the admin has already touched.
+INSERT INTO sessions (type, key, title, starts_at, sort_order)
+SELECT v.type, v.key, v.title, v.starts_at::timestamptz, v.sort_order
+FROM (VALUES
   ('core', 'core_1', 'המפה המשפטית', '2026-07-26T10:00:00+03:00', 1),
   ('core', 'core_2', 'דגשים בבדיקות מקדמיות', '2026-07-27T10:00:00+03:00', 2),
   ('core', 'core_3', 'לב העסקה - חלק א''', '2026-07-28T10:00:00+03:00', 3),
@@ -83,10 +90,12 @@ INSERT INTO sessions (type, key, title, starts_at, sort_order) VALUES
   ('premium', 'premium_registration', 'רישום בית משותף', '2026-08-13T09:00:00+03:00', 2),
   ('premium', 'premium_litigation', 'ליטיגציה בנדל״ן - סוגיות נבחרות', '2026-08-16T10:00:00+03:00', 3),
   ('premium', 'premium_partnership', 'שיתוף במקרקעין', '2026-08-17T10:00:00+03:00', 4)
-ON CONFLICT (key) WHERE key IS NOT NULL DO NOTHING;
+) AS v(type, key, title, starts_at, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM sessions s WHERE s.key = v.key);
 
--- The 'open' seed row has no key, so the ON CONFLICT above can't guard it —
--- guard separately so re-running this file doesn't insert duplicate cohorts.
+-- The 'open' seed row has no key, so it needs its own existence guard —
+-- separate from the core/premium block above, so re-running this file
+-- doesn't insert duplicate cohorts.
 INSERT INTO sessions (type, key, title, starts_at, sort_order)
 SELECT 'open', NULL, 'כמה זה עולה לעשות עסקת נדל״ן?', '2026-07-15T10:00:00+03:00', 0
 WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE type = 'open');

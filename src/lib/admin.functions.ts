@@ -9,7 +9,12 @@ import {
 } from "./admin-auth.server";
 import { listRegistrations } from "./registrations.server";
 import { listOrders } from "./orders.server";
-import { getAllSessions, updateSessionDate, createOpenSession } from "./schedule.server";
+import {
+  getAllSessions,
+  updateSessionDate,
+  createOpenSession,
+  createSessionCohort,
+} from "./schedule.server";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
@@ -76,5 +81,20 @@ export const createOpenSessionAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     assertAdminSession();
     const session = await createOpenSession(data.title, data.startsAt);
+    return { session };
+  });
+
+const CreateSessionCohortSchema = z.object({
+  key: z.string().trim().min(1),
+  startsAt: z.string().min(1),
+});
+
+// Schedules a new future date for an existing core lesson or premium
+// workshop without touching its earlier cohort(s).
+export const createSessionCohortAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => CreateSessionCohortSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    const session = await createSessionCohort(data.key, data.startsAt);
     return { session };
   });

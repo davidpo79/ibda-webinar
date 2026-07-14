@@ -31,19 +31,49 @@ export async function getNextOpenSession(): Promise<Session | null> {
   return fallback[0] ?? null;
 }
 
+// A lesson/workshop key can now have several cohort rows (the admin can
+// schedule a new future date without deleting the old one). "The" session
+// for a key is always the soonest upcoming row sharing it, falling back to
+// the most recent past one if none is upcoming — same rule as the open
+// webinar already used before this generalized to every key.
+function pickBestPerKey(rows: Session[]): Session[] {
+  const now = Date.now();
+  const groups = new Map<string, Session[]>();
+  const order: string[] = [];
+  for (const row of rows) {
+    const groupKey = row.key ?? row.id;
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, []);
+      order.push(groupKey);
+    }
+    groups.get(groupKey)!.push(row);
+  }
+  return order.map((groupKey) => {
+    const group = groups.get(groupKey)!;
+    const upcoming = group
+      .filter((s) => new Date(s.starts_at).getTime() > now)
+      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime());
+    if (upcoming[0]) return upcoming[0];
+    return group
+      .slice()
+      .sort((a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime())[0];
+  });
+}
+
 export async function getSessionByKey(key: string): Promise<Session | null> {
   const rows = await sql()<Session[]>`
     SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions WHERE key = ${key}
   `;
-  return rows[0] ?? null;
+  return pickBestPerKey(rows)[0] ?? null;
 }
 
 export async function getSessionsByType(type: SessionType): Promise<Session[]> {
-  return sql()<Session[]>`
+  const rows = await sql()<Session[]>`
     SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
     WHERE type = ${type}
     ORDER BY sort_order ASC, starts_at ASC
   `;
+  return pickBestPerKey(rows).sort((a, b) => a.sort_order - b.sort_order);
 }
 
 export async function getAllSessions(): Promise<Session[]> {
@@ -69,6 +99,26 @@ export async function createOpenSession(title: string, startsAt: string): Promis
   const rows = await sql()<Session[]>`
     INSERT INTO sessions (type, key, title, starts_at, sort_order, zoom_url)
     VALUES ('open', NULL, ${title}, ${startsAt}, 0, ${zoomUrl})
+    RETURNING id, type, key, title, starts_at, sort_order, zoom_url
+  `;
+  return rows[0];
+}
+
+// Schedules a new future cohort for an existing core lesson or premium
+// workshop, inheriting its type/title/sort_order/zoom_url from the most
+// recent existing row with that key — the admin only picks the new date.
+export async function createSessionCohort(key: string, startsAt: string): Promise<Session> {
+  const template = await sql()<Session[]>`
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
+    WHERE key = ${key}
+    ORDER BY starts_at DESC
+    LIMIT 1
+  `;
+  if (!template[0]) throw new Error(`Unknown session key: ${key}`);
+  const { type, title, sort_order, zoom_url } = template[0];
+  const rows = await sql()<Session[]>`
+    INSERT INTO sessions (type, key, title, starts_at, sort_order, zoom_url)
+    VALUES (${type}, ${key}, ${title}, ${startsAt}, ${sort_order}, ${zoom_url})
     RETURNING id, type, key, title, starts_at, sort_order, zoom_url
   `;
   return rows[0];
