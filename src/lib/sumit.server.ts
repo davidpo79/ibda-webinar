@@ -52,6 +52,19 @@ function sumitCredentials() {
   return { CompanyID: Number(companyId), APIKey: apiKey };
 }
 
+// The /creditguy/gateway/* endpoints are a different Sumit sub-API from
+// /billing/* and reject the `APIKey` field with "CompanyID/PublicAPIKey are
+// missing" (confirmed against a live response) — they expect the same key
+// value under `PublicAPIKey` instead.
+function sumitGatewayCredentials() {
+  const apiKey = process.env.SUMIT_API_KEY;
+  const companyId = process.env.SUMIT_COMPANY_ID;
+  if (!apiKey || !companyId) {
+    throw new Error("Sumit credentials are not configured");
+  }
+  return { CompanyID: Number(companyId), PublicAPIKey: apiKey };
+}
+
 export function getSumitPublicOrigin() {
   const configured = process.env.PUBLIC_SITE_URL || process.env.SITE_URL || process.env.APP_URL;
   if (configured) return configured.replace(/\/$/, "");
@@ -193,7 +206,7 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
 // Verifies a completed transaction directly against Sumit — never trust the
 // browser redirect or an unsigned webhook payload on its own.
 export async function verifySumitTransaction(transactionId: string): Promise<SumitValidation> {
-  const payload = { Credentials: sumitCredentials(), UniqueIdentifier: transactionId };
+  const payload = { Credentials: sumitGatewayCredentials(), UniqueIdentifier: transactionId };
   const res = await fetch(`${SUMIT_BASE_URL}/creditguy/gateway/gettransaction/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
