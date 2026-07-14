@@ -16,7 +16,13 @@ const CreatePaymentSchema = z.object({
 export const createSumitPayment = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => CreatePaymentSchema.parse(input))
   .handler(async ({ data }) => {
-    const result = await createSumitPaymentPage(data);
+    let result: Awaited<ReturnType<typeof createSumitPaymentPage>>;
+    try {
+      result = await createSumitPaymentPage(data);
+    } catch (err) {
+      console.error("[createSumitPayment] failed", data.package_id, data.order_reference, err);
+      throw err;
+    }
     await recordOrder({
       orderReference: data.order_reference,
       email: data.email,

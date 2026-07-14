@@ -133,6 +133,7 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
 
   const text = await res.text();
   if (!res.ok) {
+    console.error("[Sumit] beginredirect HTTP error", res.status, text);
     throw new Error(`Sumit error ${res.status}: ${text}`);
   }
   const json = JSON.parse(text) as {
@@ -145,6 +146,7 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
   const link = json.Data?.RedirectURL || json.RedirectURL;
   const statusStr = String(json.Status || "");
   if (!link || !statusStr.startsWith("Success")) {
+    console.error("[Sumit] beginredirect rejected", { package: data.package_id, response: json });
     throw new Error(
       `Sumit failed: ${json.UserErrorMessage || json.TechnicalErrorDetails || statusStr || text}`,
     );
