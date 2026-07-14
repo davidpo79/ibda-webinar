@@ -57,18 +57,24 @@ async function handle(request: Request) {
     orderReference,
     hasEmail: Boolean(email),
   });
+  console.log("[sumit-webhook] raw payload", JSON.stringify(payload));
 
   if (!transactionId && !orderReference) {
     // 200 so Sumit doesn't keep retrying a call we can't process.
     return new Response("ok (no identifiers)", { status: 200 });
   }
 
+  // This webhook's signature is already verified above, so its own payload
+  // is a trustworthy source of truth on its own — parsed here first as the
+  // baseline. The extra server-to-server verify call below is
+  // defense-in-depth; if it errors (e.g. a Sumit-side credentials/config
+  // issue on that specific endpoint), we keep this signed-payload result
+  // instead of concluding "not paid" on that basis alone.
   let validation = parseSumitTransactionStatus(payload);
   try {
     if (transactionId) validation = await verifySumitTransaction(transactionId);
   } catch (err) {
-    console.error("[sumit-webhook] verify error — fail closed", err);
-    validation = { paid: false, status: "verify_failed", raw: payload };
+    console.error("[sumit-webhook] verify error — falling back to signed payload", err);
   }
 
   if (email) {

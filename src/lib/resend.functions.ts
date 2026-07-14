@@ -4,7 +4,6 @@ import { syncResendContact, sendRawEmail } from "./resend.server";
 import { getNextOpenSession, resolvePackageSessions } from "./schedule.server";
 import { recordRegistration } from "./registrations.server";
 import { scheduleReminder } from "./reminders.server";
-import { formatSessionDate } from "./format-date";
 import { buildWelcomeEmail } from "./email-templates.server";
 
 const SubscribeSchema = z.object({
@@ -23,14 +22,12 @@ const SubscribeSchema = z.object({
 export const subscribeRegistration = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SubscribeSchema.parse(input))
   .handler(async ({ data }) => {
-    let openWebinarDateLabel: string | null = null;
     let resolvedSessionId = data.session_id ?? null;
     if (data.selected_packages.includes("open")) {
       const session = await getNextOpenSession();
-      openWebinarDateLabel = formatSessionDate(session?.starts_at);
       resolvedSessionId = resolvedSessionId ?? session?.id ?? null;
     }
-    await syncResendContact(data, openWebinarDateLabel);
+    await syncResendContact(data);
     const registrationId = await recordRegistration({
       session_id: resolvedSessionId,
       first_name: data.first_name,

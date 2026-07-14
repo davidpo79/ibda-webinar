@@ -28,13 +28,6 @@ const PACKAGE_LABELS: Record<string, string> = {
 
 const FREE_PACKAGES = new Set(["open"]);
 
-// Recap shown in the confirmation email when the "open" webinar is among the
-// selected packages. No join link exists in the system yet — access details
-// are sent separately, manually, closer to the session. The date is dynamic
-// (sourced from the sessions table by the caller) — this title is the only
-// hardcoded part left, since the open webinar's topic doesn't change.
-const OPEN_WEBINAR_RECAP_TITLE = "כמה זה עולה לעשות עסקת נדל״ן?";
-
 let _resend: Resend | undefined;
 function resendClient(): Resend {
   const apiKey = process.env.RESEND_API_KEY;
@@ -136,32 +129,14 @@ async function upsertResendContact(data: RegistrationSubscription) {
   }
 }
 
-async function sendConfirmationEmail(
-  data: RegistrationSubscription,
-  openWebinarDateLabel: string | null,
-) {
-  const resend = resendClient();
-  const labels = packageLabels(data);
-  const hasPaid = data.selected_packages.some((p) => !FREE_PACKAGES.has(p));
-
-  const { error } = await resend.emails.send({
-    from: fromAddress(),
-    to: data.email,
-    replyTo: "webinar@ibda-law.com",
-    subject: hasPaid ? "ההרשמה שלך ל-IBDA התקבלה" : "ההרשמה לוובינר הפתוח של IBDA אושרה",
-    html: confirmationEmailHtml({ ...data, labels, hasPaid, openWebinarDateLabel }),
-  });
-  if (error) {
-    console.error("[resend] confirmation email failed", error);
-  }
-}
-
-export async function syncResendContact(
-  data: RegistrationSubscription,
-  openWebinarDateLabel: string | null = null,
-): Promise<void> {
+// Only upserts the contact — no separate generic "registration received"
+// email is sent here. Each package's own styled welcome email (open webinar:
+// sent immediately after this; paid packages: sent once payment confirms —
+// see updateResendPaymentStatusByEmail) is the single confirmation the
+// visitor gets, so they never receive two different-looking emails for the
+// same submission.
+export async function syncResendContact(data: RegistrationSubscription): Promise<void> {
   await upsertResendContact(data);
-  await sendConfirmationEmail(data, openWebinarDateLabel);
 }
 
 // Finds the buyer's original registration (for their name + which core
@@ -220,9 +195,13 @@ export async function updateResendPaymentStatusByEmail(
     if (updateError) console.error("[resend] payment status property update failed", updateError);
 
     if (paid && packageIds.length) {
-      const sent = await Promise.all(
-        packageIds.map((id) => sendPackageWelcomeAfterPayment(email, id)),
-      );
+      // Sequential, not Promise.all — firing several resend.emails.send calls
+      // concurrently risked one getting silently rate-limited/dropped, which
+      // showed up as "only got the email for the first product I bought".
+      const sent: boolean[] = [];
+      for (const id of packageIds) {
+        sent.push(await sendPackageWelcomeAfterPayment(email, id));
+      }
       if (sent.some(Boolean)) return;
     }
 
@@ -263,63 +242,6 @@ function emailShell(bodyHtml: string): string {
     </td></tr>
   </table>
 </body></html>`;
-}
-
-function exploreProgramsCta(): string {
-  const origin = (process.env.PUBLIC_SITE_URL || "").replace(/\/$/, "");
-  if (!origin) return "";
-  return `
-    <div dir="rtl" style="background-color:#17150F;border:1px solid #C4A461;border-radius:8px;padding:18px 20px;margin-bottom:18px;text-align:center;">
-      <p dir="rtl" style="color:#FFFDF7;font-size:14px;line-height:1.7;margin:0 0 14px;">
-        מוזמנים גם להציץ בסדרת הליבה ובסדנאות הפרימיום. מחיר ההרשמה המוקדמת
-        בתוקף ל-72 שעות מסיום הוובינר הפתוח.
-      </p>
-      <a href="${origin}/thank-you" dir="rtl" style="display:inline-block;background-color:#C4A461;color:#17150F;font-size:14px;font-weight:700;text-decoration:none;padding:10px 24px;border-radius:6px;">
-        לצפייה בכל התוכניות ובתמחור
-      </a>
-    </div>`;
-}
-
-function webinarRecapHtml(dateLabel: string | null): string {
-  return `
-    <div dir="rtl" style="background-color:#17150F;border:1px solid #3A342A;border-radius:8px;padding:16px 20px;margin-bottom:18px;">
-      <div dir="rtl" style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">פרטי הוובינר הפתוח</div>
-      <p dir="rtl" style="color:#FFFDF7;font-size:15px;margin:0 0 6px;">${OPEN_WEBINAR_RECAP_TITLE}</p>
-      ${dateLabel ? `<p dir="rtl" style="color:#D9D0BB;font-size:13px;margin:0 0 10px;">${dateLabel}</p>` : ""}
-      <p dir="rtl" style="color:#D9D0BB;font-size:13px;line-height:1.6;margin:0;">פרטי ההתחברות למפגש יישלחו אליך בנפרד, סמוך למועד.</p>
-    </div>`;
-}
-
-function confirmationEmailHtml(
-  input: RegistrationSubscription & {
-    labels: string[];
-    hasPaid: boolean;
-    openWebinarDateLabel: string | null;
-  },
-): string {
-  const itemsHtml = input.labels
-    .map((l) => `<li dir="rtl" style="margin-bottom:6px;">${l}</li>`)
-    .join("");
-  const hasOpenWebinar = input.selected_packages.includes("open");
-  return emailShell(`
-    <h1 dir="rtl" style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">שלום ${input.first_name},</h1>
-    <p dir="rtl" style="color:#D9D0BB;font-size:15px;line-height:1.8;margin:0 0 18px;">
-      ${
-        input.hasPaid
-          ? "תודה שנרשמת! פרטי הגישה למפגשים יישלחו אליך בקרוב, לאחר השלמת התשלום."
-          : "ההרשמה שלך לוובינר הפתוח התקבלה בהצלחה. נתראה שם!"
-      }
-    </p>
-    ${hasOpenWebinar ? webinarRecapHtml(input.openWebinarDateLabel) : ""}
-    <div dir="rtl" style="background-color:#17150F;border:1px solid #3A342A;border-radius:8px;padding:16px 20px;margin-bottom:18px;">
-      <div dir="rtl" style="color:#C4A461;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">מסלולים שנבחרו</div>
-      <ul dir="rtl" style="color:#FFFDF7;font-size:14px;margin:0;padding-inline-start:18px;">${itemsHtml}</ul>
-    </div>
-    ${input.hasPaid ? "" : exploreProgramsCta()}
-    <p dir="rtl" style="color:#D9D0BB;font-size:13px;line-height:1.7;">
-      אם המייל לא מגיע לתיבה הראשית בהמשך, כדאי לבדוק בתיקיית הספאם/דואר זבל ולסמן אותנו כ"לא ספאם".
-    </p>
-  `);
 }
 
 function paymentStatusEmailHtml(paid: boolean): string {

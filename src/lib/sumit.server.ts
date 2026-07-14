@@ -214,8 +214,17 @@ export async function verifySumitTransaction(transactionId: string): Promise<Sum
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`Sumit verify failed ${res.status}: ${text}`);
-  const data = JSON.parse(text) as Record<string, unknown>;
-  return parseSumitTransactionStatus(data);
+  const data = JSON.parse(text) as { Data?: unknown; UserErrorMessage?: string };
+  console.log("[Sumit] gettransaction raw response", transactionId, text);
+  // Sumit sometimes rejects the request itself (credentials/config problem
+  // on this specific endpoint, confirmed live: "CompanyID/PublicAPIKey are
+  // missing") rather than returning a real transaction result. That's not
+  // the same as "this transaction failed" — throw so callers fall back to
+  // a signed/already-trusted source instead of concluding not-paid.
+  if (data.UserErrorMessage && data.Data == null) {
+    throw new Error(`Sumit verify rejected the request: ${data.UserErrorMessage}`);
+  }
+  return parseSumitTransactionStatus(data as Record<string, unknown>);
 }
 
 export function parseSumitTransactionStatus(payload: Record<string, unknown>): SumitValidation {
