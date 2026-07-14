@@ -111,7 +111,22 @@ export function buildOrderLineItems(rawRows: RawOrderRow[], sessions: Session[])
       });
     });
   }
-  return items;
+  // Two raw rows can share an order_reference (e.g. a legacy combined-package
+  // row alongside a newer per-package one from the same checkout) without
+  // being adjacent after the created_at sort above, if their timestamps
+  // differ slightly. Stable-group by order_reference — keeping each group's
+  // position at its first occurrence — so the admin table can always render
+  // same-transaction line items as one visual block.
+  const groups = new Map<string, OrderRow[]>();
+  const order: string[] = [];
+  for (const item of items) {
+    if (!groups.has(item.order_reference)) {
+      groups.set(item.order_reference, []);
+      order.push(item.order_reference);
+    }
+    groups.get(item.order_reference)!.push(item);
+  }
+  return order.flatMap((ref) => groups.get(ref)!);
 }
 
 export async function listOrders(): Promise<OrderRow[]> {

@@ -46,6 +46,30 @@ const STATUS_LABELS: Record<string, string> = {
   created: "ממתין",
 };
 
+// A transaction covering several products renders as several adjacent line
+// items (see buildOrderLineItems in orders.server.ts, which guarantees
+// same-order_reference rows are always adjacent) — cluster them into one
+// entry per transaction so the table can show one row per order_reference,
+// expandable (like the leads table) into its per-product line items.
+function groupOrdersByReference<T extends { order_reference: string }>(
+  rows: T[],
+): { order_reference: string; items: T[] }[] {
+  const groups: { order_reference: string; items: T[] }[] = [];
+  for (const row of rows) {
+    const last = groups[groups.length - 1];
+    if (last && last.order_reference === row.order_reference) {
+      last.items.push(row);
+    } else {
+      groups.push({ order_reference: row.order_reference, items: [row] });
+    }
+  }
+  return groups;
+}
+
+function sumAmounts(items: { amount: string | null }[]): number {
+  return items.reduce((sum, item) => sum + (item.amount ? Number(item.amount) : 0), 0);
+}
+
 function FilterSelect({
   label,
   value,
@@ -88,6 +112,7 @@ function AdminDashboard() {
   const navigate = useNavigate();
   const router = useRouter();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [leadPackageFilter, setLeadPackageFilter] = useState("all");
   const [leadLessonFilter, setLeadLessonFilter] = useState("all");
   const [orderPackageFilter, setOrderPackageFilter] = useState("all");
@@ -107,12 +132,22 @@ function AdminDashboard() {
     const matchesStatus = orderStatusFilter === "all" || o.status === orderStatusFilter;
     return matchesPackage && matchesStatus;
   });
+  const orderGroups = groupOrdersByReference(filteredOrders);
 
   function toggle(id: string) {
     setExpanded((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleOrder(orderReference: string) {
+    setExpandedOrders((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderReference)) next.delete(orderReference);
+      else next.add(orderReference);
       return next;
     });
   }
@@ -296,10 +331,12 @@ function AdminDashboard() {
             )}
           </div>
 
-          {/* Desktop: full table */}
+          {/* Desktop: full table — one row per transaction, expandable into
+              its per-product line items (same pattern as the leads table). */}
           <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto">
-            <table className="w-full text-sm min-w-[1150px] table-fixed">
+            <table className="w-full text-sm min-w-[1190px] table-fixed">
               <colgroup>
+                <col className="w-10" />
                 <col className="w-[190px]" />
                 <col className="w-[140px]" />
                 <col className="w-[110px]" />
@@ -311,6 +348,7 @@ function AdminDashboard() {
               </colgroup>
               <thead className="bg-sand/70 text-right">
                 <tr>
+                  <th className="px-4 py-3 font-semibold"></th>
                   <th className="px-4 py-3 font-semibold">מספר עסקה</th>
                   <th className="px-4 py-3 font-semibold">שם</th>
                   <th className="px-4 py-3 font-semibold">טלפון</th>
@@ -322,47 +360,79 @@ function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {filteredOrders.map((o) => (
-                  <tr
-                    key={o.id}
-                    className="border-t border-cream/10 hover:bg-cream/[0.03] align-top"
-                  >
-                    <td className="px-4 py-3 text-muted-brown">
-                      <span className="ltr-inline break-all">{o.order_reference}</span>
-                    </td>
-                    <td className="px-4 py-3 font-medium break-words">{o.buyer_name || "—"}</td>
-                    <td className="px-4 py-3 text-muted-brown">
-                      <span className="ltr-inline whitespace-nowrap">{o.buyer_phone || "—"}</span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-brown">
-                      <span className="ltr-inline break-all">{o.email}</span>
-                    </td>
-                    <td className="px-4 py-3 break-words">
-                      {PACKAGE_LABELS[o.package_id] || o.package_id}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      {o.amount ? `₪${o.amount}` : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          "px-2 py-0.5 rounded text-xs font-semibold",
-                          o.status === "paid" && "bg-green-500/15 text-green-400",
-                          o.status === "failed" && "bg-destructive/15 text-destructive",
-                          o.status === "created" && "bg-gold/15 text-gold",
-                        )}
-                      >
-                        {STATUS_LABELS[o.status] ?? o.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
-                      {formatSessionDate(o.session_starts_at) || "—"}
-                    </td>
-                  </tr>
-                ))}
-                {filteredOrders.length === 0 && (
+                {orderGroups.map((group) => {
+                  const head = group.items[0];
+                  const isMulti = group.items.length > 1;
+                  const isOpen = expandedOrders.has(group.order_reference);
+                  const totalAmount = sumAmounts(group.items);
+                  return (
+                    <Fragment key={group.order_reference}>
+                      <tr className="border-t border-cream/10 hover:bg-cream/[0.03] align-top">
+                        <td className="px-4 py-3">
+                          {isMulti && (
+                            <button
+                              onClick={() => toggleOrder(group.order_reference)}
+                              aria-label="פרטי מוצרים"
+                              className="w-6 h-6 rounded border border-gold/40 text-gold flex items-center justify-center hover:bg-gold/10 transition-colors"
+                            >
+                              {isOpen ? "–" : "+"}
+                            </button>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-muted-brown">
+                          <span className="ltr-inline break-all">{group.order_reference}</span>
+                        </td>
+                        <td className="px-4 py-3 font-medium break-words">
+                          {head.buyer_name || "—"}
+                        </td>
+                        <td className="px-4 py-3 text-muted-brown">
+                          <span className="ltr-inline whitespace-nowrap">
+                            {head.buyer_phone || "—"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-muted-brown">
+                          <span className="ltr-inline break-all">{head.email}</span>
+                        </td>
+                        <td className="px-4 py-3 break-words">
+                          {isMulti
+                            ? `${group.items.length} מוצרים`
+                            : PACKAGE_LABELS[head.package_id] || head.package_id}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {totalAmount ? `₪${totalAmount}` : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <OrderStatusBadge status={head.status} />
+                        </td>
+                        <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
+                          {isMulti ? "—" : formatSessionDate(head.session_starts_at) || "—"}
+                        </td>
+                      </tr>
+                      {isMulti &&
+                        isOpen &&
+                        group.items.map((item) => (
+                          <tr key={item.id} className="border-t border-cream/10 bg-ink/40">
+                            <td colSpan={5} />
+                            <td className="px-4 py-3 pr-8 break-words text-muted-brown">
+                              {PACKAGE_LABELS[item.package_id] || item.package_id}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-muted-brown">
+                              {item.amount ? `₪${item.amount}` : "—"}
+                            </td>
+                            <td className="px-4 py-3">
+                              <OrderStatusBadge status={item.status} />
+                            </td>
+                            <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
+                              {formatSessionDate(item.session_starts_at) || "—"}
+                            </td>
+                          </tr>
+                        ))}
+                    </Fragment>
+                  );
+                })}
+                {orderGroups.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-muted-brown">
+                    <td colSpan={9} className="px-4 py-8 text-center text-muted-brown">
                       {orders.length === 0 ? "אין עדיין רוכשים" : "אין רוכשים התואמים לסינון"}
                     </td>
                   </tr>
@@ -425,6 +495,21 @@ function LeadCard({
   );
 }
 
+function OrderStatusBadge({ status }: { status: OrderWithContact["status"] }) {
+  return (
+    <span
+      className={cn(
+        "px-2 py-0.5 rounded text-xs font-semibold",
+        status === "paid" && "bg-green-500/15 text-green-400",
+        status === "failed" && "bg-destructive/15 text-destructive",
+        status === "created" && "bg-gold/15 text-gold",
+      )}
+    >
+      {STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
 // Mobile card for one order — same reasoning as LeadCard above.
 function OrderCard({ order: o }: { order: OrderWithContact }) {
   return (
@@ -438,16 +523,9 @@ function OrderCard({ order: o }: { order: OrderWithContact }) {
           <div className="text-muted-brown text-sm ltr-inline break-all mt-0.5">{o.email}</div>
           <div className="text-muted-brown text-sm ltr-inline mt-0.5">{o.buyer_phone || "—"}</div>
         </div>
-        <span
-          className={cn(
-            "shrink-0 px-2 py-0.5 rounded text-xs font-semibold",
-            o.status === "paid" && "bg-green-500/15 text-green-400",
-            o.status === "failed" && "bg-destructive/15 text-destructive",
-            o.status === "created" && "bg-gold/15 text-gold",
-          )}
-        >
-          {STATUS_LABELS[o.status] ?? o.status}
-        </span>
+        <div className="shrink-0">
+          <OrderStatusBadge status={o.status} />
+        </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-brown">
         <span className="whitespace-nowrap">{o.amount ? `₪${o.amount}` : "—"}</span>
