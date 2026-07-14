@@ -39,6 +39,7 @@ function AdminSettingsPage() {
   const [newDate, setNewDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   function toggleWeekday(v: number) {
     setBlockedWeekdays((s) => {
@@ -65,6 +66,7 @@ function AdminSettingsPage() {
   async function onSave() {
     setSaving(true);
     setSaved(false);
+    setError(null);
     try {
       await updateEmailSendPolicyAction({
         data: {
@@ -78,6 +80,7 @@ function AdminSettingsPage() {
       await router.invalidate();
     } catch (err) {
       console.error("[admin/settings] save failed", err);
+      setError("שמירת ההגדרות נכשלה. נסו שוב.");
     } finally {
       setSaving(false);
     }
@@ -203,7 +206,8 @@ function AdminSettingsPage() {
             >
               {saving ? "שומר..." : "שמירה"}
             </button>
-            {saved && <span className="text-green-400 text-sm">נשמר בהצלחה</span>}
+            {saved && !error && <span className="text-green-400 text-sm">נשמר בהצלחה</span>}
+            {error && <span className="text-destructive text-sm">{error}</span>}
           </div>
         </section>
       </main>

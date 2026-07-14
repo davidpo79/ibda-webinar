@@ -22,7 +22,11 @@ function AdminLoginPage() {
     try {
       const result = await adminLogin({ data: { password } });
       if (!result.ok) {
-        setError("סיסמה שגויה");
+        setError(
+          "lockedOut" in result && result.lockedOut
+            ? "יותר מדי ניסיונות התחברות כושלים. יש להמתין כ-15 דקות ולנסות שוב."
+            : "סיסמה שגויה",
+        );
         setSubmitting(false);
         return;
       }

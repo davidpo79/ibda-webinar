@@ -115,9 +115,12 @@ function AdminDashboard() {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [leadPackageFilter, setLeadPackageFilter] = useState("all");
   const [leadLessonFilter, setLeadLessonFilter] = useState("all");
+  const [leadSearch, setLeadSearch] = useState("");
   const [orderPackageFilter, setOrderPackageFilter] = useState("all");
   const [orderStatusFilter, setOrderStatusFilter] = useState("all");
+  const [orderSearch, setOrderSearch] = useState("");
 
+  const leadSearchNorm = leadSearch.trim().toLowerCase();
   const filteredRegistrations = registrations.filter((r) => {
     const matchesPackage =
       leadPackageFilter === "all" || r.selected_packages.includes(leadPackageFilter);
@@ -125,14 +128,39 @@ function AdminDashboard() {
       leadLessonFilter === "all" ||
       (r.selected_packages.includes("core_single") &&
         (r.core_single_lesson_indexes ?? []).includes(Number(leadLessonFilter)));
-    return matchesPackage && matchesLesson;
+    const matchesSearch =
+      !leadSearchNorm ||
+      `${r.first_name} ${r.last_name}`.toLowerCase().includes(leadSearchNorm) ||
+      r.email.toLowerCase().includes(leadSearchNorm) ||
+      r.phone.toLowerCase().includes(leadSearchNorm);
+    return matchesPackage && matchesLesson && matchesSearch;
   });
+  const orderSearchNorm = orderSearch.trim().toLowerCase();
   const filteredOrders = orders.filter((o) => {
     const matchesPackage = orderPackageFilter === "all" || o.package_id === orderPackageFilter;
     const matchesStatus = orderStatusFilter === "all" || o.status === orderStatusFilter;
-    return matchesPackage && matchesStatus;
+    const matchesSearch =
+      !orderSearchNorm ||
+      o.email.toLowerCase().includes(orderSearchNorm) ||
+      o.order_reference.toLowerCase().includes(orderSearchNorm);
+    return matchesPackage && matchesStatus && matchesSearch;
   });
   const orderGroups = groupOrdersByReference(filteredOrders);
+  const leadFiltersActive =
+    leadPackageFilter !== "all" || leadLessonFilter !== "all" || Boolean(leadSearchNorm);
+  const orderFiltersActive =
+    orderPackageFilter !== "all" || orderStatusFilter !== "all" || Boolean(orderSearchNorm);
+
+  function clearLeadFilters() {
+    setLeadPackageFilter("all");
+    setLeadLessonFilter("all");
+    setLeadSearch("");
+  }
+  function clearOrderFilters() {
+    setOrderPackageFilter("all");
+    setOrderStatusFilter("all");
+    setOrderSearch("");
+  }
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -191,6 +219,13 @@ function AdminDashboard() {
               )
             </h2>
             <div className="flex flex-wrap items-center gap-4">
+              <input
+                type="search"
+                value={leadSearch}
+                onChange={(e) => setLeadSearch(e.target.value)}
+                placeholder="חיפוש לפי שם, אימייל או טלפון"
+                className="bg-ink/40 border border-cream/15 rounded-md px-3 py-1.5 text-sm text-cream placeholder:text-muted-brown/60 focus:outline-none focus:border-gold w-56"
+              />
               <FilterSelect
                 label="מוצר"
                 value={leadPackageFilter}
@@ -203,6 +238,15 @@ function AdminDashboard() {
                 onChange={setLeadLessonFilter}
                 options={LESSON_OPTIONS}
               />
+              {leadFiltersActive && (
+                <button
+                  type="button"
+                  onClick={clearLeadFilters}
+                  className="text-xs text-muted-brown hover:text-gold underline"
+                >
+                  נקה סינון
+                </button>
+              )}
             </div>
           </div>
           {/* Mobile: one card per lead — a fixed-width table doesn't fit a phone screen */}
@@ -305,6 +349,13 @@ function AdminDashboard() {
               {filteredOrders.length !== orders.length ? ` מתוך ${orders.length}` : ""})
             </h2>
             <div className="flex flex-wrap items-center gap-4">
+              <input
+                type="search"
+                value={orderSearch}
+                onChange={(e) => setOrderSearch(e.target.value)}
+                placeholder="חיפוש לפי אימייל או מספר הזמנה"
+                className="bg-ink/40 border border-cream/15 rounded-md px-3 py-1.5 text-sm text-cream placeholder:text-muted-brown/60 focus:outline-none focus:border-gold w-56"
+              />
               <FilterSelect
                 label="מוצר"
                 value={orderPackageFilter}
@@ -317,6 +368,15 @@ function AdminDashboard() {
                 onChange={setOrderStatusFilter}
                 options={STATUS_OPTIONS}
               />
+              {orderFiltersActive && (
+                <button
+                  type="button"
+                  onClick={clearOrderFilters}
+                  className="text-xs text-muted-brown hover:text-gold underline"
+                >
+                  נקה סינון
+                </button>
+              )}
             </div>
           </div>
           {/* Mobile: one card per order — a fixed-width table doesn't fit a phone screen */}
@@ -472,7 +532,7 @@ function LeadCard({
         <button
           onClick={onToggle}
           aria-label="פרטים נוספים"
-          className="shrink-0 w-6 h-6 rounded border border-gold/40 text-gold flex items-center justify-center hover:bg-gold/10 transition-colors"
+          className="shrink-0 w-11 h-11 rounded border border-gold/40 text-gold flex items-center justify-center hover:bg-gold/10 transition-colors text-lg"
         >
           {isOpen ? "–" : "+"}
         </button>
@@ -515,7 +575,9 @@ function OrderCard({ order: o }: { order: OrderWithContact }) {
             {PACKAGE_LABELS[o.package_id] || o.package_id}
           </div>
           <div className="text-muted-brown text-sm break-words mt-1">{o.buyer_name || "—"}</div>
-          <div className="text-muted-brown text-sm ltr-inline break-all mt-0.5">{o.email}</div>
+          <div className="text-muted-brown text-sm mt-0.5">
+            <span className="ltr-inline break-all">{o.email}</span>
+          </div>
           <div className="text-muted-brown text-sm ltr-inline mt-0.5">{o.buyer_phone || "—"}</div>
         </div>
         <div className="shrink-0">
@@ -669,7 +731,7 @@ function LeadDetailPanel({
         <button type="button" onClick={startEdit} className="text-xs text-gold hover:underline">
           עריכת פרטי קשר
         </button>
-        <SendCouponControl registrationId={r.id} />
+        <SendCouponControl registrationId={r.id} email={r.email} />
       </div>
     </div>
   );
@@ -678,7 +740,7 @@ function LeadDetailPanel({
 // Generates a one-time discount coupon for this lead and emails it to them
 // directly — the per-lead half of the coupon system (the other half,
 // reusable generic codes, lives on /admin/coupons).
-function SendCouponControl({ registrationId }: { registrationId: string }) {
+function SendCouponControl({ registrationId, email }: { registrationId: string; email: string }) {
   const [open, setOpen] = useState(false);
   const [discountPercent, setDiscountPercent] = useState("15");
   const [sending, setSending] = useState(false);
@@ -686,6 +748,7 @@ function SendCouponControl({ registrationId }: { registrationId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   async function onSend() {
+    if (!window.confirm(`לשלוח קוד הנחה של ${discountPercent}% למייל ${email}?`)) return;
     setSending(true);
     setError(null);
     try {

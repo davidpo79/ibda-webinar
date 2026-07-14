@@ -198,9 +198,19 @@ export async function updateResendPaymentStatusByEmail(
       // Sequential, not Promise.all — firing several resend.emails.send calls
       // concurrently risked one getting silently rate-limited/dropped, which
       // showed up as "only got the email for the first product I bought".
+      // Each iteration is also individually try/caught — an exception from
+      // one package (e.g. a transient DB error in resolvePackageSessions)
+      // must not abort the remaining packages' emails, or that reproduces
+      // the same "missing emails for products after the first" symptom via
+      // a different code path.
       const sent: boolean[] = [];
       for (const id of packageIds) {
-        sent.push(await sendPackageWelcomeAfterPayment(email, id));
+        try {
+          sent.push(await sendPackageWelcomeAfterPayment(email, id));
+        } catch (err) {
+          console.error("[resend] package welcome email failed", email, id, err);
+          sent.push(false);
+        }
       }
       if (sent.some(Boolean)) return;
     }

@@ -16,13 +16,48 @@ function sign(payload: string): string {
 // Trimmed on both sides — env var UIs (Railway included) commonly append a
 // trailing newline/space when a value is pasted, which would otherwise make
 // every login attempt fail on a length mismatch before comparison even runs.
+//
+// Compares HMAC digests (always 32 bytes) rather than the raw strings —
+// comparing raw buffers would need a length check before timingSafeEqual
+// (it throws on mismatched lengths), and that early return leaks the real
+// password's length via response timing before the constant-time compare
+// ever runs.
 export function verifyAdminPassword(password: string): boolean {
   const expected = process.env.ADMIN_PASSWORD?.trim();
   if (!expected) return false;
-  const a = Buffer.from(password.trim());
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  const digest = (s: string) => createHmac("sha256", "ibda-admin-pw-compare").update(s).digest();
+  return timingSafeEqual(digest(password.trim()), digest(expected));
+}
+
+// Basic in-process brute-force guard on admin login — resets on redeploy,
+// which is an acceptable tradeoff for a single-instance admin panel with no
+// other rate limiting anywhere in the app.
+type LoginAttemptState = { failures: number; windowStart: number; lockedUntil: number };
+const loginAttempts = new Map<string, LoginAttemptState>();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 8;
+const LOGIN_LOCKOUT_MS = 15 * 60 * 1000;
+
+export function isLoginLocked(key: string): boolean {
+  const state = loginAttempts.get(key);
+  return Boolean(state?.lockedUntil && state.lockedUntil > Date.now());
+}
+
+export function recordLoginFailure(key: string): void {
+  const now = Date.now();
+  const state = loginAttempts.get(key);
+  if (!state || now - state.windowStart > LOGIN_WINDOW_MS) {
+    loginAttempts.set(key, { failures: 1, windowStart: now, lockedUntil: 0 });
+    return;
+  }
+  state.failures += 1;
+  if (state.failures >= LOGIN_MAX_ATTEMPTS) {
+    state.lockedUntil = now + LOGIN_LOCKOUT_MS;
+  }
+}
+
+export function recordLoginSuccess(key: string): void {
+  loginAttempts.delete(key);
 }
 
 export function createSessionCookieValue(): string {

@@ -1,11 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getCookie, setCookie, deleteCookie } from "@tanstack/react-start/server";
+import { getCookie, setCookie, deleteCookie, getRequestIP } from "@tanstack/react-start/server";
 import { z } from "zod";
 import {
   ADMIN_COOKIE_NAME,
   createSessionCookieValue,
   isValidSessionCookie,
   verifyAdminPassword,
+  isLoginLocked,
+  recordLoginFailure,
+  recordLoginSuccess,
 } from "./admin-auth.server";
 import { listRegistrations, updateRegistrationContact } from "./registrations.server";
 import type { RegistrationRow } from "./registrations.server";
@@ -39,9 +42,15 @@ const LoginSchema = z.object({ password: z.string().min(1) });
 export const adminLogin = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => LoginSchema.parse(input))
   .handler(async ({ data }) => {
+    const ip = getRequestIP({ xForwardedFor: true }) || "unknown";
+    if (isLoginLocked(ip)) {
+      return { ok: false as const, lockedOut: true as const };
+    }
     if (!verifyAdminPassword(data.password)) {
+      recordLoginFailure(ip);
       return { ok: false as const };
     }
+    recordLoginSuccess(ip);
     setCookie(ADMIN_COOKIE_NAME, createSessionCookieValue(), {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

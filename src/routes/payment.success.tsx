@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Mail, AlertTriangle, ShieldAlert } from "lucide-react";
+import { CheckCircle2, Mail, AlertTriangle, ShieldAlert, Clock } from "lucide-react";
 import { confirmSumitPayment } from "@/lib/sumit.functions";
 
 export const Route = createFileRoute("/payment/success")({
@@ -20,18 +20,9 @@ function parseSearch(): {
   errorMessage: string | null;
   transactionId: string | null;
   orderReference: string | null;
-  email: string | null;
-  packageId: string | null;
 } {
   if (typeof window === "undefined") {
-    return {
-      statusCode: null,
-      errorMessage: null,
-      transactionId: null,
-      orderReference: null,
-      email: null,
-      packageId: null,
-    };
+    return { statusCode: null, errorMessage: null, transactionId: null, orderReference: null };
   }
   const p = new URLSearchParams(window.location.search);
   return {
@@ -39,35 +30,43 @@ function parseSearch(): {
     errorMessage: p.get("errorMessage") || p.get("message"),
     transactionId: p.get("transactionId") || p.get("TransactionID"),
     orderReference: p.get("order_reference") || p.get("orderReference") || p.get("orderRef"),
-    email: p.get("email"),
-    packageId: p.get("package"),
   };
 }
 
 function PaymentSuccessPage() {
-  const [{ statusCode, errorMessage, transactionId, orderReference, email, packageId }, setState] =
+  const [{ statusCode, errorMessage, transactionId, orderReference }, setState] =
     useState(parseSearch);
 
   useEffect(() => {
     setState(parseSearch());
   }, []);
 
+  // "pending" means the browser redirect couldn't independently verify the
+  // payment (Sumit's redirect query params aren't signed) — the signed
+  // webhook or the confirm fallback below resolves it; this is neither a
+  // confirmed success nor a confirmed failure.
+  const pending = statusCode === "pending";
   const success =
-    statusCode === "0" || statusCode === null || statusCode?.toLowerCase() === "approved";
+    !pending &&
+    (statusCode === "0" || statusCode === null || statusCode?.toLowerCase() === "approved");
 
   useEffect(() => {
-    document.title = success ? "התשלום התקבל · IBDA" : "התשלום נכשל · IBDA";
-  }, [success]);
+    document.title = pending
+      ? "מאשרים את התשלום · IBDA"
+      : success
+        ? "התשלום התקבל · IBDA"
+        : "התשלום נכשל · IBDA";
+  }, [success, pending]);
 
-  // Fallback: guarantee the payment-status update lands even if the webhook missed.
+  // Fallback: guarantee the payment-status update lands even if the webhook
+  // missed — runs whenever we have enough to check (not just on confirmed
+  // success), since "pending" is exactly the case that needs this most.
   useEffect(() => {
-    if (!success || !email || !transactionId) return;
-    confirmSumitPayment({
-      data: { transactionId, email, package_id: packageId || undefined },
-    }).catch((err) => {
+    if (statusCode === "99" || !transactionId || !orderReference) return;
+    confirmSumitPayment({ data: { transactionId, orderReference } }).catch((err) => {
       console.error("[payment-success] confirm error", err);
     });
-  }, [success, transactionId, email, packageId]);
+  }, [statusCode, transactionId, orderReference]);
 
   return (
     <main
@@ -75,13 +74,47 @@ function PaymentSuccessPage() {
       dir="rtl"
     >
       <div className="max-w-xl w-full">
-        {success ? (
+        {pending ? (
+          <PendingCard />
+        ) : success ? (
           <SuccessCard />
         ) : (
           <FailureCard errorMessage={errorMessage} statusCode={statusCode} />
         )}
       </div>
     </main>
+  );
+}
+
+function PendingCard() {
+  return (
+    <div className="text-center">
+      <div className="mx-auto mb-6 w-16 h-16 rounded-full bg-gold/15 flex items-center justify-center">
+        <Clock className="w-9 h-9 text-gold" />
+      </div>
+
+      <h1 className="font-serif text-4xl md:text-5xl text-cream mb-4">מאשרים את התשלום</h1>
+
+      <p className="text-muted-brown text-lg mb-8 leading-relaxed">
+        אנחנו מוודאים את התשלום מול חברת הסליקה — זה עשוי לקחת עד כמה דקות.
+        <br />
+        ברגע שהתשלום יאושר, יישלח אליך מייל עם כל פרטי הוובינר.
+      </p>
+
+      <p className="text-muted-brown text-sm mb-6">
+        שאלה או בעיה? כתבו לנו ל־
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-gold hover:underline mx-1">
+          {SUPPORT_EMAIL}
+        </a>
+      </p>
+
+      <Link
+        to="/"
+        className="inline-block px-6 py-3 rounded-md bg-gold text-background font-medium hover:opacity-90 transition"
+      >
+        חזרה לעמוד הבית
+      </Link>
+    </div>
   );
 }
 

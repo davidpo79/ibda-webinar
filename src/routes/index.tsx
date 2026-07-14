@@ -2107,10 +2107,17 @@ function RegistrationSection({
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-row-reverse sm:flex-row-reverse gap-2">
             <AlertDialogAction
-              onClick={performSubmit}
-              className="bg-gold text-ink hover:bg-gold-deep"
+              onClick={(e) => {
+                if (submitting) {
+                  e.preventDefault();
+                  return;
+                }
+                performSubmit();
+              }}
+              disabled={submitting}
+              className="bg-gold text-ink hover:bg-gold-deep disabled:opacity-60"
             >
-              {hasPaid ? "הבנתי, המשך לתשלום" : "הבנתי, המשך להרשמה"}
+              {submitting ? "מעבד..." : hasPaid ? "הבנתי, המשך לתשלום" : "הבנתי, המשך להרשמה"}
             </AlertDialogAction>
             <AlertDialogCancel>ביטול</AlertDialogCancel>
           </AlertDialogFooter>

@@ -1,5 +1,6 @@
 import { sql } from "./db.server";
 import { sendRawEmail } from "./resend.server";
+import { escapeHtml } from "./escape-html";
 
 export type CouponRow = {
   id: string;
@@ -89,7 +90,7 @@ function couponEmailHtml(firstName: string, code: string, discountPercent: numbe
     <tr><td dir="rtl" align="center">
       <table role="presentation" dir="rtl" width="100%" style="max-width:560px;background-color:#211E16;border:1px solid #3A342A;border-radius:12px;overflow:hidden;">
         <tr><td dir="rtl" style="padding:28px 32px;color:#FFFDF7;">
-          <h1 dir="rtl" style="color:#FFFDF7;font-size:22px;font-weight:400;margin:0 0 14px;">שלום ${firstName},</h1>
+          <h1 dir="rtl" style="color:#FFFDF7;font-size:22px;font-weight:400;margin:0 0 14px;">שלום ${escapeHtml(firstName)},</h1>
           <p dir="rtl" style="color:#D9D0BB;font-size:15px;line-height:1.8;margin:0 0 18px;">
             קיבלת קוד הנחה אישי של ${discountPercent}% על כל אחת מתוכניות ההמשך של IBDA.
           </p>

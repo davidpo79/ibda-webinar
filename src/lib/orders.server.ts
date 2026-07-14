@@ -145,3 +145,44 @@ export async function listOrders(): Promise<OrderRow[]> {
   ]);
   return buildOrderLineItems(rawRows, sessions);
 }
+
+// The single source of truth for "who bought what, and which coupon did
+// they apply" for a given checkout — always derived from what was recorded
+// server-side at createSumitPayment time, never from client-supplied query
+// params on the payment-confirmation endpoints (sumit-return.ts,
+// sumit-webhook.ts, confirmSumitPayment), which would otherwise let a caller
+// claim a different recipient/package/coupon than what was actually bought.
+export async function getOrderPackages(orderReference: string): Promise<{
+  email: string;
+  packageIds: string[];
+  couponCode: string | null;
+} | null> {
+  const rows = await sql()<{ email: string; package_id: string; coupon_code: string | null }[]>`
+    SELECT email, package_id, coupon_code FROM orders WHERE order_reference = ${orderReference}
+  `;
+  if (!rows.length) return null;
+  return {
+    email: rows[0].email,
+    packageIds: Array.from(new Set(rows.map((r) => r.package_id))),
+    couponCode: rows[0].coupon_code,
+  };
+}
+
+// A single Sumit transaction id must never be used to mark more than one
+// order_reference as paid — without this, one genuine (even low-value) paid
+// transaction could be replayed against any number of forged orders, since
+// verifySumitTransaction only confirms the id was paid *somewhere*, not that
+// it belongs to the specific order being confirmed.
+export async function isTransactionReusedElsewhere(
+  transactionId: string,
+  orderReference: string,
+): Promise<boolean> {
+  const rows = await sql()`
+    SELECT 1 FROM orders
+    WHERE transaction_id = ${transactionId}
+      AND order_reference != ${orderReference}
+      AND status = 'paid'
+    LIMIT 1
+  `;
+  return rows.length > 0;
+}

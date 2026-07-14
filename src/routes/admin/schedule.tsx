@@ -60,6 +60,7 @@ function AdminSchedulePage() {
   const router = useRouter();
   const { sessions } = Route.useLoaderData();
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [dateError, setDateError] = useState<{ id: string; message: string } | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [newDate, setNewDate] = useState("");
   const [creating, setCreating] = useState(false);
@@ -67,6 +68,7 @@ function AdminSchedulePage() {
   async function onDateChange(id: string, value: string) {
     if (!value) return;
     setSavingId(id);
+    setDateError(null);
     try {
       await updateSessionDateAction({
         data: { id, startsAt: israelDatetimeLocalToISOString(value) },
@@ -74,6 +76,7 @@ function AdminSchedulePage() {
       await router.invalidate();
     } catch (err) {
       console.error("[admin/schedule] update failed", err);
+      setDateError({ id, message: "עדכון המועד נכשל. נסו שוב." });
     } finally {
       setSavingId(null);
     }
@@ -113,7 +116,7 @@ function AdminSchedulePage() {
       <main className="max-w-4xl mx-auto px-6 py-10 space-y-12">
         <section>
           <h2 className="font-serif text-lg text-gold mb-4">{TYPE_LABELS.open}</h2>
-          <div className="border border-cream/10 rounded-lg overflow-x-auto">
+          <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto">
             <table className="w-full text-sm min-w-[520px]">
               <thead className="bg-sand/70 text-right">
                 <tr>
@@ -128,12 +131,11 @@ function AdminSchedulePage() {
                     <td className="px-4 py-3">{s.title}</td>
                     <td className="px-4 py-3 text-muted-brown">{formatSessionDate(s.starts_at)}</td>
                     <td className="px-4 py-3">
-                      <input
-                        type="datetime-local"
-                        defaultValue={isoToIsraelDatetimeLocal(s.starts_at)}
-                        onBlur={(e) => onDateChange(s.id, e.target.value)}
-                        disabled={savingId === s.id}
-                        className="bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-gold disabled:opacity-60"
+                      <SessionDateInput
+                        session={s}
+                        savingId={savingId}
+                        error={dateError}
+                        onDateChange={onDateChange}
                       />
                     </td>
                   </tr>
@@ -148,6 +150,30 @@ function AdminSchedulePage() {
               </tbody>
             </table>
           </div>
+
+          <div className="md:hidden space-y-3">
+            {openSessions.map((s) => (
+              <div key={s.id} className="border border-cream/10 rounded-lg p-4 bg-ink/20">
+                <div className="font-medium text-cream">{s.title}</div>
+                <div className="text-muted-brown text-sm mt-1">
+                  מועד נוכחי: {formatSessionDate(s.starts_at)}
+                </div>
+                <div className="mt-3">
+                  <SessionDateInput
+                    session={s}
+                    savingId={savingId}
+                    error={dateError}
+                    onDateChange={onDateChange}
+                  />
+                </div>
+              </div>
+            ))}
+            {openSessions.length === 0 && (
+              <div className="border border-cream/10 rounded-lg px-4 py-6 text-center text-muted-brown text-sm">
+                אין מפגשים
+              </div>
+            )}
+          </div>
         </section>
 
         <section>
@@ -155,6 +181,7 @@ function AdminSchedulePage() {
           <GroupedScheduleList
             groups={coreGroups}
             savingId={savingId}
+            dateError={dateError}
             onDateChange={onDateChange}
           />
         </section>
@@ -164,6 +191,7 @@ function AdminSchedulePage() {
           <GroupedScheduleList
             groups={premiumGroups}
             savingId={savingId}
+            dateError={dateError}
             onDateChange={onDateChange}
           />
         </section>
@@ -208,10 +236,12 @@ function AdminSchedulePage() {
 function GroupedScheduleList({
   groups,
   savingId,
+  dateError,
   onDateChange,
 }: {
   groups: SessionGroup[];
   savingId: string | null;
+  dateError: { id: string; message: string } | null;
   onDateChange: (id: string, value: string) => void;
 }) {
   const router = useRouter();
@@ -232,12 +262,11 @@ function GroupedScheduleList({
           <div className="space-y-2">
             {g.rows.map((s) => (
               <div key={s.id} className="flex flex-wrap items-center gap-3">
-                <input
-                  type="datetime-local"
-                  defaultValue={isoToIsraelDatetimeLocal(s.starts_at)}
-                  onBlur={(e) => onDateChange(s.id, e.target.value)}
-                  disabled={savingId === s.id}
-                  className="bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-gold disabled:opacity-60"
+                <SessionDateInput
+                  session={s}
+                  savingId={savingId}
+                  error={dateError}
+                  onDateChange={onDateChange}
                 />
                 <span className="text-muted-brown text-xs">{formatSessionDate(s.starts_at)}</span>
               </div>
@@ -246,6 +275,40 @@ function GroupedScheduleList({
           <AddCohortRow sessionKey={g.key} onAdded={() => router.invalidate()} />
         </div>
       ))}
+    </div>
+  );
+}
+
+// Shared date input for both the open-webinar table/cards and the grouped
+// core/premium lists — skips saving when the value wasn't actually changed
+// (avoids an unnecessary write from e.g. clicking in and tabbing back out),
+// and surfaces a save failure inline instead of only logging it.
+function SessionDateInput({
+  session,
+  savingId,
+  error,
+  onDateChange,
+}: {
+  session: Session;
+  savingId: string | null;
+  error: { id: string; message: string } | null;
+  onDateChange: (id: string, value: string) => void;
+}) {
+  const initial = isoToIsraelDatetimeLocal(session.starts_at);
+  return (
+    <div>
+      <input
+        type="datetime-local"
+        defaultValue={initial}
+        onBlur={(e) => {
+          if (e.target.value && e.target.value !== initial) {
+            onDateChange(session.id, e.target.value);
+          }
+        }}
+        disabled={savingId === session.id}
+        className="bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-gold disabled:opacity-60"
+      />
+      {error?.id === session.id && <p className="text-destructive text-xs mt-1">{error.message}</p>}
     </div>
   );
 }

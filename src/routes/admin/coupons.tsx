@@ -150,47 +150,85 @@ function CouponTable({
       </div>
     );
   }
+
+  function toggle(c: { id: string; code: string; active: boolean }) {
+    const action = c.active ? "כיבוי" : "הפעלה";
+    if (!window.confirm(`${action} של הקוד ${c.code}?`)) return;
+    onToggleActive(c.id, !c.active);
+  }
+
   return (
-    <div className="border border-cream/10 rounded-lg overflow-x-auto">
-      <table className="w-full text-sm min-w-[560px]">
-        <thead className="bg-sand/70 text-right">
-          <tr>
-            <th className="px-4 py-3 font-semibold">קוד</th>
-            <th className="px-4 py-3 font-semibold">הנחה</th>
-            <th className="px-4 py-3 font-semibold">נוצר</th>
-            <th className="px-4 py-3 font-semibold">נוצל</th>
-            <th className="px-4 py-3 font-semibold">פעיל</th>
-          </tr>
-        </thead>
-        <tbody>
-          {coupons.map((c) => (
-            <tr key={c.id} className="border-t border-cream/10">
-              <td className="px-4 py-3 font-medium">
-                <span className="ltr-inline">{c.code}</span>
-              </td>
-              <td className="px-4 py-3">{c.discount_percent}%</td>
-              <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
-                {formatSessionDate(c.created_at)}
-              </td>
-              <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
-                {c.used_at ? formatSessionDate(c.used_at) : "—"}
-              </td>
-              <td className="px-4 py-3">
-                <button
-                  type="button"
-                  onClick={() => onToggleActive(c.id, !c.active)}
-                  className={cn(
-                    "px-2 py-0.5 rounded text-xs font-semibold",
-                    c.active ? "bg-green-500/15 text-green-400" : "bg-cream/10 text-muted-brown",
-                  )}
-                >
-                  {c.active ? "פעיל" : "כבוי"}
-                </button>
-              </td>
+    <>
+      <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto">
+        <table className="w-full text-sm min-w-[560px]">
+          <thead className="bg-sand/70 text-right">
+            <tr>
+              <th className="px-4 py-3 font-semibold">קוד</th>
+              <th className="px-4 py-3 font-semibold">הנחה</th>
+              <th className="px-4 py-3 font-semibold">נוצר</th>
+              <th className="px-4 py-3 font-semibold">נוצל</th>
+              <th className="px-4 py-3 font-semibold">פעיל</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {coupons.map((c) => (
+              <tr key={c.id} className="border-t border-cream/10">
+                <td className="px-4 py-3 font-medium">
+                  <span className="ltr-inline">{c.code}</span>
+                </td>
+                <td className="px-4 py-3">{c.discount_percent}%</td>
+                <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
+                  {formatSessionDate(c.created_at)}
+                </td>
+                <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
+                  {c.used_at ? formatSessionDate(c.used_at) : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    onClick={() => toggle(c)}
+                    className={cn(
+                      "px-2 py-0.5 rounded text-xs font-semibold",
+                      c.active ? "bg-green-500/15 text-green-400" : "bg-cream/10 text-muted-brown",
+                    )}
+                  >
+                    {c.active ? "פעיל" : "כבוי"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="md:hidden space-y-3">
+        {coupons.map((c) => (
+          <div key={c.id} className="border border-cream/10 rounded-lg p-4 bg-ink/20">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-medium text-cream ltr-inline break-all">{c.code}</div>
+                <div className="text-muted-brown text-sm mt-1">{c.discount_percent}% הנחה</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => toggle(c)}
+                className={cn(
+                  "shrink-0 px-2 py-1 rounded text-xs font-semibold",
+                  c.active ? "bg-green-500/15 text-green-400" : "bg-cream/10 text-muted-brown",
+                )}
+              >
+                {c.active ? "פעיל" : "כבוי"}
+              </button>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-brown">
+              <span className="whitespace-nowrap">נוצר: {formatSessionDate(c.created_at)}</span>
+              <span className="whitespace-nowrap">
+                נוצל: {c.used_at ? formatSessionDate(c.used_at) : "—"}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
   );
 }

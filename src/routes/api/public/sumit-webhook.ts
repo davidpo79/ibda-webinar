@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 async function handle(request: Request) {
-  const { parseSumitTransactionStatus, verifySumitTransaction, verifySumitWebhookSignature } =
+  const { verifySumitTransaction, verifySumitWebhookSignature } =
     await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
-  const { markOrderStatus } = await import("@/lib/orders.server");
+  const { markOrderStatus, getOrderPackages, isTransactionReusedElsewhere } =
+    await import("@/lib/orders.server");
   const { markCouponUsed } = await import("@/lib/coupons.server");
 
   const rawBody = await request.text();
@@ -17,6 +18,11 @@ async function handle(request: Request) {
     request.headers.get("x-webhook-signature") ||
     request.headers.get("signature");
 
+  // verifySumitWebhookSignature returns true unconditionally when no
+  // SUMIT_WEBHOOK_KEY is configured (documented as local/dev-only) — track
+  // that distinction explicitly so an unset key in production never lets an
+  // unsigned POST body be trusted as if it were verified.
+  const webhookKeyConfigured = Boolean(process.env.SUMIT_WEBHOOK_KEY);
   if (!verifySumitWebhookSignature(rawBody, signature)) {
     console.warn("[sumit-webhook] HMAC mismatch — refusing");
     return new Response("invalid signature", { status: 401 });
@@ -43,19 +49,11 @@ async function handle(request: Request) {
     String(payload.TransactionID || payload.ChargeID || payload.documentid || "") || null;
   const orderReference =
     String(payload.ExternalIdentifier || payload.orderRef || payload.order_reference || "") || null;
-  // email/package travel as query params on the IPNURL we generated
-  // ourselves, so no database lookup is needed to resolve who this is.
-  const email = String(payload.email || payload.EmailAddress || "") || null;
-  // Comma-joined when the purchase covered several packages at once.
-  const packageIds = String(payload.package || "")
-    .split(",")
-    .filter(Boolean);
-  const couponCode = String(payload.coupon || "") || null;
 
   console.log("[sumit-webhook] received", {
     transactionId,
     orderReference,
-    hasEmail: Boolean(email),
+    webhookKeyConfigured,
   });
   console.log("[sumit-webhook] raw payload", JSON.stringify(payload));
 
@@ -64,22 +62,55 @@ async function handle(request: Request) {
     return new Response("ok (no identifiers)", { status: 200 });
   }
 
-  // This webhook's signature is already verified above, so its own payload
-  // is a trustworthy source of truth on its own — parsed here first as the
-  // baseline. The extra server-to-server verify call below is
-  // defense-in-depth; if it errors (e.g. a Sumit-side credentials/config
-  // issue on that specific endpoint), we keep this signed-payload result
-  // instead of concluding "not paid" on that basis alone.
-  let validation = parseSumitTransactionStatus(payload);
+  // Recipient email, purchased package ids, and the applied coupon always
+  // come from the order row recorded at checkout time — never from the
+  // webhook payload's own email/package/coupon fields — so a forged or
+  // misrouted POST to this URL can't claim a different recipient/package/
+  // coupon than what was actually bought.
+  const order = orderReference ? await getOrderPackages(orderReference) : null;
+
+  // The signature check above only actually authenticates the payload when
+  // SUMIT_WEBHOOK_KEY is configured; otherwise it's a no-op. A "paid"
+  // determination must always come from an independent
+  // verifySumitTransaction() call when the signature wasn't really checked.
+  let validation: { paid: boolean; status: string; raw: unknown } = {
+    paid: false,
+    status: "unverified",
+    raw: payload,
+  };
   try {
-    if (transactionId) validation = await verifySumitTransaction(transactionId);
+    if (transactionId) {
+      validation = await verifySumitTransaction(transactionId);
+      if (validation.paid && orderReference) {
+        const reused = await isTransactionReusedElsewhere(transactionId, orderReference);
+        if (reused) {
+          console.error(
+            "[sumit-webhook] transaction id already applied to a different order — refusing",
+            transactionId,
+            orderReference,
+          );
+          validation = { paid: false, status: "transaction_reused", raw: validation.raw };
+        }
+      }
+    }
   } catch (err) {
-    console.error("[sumit-webhook] verify error — falling back to signed payload", err);
+    console.error("[sumit-webhook] verify error", err);
+    // Only trust this payload's own (already HMAC-verified) claim as a
+    // fallback when the signature check actually authenticated it — never
+    // when SUMIT_WEBHOOK_KEY is unset and the check above was a no-op.
+    if (webhookKeyConfigured) {
+      const { parseSumitTransactionStatus } = await import("@/lib/sumit.server");
+      validation = parseSumitTransactionStatus(payload);
+    }
   }
 
-  if (email) {
+  if (order) {
     try {
-      await updateResendPaymentStatusByEmail(email, validation.paid ? "שולם" : "נכשל", packageIds);
+      await updateResendPaymentStatusByEmail(
+        order.email,
+        validation.paid ? "שולם" : "נכשל",
+        order.packageIds,
+      );
     } catch (err) {
       console.error("[sumit-webhook] Resend update error", err);
     }
@@ -97,9 +128,9 @@ async function handle(request: Request) {
     }
   }
 
-  if (validation.paid && couponCode) {
+  if (validation.paid && order?.couponCode) {
     try {
-      await markCouponUsed(couponCode);
+      await markCouponUsed(order.couponCode);
     } catch (err) {
       console.error("[sumit-webhook] coupon mark-used error", err);
     }

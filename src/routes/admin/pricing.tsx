@@ -88,9 +88,20 @@ function PricingRow({
     row.cutoff_at ? isoToIsraelDatetimeLocal(row.cutoff_at) : "",
   );
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
 
   async function onSave() {
+    if (
+      !window.confirm(
+        `לעדכן את המחיר הפעיל של "${label}"?\nמחיר מוקדם: ₪${row.early_price} → ₪${earlyPrice}\nמחיר רגיל: ₪${row.regular_price} → ₪${regularPrice}\n\nהשינוי חל מיידית על מה שלקוחות רואים באתר.`,
+      )
+    ) {
+      return;
+    }
     setSaving(true);
+    setError(null);
+    setSaved(false);
     try {
       await updatePackagePricingAction({
         data: {
@@ -100,9 +111,11 @@ function PricingRow({
           cutoffAt: cutoffAt ? israelDatetimeLocalToISOString(cutoffAt) : null,
         },
       });
+      setSaved(true);
       onSaved();
     } catch (err) {
       console.error("[admin/pricing] save failed", err);
+      setError("שמירת המחיר נכשלה. נסו שוב.");
     } finally {
       setSaving(false);
     }
@@ -151,6 +164,8 @@ function PricingRow({
           ? `נשלחה התראה ב-${formatSessionDate(row.price_increase_notified_at)}`
           : "טרם נשלחה התראה"}
       </span>
+      {error && <span className="text-[11px] text-destructive w-full">{error}</span>}
+      {saved && !error && <span className="text-[11px] text-green-400 w-full">נשמר בהצלחה</span>}
     </div>
   );
 }

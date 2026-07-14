@@ -3,6 +3,7 @@ import { getAllPackagePricing } from "./pricing.server";
 import { listRegistrationsPendingPackage } from "./registrations.server";
 import { sendRawEmail } from "./resend.server";
 import { getEmailSendPolicy, isAllowedSendTime } from "./email-policy.server";
+import { escapeHtml } from "./escape-html";
 
 const PACKAGE_TITLES: Record<string, string> = {
   core_single: "וובינר בודד מסדרת הליבה",
@@ -31,7 +32,7 @@ function priceNoticeEmailHtml(
     <tr><td dir="rtl" align="center">
       <table role="presentation" dir="rtl" width="100%" style="max-width:560px;background-color:#211E16;border:1px solid #3A342A;border-radius:12px;overflow:hidden;">
         <tr><td dir="rtl" style="padding:28px 32px;color:#FFFDF7;">
-          <h1 dir="rtl" style="color:#FFFDF7;font-size:22px;font-weight:400;margin:0 0 14px;">שלום ${firstName},</h1>
+          <h1 dir="rtl" style="color:#FFFDF7;font-size:22px;font-weight:400;margin:0 0 14px;">שלום ${escapeHtml(firstName)},</h1>
           <p dir="rtl" style="color:#D9D0BB;font-size:15px;line-height:1.8;margin:0 0 18px;">
             מחיר ההרשמה המוקדמת ל&quot;${packageTitle}&quot; עולה בעוד כ-${hours} שעות, למחיר של ₪${regularPrice.toLocaleString()}.
           </p>

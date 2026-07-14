@@ -1,22 +1,30 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestIP } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { createSumitPaymentPage, verifySumitTransaction } from "./sumit.server";
 import { updateResendPaymentStatusByEmail } from "./resend.server";
-import { recordOrder } from "./orders.server";
+import {
+  recordOrder,
+  markOrderStatus,
+  getOrderPackages,
+  isTransactionReusedElsewhere,
+} from "./orders.server";
 import { resolvePackageSessions } from "./schedule.server";
 import { getValidCoupon, markCouponUsed } from "./coupons.server";
 import { getCurrentPrices } from "./pricing.server";
 import { isFreeCoreLesson } from "./core-lessons";
+import { phoneSchema, idNumberSchema } from "./validators";
+import { checkRateLimit } from "./rate-limit.server";
 
 const CreatePaymentSchema = z.object({
   package_ids: z.array(z.string()).min(1),
-  email: z.string().email(),
-  full_name: z.string().min(1),
-  phone: z.string().min(1),
-  order_reference: z.string().min(1),
-  id_number: z.string().trim().min(5, "מספר ת.ז / ח.פ לא תקין"),
+  email: z.string().email().max(254),
+  full_name: z.string().min(1).max(200),
+  phone: phoneSchema,
+  order_reference: z.string().min(1).max(100),
+  id_number: idNumberSchema,
   core_single_lesson_indexes: z.array(z.number().int().min(1).max(9)).optional(),
-  coupon_code: z.string().trim().optional(),
+  coupon_code: z.string().trim().max(40).optional(),
 });
 
 function applyDiscount(price: number, discountPercent: number): number {
@@ -26,6 +34,11 @@ function applyDiscount(price: number, discountPercent: number): number {
 export const createSumitPayment = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => CreatePaymentSchema.parse(input))
   .handler(async ({ data }) => {
+    const ip = getRequestIP({ xForwardedFor: true }) || "unknown";
+    if (!checkRateLimit(`checkout:ip:${ip}`, { max: 20, windowMs: 30 * 60 * 1000 })) {
+      throw new Error("יותר מדי ניסיונות תשלום. נסו שוב בעוד כמה דקות.");
+    }
+
     let discountPercent = 0;
     let couponCode: string | null = null;
     if (data.coupon_code) {
@@ -85,27 +98,50 @@ export const createSumitPayment = createServerFn({ method: "POST" })
 
 const ConfirmSchema = z.object({
   transactionId: z.string().min(1),
-  email: z.string().email(),
-  // Comma-joined package ids for a multi-package purchase (see CreatePaymentSchema).
-  package_id: z.string().optional(),
-  coupon_code: z.string().optional(),
+  orderReference: z.string().min(1),
 });
 
 // Called from the success page to guarantee status update even if the
 // webhook was missed (network hiccup, tab closed before it lands, etc.).
+// Recipient email, purchased package ids, and the applied coupon are always
+// resolved from the order row recorded at checkout time (never from
+// client-supplied params), and a transaction id already applied to a
+// different order is refused — otherwise a real paid transaction id could
+// be replayed to fraudulently confirm arbitrary other orders.
 export const confirmSumitPayment = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ConfirmSchema.parse(input))
   .handler(async ({ data }) => {
     try {
-      const validation = await verifySumitTransaction(data.transactionId);
-      const packageIds = data.package_id ? data.package_id.split(",").filter(Boolean) : [];
+      const order = await getOrderPackages(data.orderReference);
+      if (!order) {
+        return { paid: false, error: "order not found" };
+      }
+
+      let validation = await verifySumitTransaction(data.transactionId);
+      if (validation.paid) {
+        const reused = await isTransactionReusedElsewhere(data.transactionId, data.orderReference);
+        if (reused) {
+          console.error(
+            "[confirmSumitPayment] transaction id already applied to a different order",
+            data.transactionId,
+            data.orderReference,
+          );
+          validation = { ...validation, paid: false, status: "transaction_reused" };
+        }
+      }
+
       await updateResendPaymentStatusByEmail(
-        data.email,
+        order.email,
         validation.paid ? "שולם" : "נכשל",
-        packageIds,
+        order.packageIds,
       );
-      if (validation.paid && data.coupon_code) {
-        await markCouponUsed(data.coupon_code);
+      await markOrderStatus({
+        orderReference: data.orderReference,
+        transactionId: data.transactionId,
+        status: validation.paid ? "paid" : "failed",
+      });
+      if (validation.paid && order.couponCode) {
+        await markCouponUsed(order.couponCode);
       }
       return { paid: validation.paid };
     } catch (err) {

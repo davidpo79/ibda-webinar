@@ -1,6 +1,7 @@
 import type { Session, PackageSessions } from "./schedule.server";
 import { formatHebrewFull, formatIsraelTime } from "./format-date";
 import { signUnsubscribeToken } from "./unsubscribe.server";
+import { escapeHtml } from "./escape-html";
 import ibdaLogo from "@/assets/ibda-logo.png";
 import yifatPhoto from "@/assets/yifat.jpg";
 
@@ -13,8 +14,13 @@ function absoluteAsset(assetPath: string): string {
   return origin ? `${origin}${assetPath}` : assetPath;
 }
 
+// dir="ltr" + unicode-bidi:isolate keeps the URL's own characters (/, ?, =,
+// .) from being reordered by the bidi algorithm when this link sits inside
+// an RTL paragraph — otherwise the displayed link text can render corrupted
+// in RTL-aware mail clients (the underlying href is unaffected either way,
+// but a garbled-looking link reads as broken/untrustworthy to the reader).
 function goldLink(href: string, text: string): string {
-  return `<a href="${href}" style="color:#B26B00;text-decoration:underline;">${text}</a>`;
+  return `<a href="${href}" dir="ltr" style="color:#B26B00;text-decoration:underline;unicode-bidi:isolate;">${text}</a>`;
 }
 
 // White single-column shell matching the original ActiveCampaign/Stripo
@@ -22,16 +28,25 @@ function goldLink(href: string, text: string): string {
 // ink/gold shell used by the site's own confirmation-of-form-submission
 // email (src/lib/resend.server.ts), which follows the redesigned site's
 // visual theme instead.
-function marketingShell(bodyHtml: string, recipientEmail: string): string {
+function marketingShell(bodyHtml: string, recipientEmail: string, preheader?: string): string {
   const logoUrl = absoluteAsset(ibdaLogo);
   const heroUrl = absoluteAsset(yifatPhoto);
   const origin = siteOrigin();
   const unsubUrl = origin
     ? `${origin}/api/public/unsubscribe?email=${encodeURIComponent(recipientEmail)}&token=${signUnsubscribeToken(recipientEmail)}`
     : "#";
+  // Hidden preheader — the snippet most inbox list views show next to the
+  // subject line. Without it, several packages purchased at once produce
+  // emails that look identical in the inbox until opened (same subject
+  // fallback, same blank preview), making it hard to tell which product
+  // each one covers.
+  const preheaderHtml = preheader
+    ? `<span style="display:none;font-size:1px;color:#FFFFFF;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${escapeHtml(preheader)}</span>`
+    : "";
   return `<!DOCTYPE html>
 <html lang="he" dir="rtl"><head><meta charSet="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
 <body dir="rtl" style="margin:0;padding:0;background-color:#FFFFFF;font-family:'Lucida Grande','Lucida Sans Unicode',Arial,sans-serif;">
+  ${preheaderHtml}
   <table role="presentation" dir="rtl" width="100%" cellPadding="0" cellSpacing="0" style="background-color:#FFFFFF;">
     <tr><td dir="rtl" align="center" style="padding:32px 16px;">
       <table role="presentation" dir="rtl" width="100%" style="max-width:560px;">
@@ -50,7 +65,7 @@ function marketingShell(bodyHtml: string, recipientEmail: string): string {
           <div dir="rtl" style="color:#333333;font-size:11px;margin-top:6px;">בן דוד עמית | משרד עורכי דין</div>
         </td></tr>
         <tr><td dir="rtl" align="center" style="padding:18px 8px 0;border-top:1px solid #eeeeee;">
-          <div dir="rtl" style="color:#888888;font-size:11px;margin-top:14px;">Sent to: ${recipientEmail}</div>
+          <div dir="rtl" style="color:#888888;font-size:11px;margin-top:14px;">Sent to: ${escapeHtml(recipientEmail)}</div>
           <div dir="rtl" style="margin-top:6px;">
             <a href="${unsubUrl}" style="color:#333333;font-size:11px;font-weight:bold;text-decoration:underline;">Unsubscribe</a>
           </div>
@@ -62,7 +77,19 @@ function marketingShell(bodyHtml: string, recipientEmail: string): string {
 </body></html>`;
 }
 
-const WELCOME_SUBJECT = 'ברוכים הבאים לתוכנית עסקאות נדל"ן וליטיגציה!';
+// Distinct per package so a buyer who purchased several products at once
+// can tell the emails apart in their inbox without opening each one — they
+// previously all shared one identical subject line.
+const WELCOME_SUBJECT_BY_PACKAGE: Record<string, string> = {
+  open: "ברוכים הבאים לוובינר הפתוח · IBDA",
+  core_single: "ברוכים הבאים לוובינר שבחרת מסדרת הליבה · IBDA",
+  core_full: "ברוכים הבאים לסדרת הליבה המלאה · IBDA",
+  premium_bundle: "ברוכים הבאים לחבילת הפרימיום · IBDA",
+  premium_partnership: "ברוכים הבאים לסדנת שיתוף במקרקעין · IBDA",
+  premium_litigation: 'ברוכים הבאים לסדנת ליטיגציה בנדל"ן · IBDA',
+  premium_registration: "ברוכים הבאים לסדנת רישום בית משותף · IBDA",
+  premium_ai: "ברוכים הבאים לסדנת AI ואוטומציות · IBDA",
+};
 
 const WELCOME_PREHEADER: Record<string, string> = {
   open: "שמחים שהצטרפת אלינו לשלב א :)",
@@ -142,9 +169,12 @@ export function buildWelcomeEmail(
     `;
   } else {
     const anchorLabel = sessions.anchor ? formatHebrewFull(sessions.anchor.starts_at) : "";
+    // Names the actual earliest session in the package instead of assuming
+    // it's always the AI workshop — an admin can reschedule any session to
+    // be first, and this must track that rather than a hardcoded claim.
     const kickoffLine =
-      packageId === "premium_bundle"
-        ? `המפגש הראשון שלנו ייפתח בסדנא העתיד כבר כאן! ב${anchorLabel}`
+      packageId === "premium_bundle" && sessions.anchor
+        ? `המפגש הראשון שלנו ייפתח בסדנת ${sessions.anchor.title}! ב${anchorLabel}`
         : `המפגש הראשון שלנו ייצא לדרך ב${anchorLabel}`;
     const linksHtml = sessions.sessions
       .slice()
@@ -166,9 +196,11 @@ export function buildWelcomeEmail(
   const html = marketingShell(
     `<h1 dir="rtl" style="font-size:20px;font-weight:bold;margin:0 0 18px;">ברוכים הבאים לתוכנית עסקאות נדל"ן וליטיגציה!</h1>${bodyInner}`,
     recipientEmail,
+    preheader,
   );
 
-  return { subject: WELCOME_SUBJECT, preheader, html };
+  const subject = WELCOME_SUBJECT_BY_PACKAGE[packageId] || WELCOME_SUBJECT_BY_PACKAGE.open;
+  return { subject, preheader, html };
 }
 
 export type ReminderEmail = { subject: string; html: string };
@@ -185,7 +217,7 @@ export function buildReminderEmail(
   const verb = REMINDER_VERB[packageId] || "מתחיל המפגש שלנו";
   const link = session.zoom_url || "#";
   const bodyInner = `
-    <p dir="rtl" style="margin:0 0 14px;">שלום ${firstName}</p>
+    <p dir="rtl" style="margin:0 0 14px;">שלום ${escapeHtml(firstName)}</p>
     <p dir="rtl" style="margin:0 0 14px;">🎉 מחר, ${dateLabel} ${verb}</p>
     <p dir="rtl" style="margin:0 0 14px;">שים לב! כשאתה נכנס לזום ודא שהשם שלך מוצג בדיוק כפי שנרשמת באתר הוובינרים.</p>
     <p dir="rtl" style="margin:0 0 18px;">קישור להצטרפות:<br />${goldLink(link, link)}</p>
