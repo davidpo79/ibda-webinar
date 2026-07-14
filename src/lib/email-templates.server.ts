@@ -79,8 +79,10 @@ function marketingShell(bodyHtml: string, recipientEmail: string, preheader?: st
 
 // Distinct per package so a buyer who purchased several products at once
 // can tell the emails apart in their inbox without opening each one — they
-// previously all shared one identical subject line.
-const WELCOME_SUBJECT_BY_PACKAGE: Record<string, string> = {
+// previously all shared one identical subject line. Exported so the admin
+// email-editing screen can show these as the fallback/default value for
+// each package's editable subject field.
+export const WELCOME_SUBJECT_BY_PACKAGE: Record<string, string> = {
   open: "ברוכים הבאים לוובינר הפתוח · IBDA",
   core_single: "ברוכים הבאים לוובינר שבחרת מסדרת הליבה · IBDA",
   core_full: "ברוכים הבאים לסדרת הליבה המלאה · IBDA",
@@ -102,7 +104,7 @@ const WELCOME_PREHEADER: Record<string, string> = {
   premium_ai: "שמחים שהצטרפת אלינו לסדנא העתיד כבר כאן",
 };
 
-const WELCOME_INTRO: Record<string, string> = {
+export const WELCOME_INTRO: Record<string, string> = {
   open: "שמחים מאוד שהצטרפת אלינו לשלב א'",
   core_single: "שמחים מאוד שהצטרפת אלינו למפגשים שבחרת מסדרת הליבה",
   core_full: "שמחים מאוד שהצטרפת אלינו לסדנת הליבה",
@@ -116,7 +118,7 @@ const WELCOME_INTRO: Record<string, string> = {
 // "the next thing starting" phrasing in the reminder email — matches each
 // package's own automation copy, grouped by the shape of what it refers to
 // (a single free/paid webinar vs. a multi-session series vs. one workshop).
-const REMINDER_VERB: Record<string, string> = {
+export const REMINDER_VERB: Record<string, string> = {
   open: "מתחיל הוובינר הראשון שלנו",
   core_single: "מתחיל הוובינר שלנו",
   core_full: "מתחילים בסדרת המפגשים שלנו",
@@ -146,6 +148,7 @@ export function buildWelcomeEmail(
   sessions: PackageSessions,
   recipientEmail: string,
   opts: { lessonTitle?: string } = {},
+  overrides: Record<string, string> = {},
 ): WelcomeEmail | null {
   const preheader = WELCOME_PREHEADER[packageId];
   if (!preheader) return null;
@@ -156,10 +159,13 @@ export function buildWelcomeEmail(
     const session = sessions.session;
     const dateLabel = session ? formatHebrewFull(session.starts_at) : "";
     const link = session?.zoom_url || "#";
+    // core_single's intro always names the specific lesson the buyer
+    // picked, computed at send time — not admin-editable text, since it
+    // has to track whichever lesson was actually purchased.
     const intro =
       packageId === "core_single"
         ? `שמחים מאוד שהצטרפת אלינו לוובינר ${opts.lessonTitle || session?.title || ""}`
-        : WELCOME_INTRO[packageId];
+        : (overrides[`welcome.${packageId}.intro`] ?? WELCOME_INTRO[packageId]);
     bodyInner = `
       <p dir="rtl" style="margin:0 0 10px;">${intro}</p>
       <p dir="rtl" style="margin:0 0 10px;">המפגש שלנו ייצא לדרך ב${dateLabel}</p>
@@ -184,8 +190,9 @@ export function buildWelcomeEmail(
           `<p dir="rtl" style="margin:8px 0;">${goldLink(s.zoom_url || "#", sessionLinkLabel(s))}</p>`,
       )
       .join("");
+    const listIntro = overrides[`welcome.${packageId}.intro`] ?? WELCOME_INTRO[packageId];
     bodyInner = `
-      <p dir="rtl" style="margin:0 0 10px;">${WELCOME_INTRO[packageId]}</p>
+      <p dir="rtl" style="margin:0 0 10px;">${listIntro}</p>
       <p dir="rtl" style="margin:0 0 18px;">${kickoffLine}</p>
       <p dir="rtl" style="margin:0 0 10px;">ואנחנו נרגשים לפתוח אותו יחד עם<br />עורכת הדין והנוטריון יפעת בן דוד עמית</p>
       <div dir="rtl" style="margin:0 0 18px;">${linksHtml}</div>
@@ -199,7 +206,9 @@ export function buildWelcomeEmail(
     preheader,
   );
 
-  const subject = WELCOME_SUBJECT_BY_PACKAGE[packageId] || WELCOME_SUBJECT_BY_PACKAGE.open;
+  const subject =
+    overrides[`welcome.${packageId}.subject`] ??
+    (WELCOME_SUBJECT_BY_PACKAGE[packageId] || WELCOME_SUBJECT_BY_PACKAGE.open);
   return { subject, preheader, html };
 }
 
@@ -211,10 +220,12 @@ export function buildReminderEmail(
   firstName: string,
   session: Session,
   recipientEmail: string,
+  overrides: Record<string, string> = {},
 ): ReminderEmail {
   const dateLabel = formatHebrewFull(session.starts_at);
   const hourLabel = formatIsraelTime(session.starts_at);
-  const verb = REMINDER_VERB[packageId] || "מתחיל המפגש שלנו";
+  const verb =
+    overrides[`reminder.${packageId}.verb`] ?? REMINDER_VERB[packageId] ?? "מתחיל המפגש שלנו";
   const link = session.zoom_url || "#";
   const bodyInner = `
     <p dir="rtl" style="margin:0 0 14px;">שלום ${escapeHtml(firstName)}</p>

@@ -199,6 +199,9 @@ function AdminDashboard() {
           <Link to="/admin/coupons" className="text-muted-brown hover:text-gold transition-colors">
             קופונים
           </Link>
+          <Link to="/admin/emails" className="text-muted-brown hover:text-gold transition-colors">
+            עריכת מיילים
+          </Link>
           <Link to="/admin/settings" className="text-muted-brown hover:text-gold transition-colors">
             הגדרות מייל
           </Link>

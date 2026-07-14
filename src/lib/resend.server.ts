@@ -3,6 +3,17 @@ import { resolvePackageSessions } from "./schedule.server";
 import { findRecentRegistrationForPackage } from "./registrations.server";
 import { buildWelcomeEmail } from "./email-templates.server";
 import { scheduleReminder } from "./reminders.server";
+import { getEmailOverrides } from "./email-content.server";
+import { escapeHtml } from "./escape-html";
+
+export const PAYMENT_STATUS_PAID_DEFAULT = {
+  title: "התשלום התקבל בהצלחה",
+  body: "המקום שלך שמור. פרטי הוובינר יישלחו בהמשך לכתובת המייל הזו.",
+};
+export const PAYMENT_STATUS_FAILED_DEFAULT = {
+  title: "התשלום לא הושלם",
+  body: "לא נרשם חיוב בכרטיס. אפשר לנסות שוב מדף ההרשמה, או לפנות אלינו לעזרה.",
+};
 
 export type RegistrationSubscription = {
   first_name: string;
@@ -145,14 +156,18 @@ export async function syncResendContact(data: RegistrationSubscription): Promise
 // generic payment-status email) if no matching registration/session data
 // can be found — should only happen for data recorded before this system
 // existed.
-async function sendPackageWelcomeAfterPayment(email: string, packageId: string): Promise<boolean> {
+async function sendPackageWelcomeAfterPayment(
+  email: string,
+  packageId: string,
+  overrides: Record<string, string>,
+): Promise<boolean> {
   const registration = await findRecentRegistrationForPackage(email, packageId);
   if (!registration) return false;
 
   const sessions = await resolvePackageSessions(packageId, registration.core_single_lesson_indexes);
   const lessonTitle =
     packageId === "core_single" && sessions.kind === "single" ? sessions.session?.title : undefined;
-  const welcome = buildWelcomeEmail(packageId, sessions, email, { lessonTitle });
+  const welcome = buildWelcomeEmail(packageId, sessions, email, { lessonTitle }, overrides);
   if (!welcome) return false;
 
   const resend = resendClient();
@@ -194,6 +209,8 @@ export async function updateResendPaymentStatusByEmail(
     });
     if (updateError) console.error("[resend] payment status property update failed", updateError);
 
+    const overrides = await getEmailOverrides();
+
     if (paid && packageIds.length) {
       // Sequential, not Promise.all — firing several resend.emails.send calls
       // concurrently risked one getting silently rate-limited/dropped, which
@@ -206,7 +223,7 @@ export async function updateResendPaymentStatusByEmail(
       const sent: boolean[] = [];
       for (const id of packageIds) {
         try {
-          sent.push(await sendPackageWelcomeAfterPayment(email, id));
+          sent.push(await sendPackageWelcomeAfterPayment(email, id, overrides));
         } catch (err) {
           console.error("[resend] package welcome email failed", email, id, err);
           sent.push(false);
@@ -220,7 +237,7 @@ export async function updateResendPaymentStatusByEmail(
       to: email,
       replyTo: "webinar@ibda-law.com",
       subject: paid ? "התשלום שלך ל-IBDA התקבל בהצלחה" : "התשלום שלך ל-IBDA לא הושלם",
-      html: paymentStatusEmailHtml(paid),
+      html: paymentStatusEmailHtml(paid, overrides),
     });
     if (error) console.error("[resend] payment status email failed", error);
   } catch (err) {
@@ -254,12 +271,16 @@ function emailShell(bodyHtml: string): string {
 </body></html>`;
 }
 
-function paymentStatusEmailHtml(paid: boolean): string {
+export function paymentStatusEmailHtml(
+  paid: boolean,
+  overrides: Record<string, string> = {},
+): string {
+  const defaults = paid ? PAYMENT_STATUS_PAID_DEFAULT : PAYMENT_STATUS_FAILED_DEFAULT;
+  const prefix = paid ? "payment_status.paid" : "payment_status.failed";
+  const title = overrides[`${prefix}.title`] ?? defaults.title;
+  const body = overrides[`${prefix}.body`] ?? defaults.body;
   return emailShell(
-    paid
-      ? `<h1 dir="rtl" style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">התשלום התקבל בהצלחה</h1>
-         <p dir="rtl" style="color:#D9D0BB;font-size:15px;line-height:1.8;">המקום שלך שמור. פרטי הוובינר יישלחו בהמשך לכתובת המייל הזו.</p>`
-      : `<h1 dir="rtl" style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">התשלום לא הושלם</h1>
-         <p style="color:#D9D0BB;font-size:15px;line-height:1.8;">לא נרשם חיוב בכרטיס. אפשר לנסות שוב מדף ההרשמה, או לפנות אלינו לעזרה.</p>`,
+    `<h1 dir="rtl" style="color:#FFFDF7;font-size:24px;font-weight:400;margin:0 0 14px;">${escapeHtml(title)}</h1>
+     <p dir="rtl" style="color:#D9D0BB;font-size:15px;line-height:1.8;">${escapeHtml(body)}</p>`,
   );
 }

@@ -8,6 +8,7 @@ import { scheduleReminder } from "./reminders.server";
 import { buildWelcomeEmail } from "./email-templates.server";
 import { phoneSchema } from "./validators";
 import { checkRateLimit } from "./rate-limit.server";
+import { getEmailOverrides } from "./email-content.server";
 
 const SubscribeSchema = z.object({
   first_name: z.string().trim().min(1, "יש להזין שם פרטי").max(100, "שם ארוך מדי"),
@@ -64,8 +65,11 @@ export const subscribeRegistration = createServerFn({ method: "POST" })
     // updateResendPaymentStatusByEmail in resend.server.ts.
     if (data.selected_packages.includes("open")) {
       try {
-        const sessions = await resolvePackageSessions("open");
-        const welcome = buildWelcomeEmail("open", sessions, data.email);
+        const [sessions, overrides] = await Promise.all([
+          resolvePackageSessions("open"),
+          getEmailOverrides(),
+        ]);
+        const welcome = buildWelcomeEmail("open", sessions, data.email, {}, overrides);
         if (welcome) await sendRawEmail(data.email, welcome.subject, welcome.html);
         await scheduleReminder(registrationId, "open");
       } catch (err) {

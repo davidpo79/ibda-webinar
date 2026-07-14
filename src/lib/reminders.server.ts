@@ -5,6 +5,7 @@ import { buildReminderEmail } from "./email-templates.server";
 import { sendRawEmail } from "./resend.server";
 import { getEmailSendPolicy, isAllowedSendTime } from "./email-policy.server";
 import { runPriceIncreaseNoticeSweep } from "./pricing-notices.server";
+import { getEmailOverrides } from "./email-content.server";
 
 // Populates registration_reminders row(s) for (registration, package),
 // pointing at whatever session(s) currently anchor that package. Called
@@ -91,6 +92,7 @@ export async function runReminderSweep(): Promise<{ checked: number; sent: numbe
 
   const pending = await fetchPendingReminders();
   const now = Date.now();
+  const overrides = pending.length ? await getEmailOverrides() : {};
   let sent = 0;
 
   for (const row of pending) {
@@ -112,6 +114,7 @@ export async function runReminderSweep(): Promise<{ checked: number; sent: numbe
         row.first_name,
         session,
         row.email,
+        overrides,
       );
       await sendRawEmail(row.email, subject, html);
       await sql()`

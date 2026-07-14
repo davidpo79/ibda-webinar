@@ -4,6 +4,7 @@ import {
   getAdminCouponsData,
   createGenericCouponAction,
   setCouponActiveAction,
+  sendCouponToEmailAction,
 } from "@/lib/admin.functions";
 import { formatSessionDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
@@ -30,8 +31,15 @@ function AdminCouponsPage() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const genericCoupons = coupons.filter((c) => !c.registration_id);
-  const leadCoupons = coupons.filter((c) => c.registration_id);
+  const [personalEmail, setPersonalEmail] = useState("");
+  const [personalName, setPersonalName] = useState("");
+  const [personalDiscount, setPersonalDiscount] = useState("15");
+  const [sendingPersonal, setSendingPersonal] = useState(false);
+  const [personalError, setPersonalError] = useState<string | null>(null);
+  const [personalSentCode, setPersonalSentCode] = useState<string | null>(null);
+
+  const genericCoupons = coupons.filter((c) => !c.recipient_email);
+  const personalCoupons = coupons.filter((c) => c.recipient_email);
 
   async function onCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -49,6 +57,32 @@ function AdminCouponsPage() {
       setError("יצירת הקופון נכשלה — ייתכן שהקוד כבר קיים");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function onSendPersonal(e: React.FormEvent) {
+    e.preventDefault();
+    if (!personalEmail.trim()) return;
+    setSendingPersonal(true);
+    setPersonalError(null);
+    setPersonalSentCode(null);
+    try {
+      const result = await sendCouponToEmailAction({
+        data: {
+          email: personalEmail.trim(),
+          name: personalName.trim() || undefined,
+          discountPercent: Number(personalDiscount),
+        },
+      });
+      setPersonalSentCode(result.code);
+      setPersonalEmail("");
+      setPersonalName("");
+      await router.invalidate();
+    } catch (err) {
+      console.error("[admin/coupons] send personal coupon failed", err);
+      setPersonalError("שליחת הקוד נכשלה — ודאו שכתובת המייל תקינה");
+    } finally {
+      setSendingPersonal(false);
     }
   }
 
@@ -112,17 +146,81 @@ function AdminCouponsPage() {
         </section>
 
         <section>
+          <h2 className="font-serif text-lg text-gold mb-4">
+            שליחת קוד אישי ללקוח שאינו ברשימת הלידים
+          </h2>
+          <p className="text-muted-brown text-sm mb-4">
+            למקרה שמישהו ביקש הנחה (למשל בטלפון או במייל) לפני שנרשם באתר — עדיין לא מופיע בטבלת
+            הלידים במסך הראשי, כך שאי אפשר ליצור לו קוד משם. כאן ניתן לשלוח קוד אישי חד-פעמי ישירות
+            לכתובת מייל, בלי תלות ברישום קודם.
+          </p>
+          <form
+            onSubmit={onSendPersonal}
+            className="glass-gold rounded-xl p-6 flex flex-wrap items-end gap-4"
+          >
+            <label className="block flex-1 min-w-[200px]">
+              <span className="text-sm font-semibold text-cream mb-2 block">אימייל</span>
+              <input
+                type="email"
+                required
+                value={personalEmail}
+                onChange={(e) => setPersonalEmail(e.target.value)}
+                placeholder="customer@example.com"
+                className="w-full bg-ink/40 border border-cream/15 rounded-md px-3 py-2.5 text-sm text-cream focus:outline-none focus:border-gold ltr-inline"
+              />
+            </label>
+            <label className="block flex-1 min-w-[160px]">
+              <span className="text-sm font-semibold text-cream mb-2 block">
+                שם (אופציונלי, לפנייה במייל)
+              </span>
+              <input
+                value={personalName}
+                onChange={(e) => setPersonalName(e.target.value)}
+                placeholder="ישראל ישראלי"
+                className="w-full bg-ink/40 border border-cream/15 rounded-md px-3 py-2.5 text-sm text-cream focus:outline-none focus:border-gold"
+              />
+            </label>
+            <label className="block">
+              <span className="text-sm font-semibold text-cream mb-2 block">אחוז הנחה</span>
+              <select
+                value={personalDiscount}
+                onChange={(e) => setPersonalDiscount(e.target.value)}
+                className="bg-ink/40 border border-cream/15 rounded-md px-3 py-2.5 text-sm text-cream focus:outline-none focus:border-gold"
+              >
+                {[10, 15, 20, 25, 30, 40, 50].map((n) => (
+                  <option key={n} value={n}>
+                    {n}%
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              disabled={sendingPersonal}
+              className="btn-shimmer bg-gold text-ink px-6 py-2.5 rounded-md text-sm font-semibold hover:bg-gold-deep transition-all duration-300 disabled:opacity-60"
+            >
+              <span className="relative z-10">{sendingPersonal ? "שולח..." : "שליחה"}</span>
+            </button>
+          </form>
+          {personalError && <p className="text-destructive text-xs mt-2">{personalError}</p>}
+          {personalSentCode && (
+            <p className="text-green-400 text-xs mt-2">נשלח קוד {personalSentCode} במייל</p>
+          )}
+        </section>
+
+        <section>
           <h2 className="font-serif text-lg text-gold mb-4">קודים כלליים</h2>
           <CouponTable coupons={genericCoupons} onToggleActive={onToggleActive} />
         </section>
 
         <section>
-          <h2 className="font-serif text-lg text-gold mb-4">קודים אישיים שנשלחו ללידים</h2>
+          <h2 className="font-serif text-lg text-gold mb-4">קודים אישיים שנשלחו</h2>
           <p className="text-muted-brown text-sm mb-4">
-            נוצרים מתוך עמוד הלידים הראשי, בכפתור &quot;שליחת קוד הנחה&quot; בפרטי הליד. חד-פעמיים —
-            נסמנים כמנוצלים אוטומטית ברגע שהתשלום עם הקוד מאושר.
+            נוצרים מתוך עמוד הלידים הראשי (בכפתור &quot;שליחת קוד הנחה&quot; בפרטי הליד), או מהטופס
+            למעלה עבור מי שאינו ברשימת הלידים. חד-פעמיים — נסמנים כמנוצלים אוטומטית ברגע שהתשלום עם
+            הקוד מאושר.
           </p>
-          <CouponTable coupons={leadCoupons} onToggleActive={onToggleActive} />
+          <CouponTable coupons={personalCoupons} onToggleActive={onToggleActive} />
         </section>
       </main>
     </div>
@@ -137,6 +235,7 @@ function CouponTable({
     id: string;
     code: string;
     discount_percent: number;
+    recipient_email: string | null;
     active: boolean;
     used_at: string | null;
     created_at: string;
@@ -164,6 +263,7 @@ function CouponTable({
           <thead className="bg-sand/70 text-right">
             <tr>
               <th className="px-4 py-3 font-semibold">קוד</th>
+              <th className="px-4 py-3 font-semibold">אימייל</th>
               <th className="px-4 py-3 font-semibold">הנחה</th>
               <th className="px-4 py-3 font-semibold">נוצר</th>
               <th className="px-4 py-3 font-semibold">נוצל</th>
@@ -175,6 +275,13 @@ function CouponTable({
               <tr key={c.id} className="border-t border-cream/10">
                 <td className="px-4 py-3 font-medium">
                   <span className="ltr-inline">{c.code}</span>
+                </td>
+                <td className="px-4 py-3 text-muted-brown">
+                  {c.recipient_email ? (
+                    <span className="ltr-inline break-all">{c.recipient_email}</span>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="px-4 py-3">{c.discount_percent}%</td>
                 <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
@@ -207,7 +314,12 @@ function CouponTable({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-medium text-cream ltr-inline break-all">{c.code}</div>
-                <div className="text-muted-brown text-sm mt-1">{c.discount_percent}% הנחה</div>
+                {c.recipient_email && (
+                  <div className="text-muted-brown text-sm mt-1">
+                    <span className="ltr-inline break-all">{c.recipient_email}</span>
+                  </div>
+                )}
+                <div className="text-muted-brown text-sm mt-0.5">{c.discount_percent}% הנחה</div>
               </div>
               <button
                 type="button"

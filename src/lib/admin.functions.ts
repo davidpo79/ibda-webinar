@@ -26,8 +26,15 @@ import {
   createGenericCoupon,
   setCouponActive,
   sendCouponEmailToRegistration,
+  sendCouponEmailToAddress,
+  COUPON_INTRO_DEFAULT,
 } from "./coupons.server";
 import { getEmailSendPolicy, updateEmailSendPolicy } from "./email-policy.server";
+import { getEmailOverrides, setEmailOverrides, EDITABLE_PACKAGES } from "./email-content.server";
+import { WELCOME_SUBJECT_BY_PACKAGE, WELCOME_INTRO, REMINDER_VERB } from "./email-templates.server";
+import { PRICE_NOTICE_INTRO_DEFAULT } from "./pricing-notices.server";
+import { PAYMENT_STATUS_PAID_DEFAULT, PAYMENT_STATUS_FAILED_DEFAULT } from "./resend.server";
+import { buildAllEmailPreviews } from "./email-preview.server";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
@@ -226,6 +233,27 @@ export const sendCouponToLeadAction = createServerFn({ method: "POST" })
     return result;
   });
 
+const SendCouponToEmailSchema = z.object({
+  email: z.string().trim().email(),
+  name: z.string().trim().max(100).optional(),
+  discountPercent: z.number().int().min(1).max(100),
+});
+
+// Same personal single-use coupon flow as sendCouponToLeadAction, but for a
+// recipient who has no lead row yet — e.g. someone who asked for a discount
+// by phone/email before ever submitting the site's registration form.
+export const sendCouponToEmailAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => SendCouponToEmailSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    const result = await sendCouponEmailToAddress(
+      data.email,
+      data.name || null,
+      data.discountPercent,
+    );
+    return result;
+  });
+
 export const getAdminEmailPolicyData = createServerFn({ method: "GET" }).handler(async () => {
   assertAdminSession();
   return { policy: await getEmailSendPolicy() };
@@ -243,5 +271,42 @@ export const updateEmailSendPolicyAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     assertAdminSession();
     await updateEmailSendPolicy(data);
+    return { ok: true };
+  });
+
+// Backs the admin "email editor" page: current overrides + a live preview of
+// every automated email (rendered via the real send-path builder functions,
+// see email-preview.server.ts) + each field's hardcoded fallback value, so
+// the UI can show what will actually go out if a field is left blank.
+export const getAdminEmailContentData = createServerFn({ method: "GET" }).handler(async () => {
+  assertAdminSession();
+  const [overrides, previews] = await Promise.all([getEmailOverrides(), buildAllEmailPreviews()]);
+  return {
+    overrides,
+    previews,
+    packages: EDITABLE_PACKAGES,
+    defaults: {
+      welcomeSubject: WELCOME_SUBJECT_BY_PACKAGE,
+      welcomeIntro: WELCOME_INTRO,
+      reminderVerb: REMINDER_VERB,
+      couponIntro: COUPON_INTRO_DEFAULT,
+      priceNoticeIntro: PRICE_NOTICE_INTRO_DEFAULT,
+      paymentStatusPaidTitle: PAYMENT_STATUS_PAID_DEFAULT.title,
+      paymentStatusPaidBody: PAYMENT_STATUS_PAID_DEFAULT.body,
+      paymentStatusFailedTitle: PAYMENT_STATUS_FAILED_DEFAULT.title,
+      paymentStatusFailedBody: PAYMENT_STATUS_FAILED_DEFAULT.body,
+    },
+  };
+});
+
+const UpdateEmailContentSchema = z.object({ changes: z.record(z.string(), z.string()) });
+
+// An empty string for a given key deletes its override row (see
+// setEmailOverrides), reverting that field to its hardcoded default.
+export const updateEmailContentAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => UpdateEmailContentSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    await setEmailOverrides(data.changes);
     return { ok: true };
   });

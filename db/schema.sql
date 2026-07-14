@@ -168,10 +168,15 @@ UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/6wt1qTe
 -- for every open-webinar cohort, not a per-cohort registration link.
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/j/83035753700?pwd=BgqbH9xvxrV7IcPJaZqBfvE4zG8PtG.1' WHERE type = 'open' AND zoom_url IS NULL;
 
--- Discount codes. `registration_id` NULL = a reusable generic code the admin
--- created from the coupons screen; non-NULL = a single-use code generated
--- for one specific lead and emailed directly to them (marked used only once
+-- Discount codes. `recipient_email` NULL = a reusable generic code the admin
+-- created from the coupons screen; non-NULL = a single-use code tied to one
+-- specific recipient and emailed directly to them (marked used only once
 -- their order actually reaches 'paid' — see src/lib/coupons.server.ts).
+-- `registration_id` is set when the recipient already has a lead row at the
+-- time the code is created (the "send from the leads table" flow); it stays
+-- NULL for a personal code sent directly to an email that has no lead row
+-- yet (see src/lib/coupons.server.ts createCouponForEmail) — recipient_email
+-- is what actually drives single-use behavior, not registration_id.
 CREATE TABLE IF NOT EXISTS coupons (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   code text UNIQUE NOT NULL,
@@ -181,6 +186,15 @@ CREATE TABLE IF NOT EXISTS coupons (
   used_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Column added after the table already existed in production — backfilled
+-- from the linked registration's email for existing lead-linked coupons, so
+-- the admin coupons table can show the recipient without a join, and so a
+-- personal coupon can exist for a recipient with no registration row at all.
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS recipient_email text;
+UPDATE coupons c SET recipient_email = r.email
+FROM registrations r
+WHERE c.registration_id = r.id AND c.recipient_email IS NULL;
 
 -- Per-package early/regular price and an optional cutoff after which the
 -- regular price takes effect automatically. `cutoff_at IS NULL` means "stay
@@ -228,3 +242,14 @@ CREATE TABLE IF NOT EXISTS email_send_policy (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO email_send_policy (id) VALUES (true) ON CONFLICT (id) DO NOTHING;
+
+-- Admin-editable overrides for specific pieces of automated-email wording
+-- (subject lines, intro sentences, etc.) — see src/lib/email-content.server.ts.
+-- `key` is a dotted identifier like 'welcome.premium_ai.subject' or
+-- 'coupon.intro'; absence of a row means "use the hardcoded default", so
+-- this table only ever holds the fields an admin has actually customized.
+CREATE TABLE IF NOT EXISTS email_content_overrides (
+  key text PRIMARY KEY,
+  value text NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);

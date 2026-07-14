@@ -4,6 +4,10 @@ import { listRegistrationsPendingPackage } from "./registrations.server";
 import { sendRawEmail } from "./resend.server";
 import { getEmailSendPolicy, isAllowedSendTime } from "./email-policy.server";
 import { escapeHtml } from "./escape-html";
+import { applyPlaceholders, getEmailOverrides } from "./email-content.server";
+
+export const PRICE_NOTICE_INTRO_DEFAULT =
+  'מחיר ההרשמה המוקדמת ל"{package}" עולה בעוד כ-{hours} שעות, למחיר של ₪{price}.';
 
 const PACKAGE_TITLES: Record<string, string> = {
   core_single: "וובינר בודד מסדרת הליבה",
@@ -19,12 +23,19 @@ function hoursUntil(cutoffIso: string): number {
   return Math.max(1, Math.round((new Date(cutoffIso).getTime() - Date.now()) / 3600000));
 }
 
-function priceNoticeEmailHtml(
+export function priceNoticeEmailHtml(
   firstName: string,
   packageTitle: string,
   hours: number,
   regularPrice: number,
+  overrides: Record<string, string> = {},
 ): string {
+  const introTemplate = overrides["price_notice.intro"] ?? PRICE_NOTICE_INTRO_DEFAULT;
+  const intro = applyPlaceholders(introTemplate, {
+    package: packageTitle,
+    hours: String(hours),
+    price: regularPrice.toLocaleString(),
+  });
   return `<!DOCTYPE html>
 <html lang="he" dir="rtl"><head><meta charSet="utf-8" /></head>
 <body dir="rtl" style="margin:0;padding:0;background-color:#17150F;font-family:Georgia,'Times New Roman',serif;">
@@ -34,7 +45,7 @@ function priceNoticeEmailHtml(
         <tr><td dir="rtl" style="padding:28px 32px;color:#FFFDF7;">
           <h1 dir="rtl" style="color:#FFFDF7;font-size:22px;font-weight:400;margin:0 0 14px;">שלום ${escapeHtml(firstName)},</h1>
           <p dir="rtl" style="color:#D9D0BB;font-size:15px;line-height:1.8;margin:0 0 18px;">
-            מחיר ההרשמה המוקדמת ל&quot;${packageTitle}&quot; עולה בעוד כ-${hours} שעות, למחיר של ₪${regularPrice.toLocaleString()}.
+            ${escapeHtml(intro)}
           </p>
           <p dir="rtl" style="color:#D9D0BB;font-size:14px;line-height:1.7;">
             אם עדיין לא השלמתם את ההרשמה, זה הזמן להשלים אותה במחיר הנוכחי.
@@ -67,6 +78,7 @@ export async function runPriceIncreaseNoticeSweep(): Promise<{ checked: number; 
     return msUntil > 0 && msUntil <= 12 * 60 * 60 * 1000;
   });
 
+  const overrides = due.length ? await getEmailOverrides() : {};
   let sent = 0;
   for (const row of due) {
     const leads = await listRegistrationsPendingPackage(row.package_id);
@@ -77,7 +89,7 @@ export async function runPriceIncreaseNoticeSweep(): Promise<{ checked: number; 
         await sendRawEmail(
           lead.email,
           `המחיר של ${title} עולה בקרוב`,
-          priceNoticeEmailHtml(lead.first_name, title, hours, Number(row.regular_price)),
+          priceNoticeEmailHtml(lead.first_name, title, hours, Number(row.regular_price), overrides),
         );
         sent++;
       } catch (err) {
