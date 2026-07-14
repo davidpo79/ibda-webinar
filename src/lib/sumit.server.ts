@@ -137,18 +137,21 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
     throw new Error(`Sumit error ${res.status}: ${text}`);
   }
   const json = JSON.parse(text) as {
-    Status?: string;
+    Status?: string | number;
     Data?: { RedirectURL?: string };
     RedirectURL?: string;
     UserErrorMessage?: string;
     TechnicalErrorDetails?: string;
   };
   const link = json.Data?.RedirectURL || json.RedirectURL;
-  const statusStr = String(json.Status || "");
-  if (!link || !statusStr.startsWith("Success")) {
+  // beginredirect's healthy envelope is Status "0" (or empty) + a RedirectURL
+  // + no UserErrorMessage — NOT "Success..." (that convention belongs to
+  // other Sumit endpoints, e.g. gettransaction). Confirmed against a live
+  // response: {Data: {RedirectURL: "..."}, Status: 0, UserErrorMessage: null}.
+  if (!link || json.UserErrorMessage) {
     console.error("[Sumit] beginredirect rejected", { package: data.package_id, response: json });
     throw new Error(
-      `Sumit failed: ${json.UserErrorMessage || json.TechnicalErrorDetails || statusStr || text}`,
+      `Sumit failed: ${json.UserErrorMessage || json.TechnicalErrorDetails || String(json.Status ?? "") || text}`,
     );
   }
 
