@@ -574,7 +574,7 @@ function LeadDetailPanel({
           <dd>{packagesLabel(r.selected_packages)}</dd>
         </div>
         <div>
-          <dt className="text-muted-brown">מפגש/קוהורט</dt>
+          <dt className="text-muted-brown">מפגש</dt>
           <dd>{r.session_title || "—"}</dd>
         </div>
         <div>
