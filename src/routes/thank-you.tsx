@@ -148,7 +148,7 @@ function ThankYouPage() {
           </div>
           <h1 className="font-serif text-4xl sm:text-5xl text-cream mb-4">תודה שנרשמת לוובינר הפתוח!</h1>
           <p className="text-muted-brown text-[17px] leading-[1.85] max-w-xl mx-auto mb-5">
-            "{openWebinarRecap.title}". פרטי ההתחברות למפגש יישלחו אליך בנפרד, סמוך למועד.
+            "{openWebinarRecap.title}"
           </p>
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-cream bg-gold/10 border border-gold/40 px-4 py-2 rounded-md">
             <Calendar size={16} className="text-gold" />
