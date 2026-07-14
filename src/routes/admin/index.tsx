@@ -33,10 +33,62 @@ function packagesLabel(ids: string[]): string {
   return ids.map((id) => PACKAGE_LABELS[id] || id).join(", ") || "—";
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  paid: "שולם",
+  failed: "נכשל",
+  created: "ממתין",
+};
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="text-muted-brown">{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-ink/40 border border-cream/15 rounded-md px-3 py-1.5 text-sm text-cream focus:outline-none focus:border-gold"
+      >
+        <option value="all">הכל</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+const PACKAGE_OPTIONS = Object.entries(PACKAGE_LABELS).map(([value, label]) => ({ value, label }));
+const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }));
+
 function AdminDashboard() {
   const { registrations, orders } = Route.useLoaderData();
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [leadPackageFilter, setLeadPackageFilter] = useState("all");
+  const [orderPackageFilter, setOrderPackageFilter] = useState("all");
+  const [orderStatusFilter, setOrderStatusFilter] = useState("all");
+
+  const filteredRegistrations = registrations.filter(
+    (r) => leadPackageFilter === "all" || r.selected_packages.includes(leadPackageFilter),
+  );
+  const filteredOrders = orders.filter((o) => {
+    const packages = o.package_id.split(",");
+    const matchesPackage = orderPackageFilter === "all" || packages.includes(orderPackageFilter);
+    const matchesStatus = orderStatusFilter === "all" || o.status === orderStatusFilter;
+    return matchesPackage && matchesStatus;
+  });
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -68,12 +120,34 @@ function AdminDashboard() {
 
       <main className="max-w-6xl mx-auto px-6 py-10 space-y-14">
         <section>
-          <h2 className="font-serif text-lg text-gold mb-4">לידים ({registrations.length})</h2>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <h2 className="font-serif text-lg text-gold">
+              לידים ({filteredRegistrations.length}
+              {filteredRegistrations.length !== registrations.length
+                ? ` מתוך ${registrations.length}`
+                : ""}
+              )
+            </h2>
+            <FilterSelect
+              label="מוצר"
+              value={leadPackageFilter}
+              onChange={setLeadPackageFilter}
+              options={PACKAGE_OPTIONS}
+            />
+          </div>
           <div className="border border-cream/10 rounded-lg overflow-x-auto">
-            <table className="w-full text-sm min-w-[720px]">
+            <table className="w-full text-sm min-w-[760px] table-fixed">
+              <colgroup>
+                <col className="w-10" />
+                <col className="w-[15%]" />
+                <col className="w-[19%]" />
+                <col className="w-[13%]" />
+                <col className="w-[32%]" />
+                <col className="w-[13%]" />
+              </colgroup>
               <thead className="bg-sand/70 text-right">
                 <tr>
-                  <th className="px-4 py-3 font-semibold w-10"></th>
+                  <th className="px-4 py-3 font-semibold"></th>
                   <th className="px-4 py-3 font-semibold">שם</th>
                   <th className="px-4 py-3 font-semibold">אימייל</th>
                   <th className="px-4 py-3 font-semibold">טלפון</th>
@@ -82,11 +156,11 @@ function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {registrations.map((r) => {
+                {filteredRegistrations.map((r) => {
                   const isOpen = expanded.has(r.id);
                   return (
                     <Fragment key={r.id}>
-                      <tr className="border-t border-cream/10 hover:bg-cream/[0.03]">
+                      <tr className="border-t border-cream/10 hover:bg-cream/[0.03] align-top">
                         <td className="px-4 py-3">
                           <button
                             onClick={() => toggle(r.id)}
@@ -96,15 +170,19 @@ function AdminDashboard() {
                             {isOpen ? "–" : "+"}
                           </button>
                         </td>
-                        <td className="px-4 py-3 font-medium">
+                        <td className="px-4 py-3 font-medium break-words">
                           {r.first_name} {r.last_name}
                         </td>
-                        <td className="px-4 py-3 ltr-inline text-muted-brown">{r.email}</td>
-                        <td className="px-4 py-3 ltr-inline text-muted-brown">{r.phone}</td>
-                        <td className="px-4 py-3 text-muted-brown">
+                        <td className="px-4 py-3 ltr-inline text-muted-brown break-all">
+                          {r.email}
+                        </td>
+                        <td className="px-4 py-3 ltr-inline text-muted-brown whitespace-nowrap">
+                          {r.phone}
+                        </td>
+                        <td className="px-4 py-3 text-muted-brown break-words">
                           {packagesLabel(r.selected_packages)}
                         </td>
-                        <td className="px-4 py-3 text-muted-brown">
+                        <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
                           {formatSessionDate(r.created_at)}
                         </td>
                       </tr>
@@ -156,10 +234,10 @@ function AdminDashboard() {
                     </Fragment>
                   );
                 })}
-                {registrations.length === 0 && (
+                {filteredRegistrations.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-muted-brown">
-                      אין עדיין לידים
+                      {registrations.length === 0 ? "אין עדיין לידים" : "אין לידים התואמים לסינון"}
                     </td>
                   </tr>
                 )}
@@ -169,9 +247,36 @@ function AdminDashboard() {
         </section>
 
         <section>
-          <h2 className="font-serif text-lg text-gold mb-4">רוכשים ({orders.length})</h2>
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <h2 className="font-serif text-lg text-gold">
+              רוכשים ({filteredOrders.length}
+              {filteredOrders.length !== orders.length ? ` מתוך ${orders.length}` : ""})
+            </h2>
+            <div className="flex flex-wrap items-center gap-4">
+              <FilterSelect
+                label="מוצר"
+                value={orderPackageFilter}
+                onChange={setOrderPackageFilter}
+                options={PACKAGE_OPTIONS}
+              />
+              <FilterSelect
+                label="סטטוס"
+                value={orderStatusFilter}
+                onChange={setOrderStatusFilter}
+                options={STATUS_OPTIONS}
+              />
+            </div>
+          </div>
           <div className="border border-cream/10 rounded-lg overflow-x-auto">
-            <table className="w-full text-sm min-w-[720px]">
+            <table className="w-full text-sm min-w-[760px] table-fixed">
+              <colgroup>
+                <col className="w-[16%]" />
+                <col className="w-[19%]" />
+                <col className="w-[30%]" />
+                <col className="w-[11%]" />
+                <col className="w-[11%]" />
+                <col className="w-[13%]" />
+              </colgroup>
               <thead className="bg-sand/70 text-right">
                 <tr>
                   <th className="px-4 py-3 font-semibold">מספר עסקה</th>
@@ -183,12 +288,21 @@ function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((o) => (
-                  <tr key={o.id} className="border-t border-cream/10 hover:bg-cream/[0.03]">
-                    <td className="px-4 py-3 ltr-inline text-muted-brown">{o.order_reference}</td>
-                    <td className="px-4 py-3 ltr-inline text-muted-brown">{o.email}</td>
-                    <td className="px-4 py-3">{packagesLabel(o.package_id.split(","))}</td>
-                    <td className="px-4 py-3">{o.amount ? `₪${o.amount}` : "—"}</td>
+                {filteredOrders.map((o) => (
+                  <tr
+                    key={o.id}
+                    className="border-t border-cream/10 hover:bg-cream/[0.03] align-top"
+                  >
+                    <td className="px-4 py-3 ltr-inline text-muted-brown break-all">
+                      {o.order_reference}
+                    </td>
+                    <td className="px-4 py-3 ltr-inline text-muted-brown break-all">{o.email}</td>
+                    <td className="px-4 py-3 break-words">
+                      {packagesLabel(o.package_id.split(","))}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {o.amount ? `₪${o.amount}` : "—"}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={cn(
@@ -198,18 +312,18 @@ function AdminDashboard() {
                           o.status === "created" && "bg-gold/15 text-gold",
                         )}
                       >
-                        {o.status === "paid" ? "שולם" : o.status === "failed" ? "נכשל" : "ממתין"}
+                        {STATUS_LABELS[o.status] ?? o.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-muted-brown">
+                    <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
                       {formatSessionDate(o.updated_at)}
                     </td>
                   </tr>
                 ))}
-                {orders.length === 0 && (
+                {filteredOrders.length === 0 && (
                   <tr>
                     <td colSpan={6} className="px-4 py-8 text-center text-muted-brown">
-                      אין עדיין רוכשים
+                      {orders.length === 0 ? "אין עדיין רוכשים" : "אין רוכשים התואמים לסינון"}
                     </td>
                   </tr>
                 )}
