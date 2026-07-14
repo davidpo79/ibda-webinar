@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -94,7 +94,7 @@ function WebinarPage() {
         </section>
 
         <section className="mb-8 flex items-center gap-4 justify-center">
-          <div className="relative w-20 h-24 shrink-0">
+          <div className="relative w-24 h-28 shrink-0">
             <div className="absolute inset-0 bg-sand rounded-sm ring-1 ring-gold/20" />
             <img
               src={yifatPhoto}
@@ -136,7 +136,6 @@ function WebinarPage() {
 }
 
 function RegistrationForm({ sessionId }: { sessionId?: string }) {
-  const navigate = useNavigate();
   const savedContact = useRef(loadContact()).current;
   const [first_name, setFirstName] = useState(savedContact?.first_name ?? "");
   const [last_name, setLastName] = useState(savedContact?.last_name ?? "");
@@ -178,7 +177,7 @@ function RegistrationForm({ sessionId }: { sessionId?: string }) {
           session_id: sessionId,
         },
       });
-      navigate({ to: "/thank-you" });
+      window.location.href = "/thank-you?registered=1";
     } catch (err) {
       console.error("[webinar] registration error", err);
       setServerError("אירעה תקלה בשליחת ההרשמה. אנא נסו שוב בעוד רגע.");

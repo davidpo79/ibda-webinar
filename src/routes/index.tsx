@@ -128,7 +128,6 @@ const openWebinars = [
       "הגדרת היקף השירות: מה כולל ומה לא כולל בשירות",
       "קביעת שכר טרחה: זמן, מורכבות, שווי הממכר, שיטות מקובלות, ועיגונים בפסיקה לשכר ראוי",
       "עריכת הסכם שכר טרחה: מבנה, סעיפים חיוניים, מנגנוני תשלום",
-      "\n",
       "הדגמה live",
     ],
   },
@@ -136,7 +135,7 @@ const openWebinars = [
 
 
 
-const coreSeries: { t: string; d: string; topics: string[]; icon: LucideIcon; date: string }[] = [
+const coreSeries: { t: string; d: string; topics: string[]; icon: LucideIcon; date: string; free?: boolean }[] = [
   {
     t: "המפה המשפטית",
     d: "נסח הטאבו כמפת סיכונים",
@@ -210,6 +209,7 @@ const coreSeries: { t: string; d: string; topics: string[]; icon: LucideIcon; da
     d: "הליך הפינוי בהבדל מהסעד הכספי",
     icon: DoorOpen,
     date: "11.8 · 10:00",
+    free: true,
     topics: [
       "סדר הדין בתביעה לפינוי מושכר",
       "הליך הפינוי בהבדל מהסעד הכספי\u00A0",
@@ -344,12 +344,12 @@ function handleTicketAction(
 const includedItems = [
   "השתתפות חיה בזום כולל מקבץ שאלות ותשובות",
   "גישה להקלטה למשך 30 יום (בחבילת הפרימיום 90 יום)",
-  "מצגת, צ׳קליסטים וטמפלייטים להורדה",
+  "צ׳קליסטים מוכנים להורדה",
 ];
 
 const groupDiscounts = [
   { t: "רישום קבוצתי ממשרד אחד", d: "3 עד 4 משתתפים 15% הנחה. 5 משתתפים ומעלה 20% הנחה." },
-  { t: "רישיון משרדי לסדרה המלאה", d: "עד 10 צופים ותוספת הקלטות לשימוש פנימי במשרד. ₪ 6,900." },
+  { t: "רישיון משרדי לסדרה המלאה", d: "עד 10 צופים ותוספת הקלטות לשימוש פנימי במשרד ₪ 6,900." },
   { t: "מתמחים וסטודנטים למשפטים", d: "40% הנחה בהצגת אישור, על וובינרים בודדים בלבד." },
   { t: "לשכות, ארגונים ומחלקות משפטיות", d: "הצעת מחיר פרטנית להרצאה סגורה החל מ ₪ 4,500 למפגש." },
 ];
@@ -357,7 +357,6 @@ const groupDiscounts = [
 const cancellationPolicy = [
   "ביטול עד 7 ימי עסקים לפני המפגש הראשון: החזר מלא.",
   "ביטול עד 48 שעות לפני: החזר של 50% או זיכוי מלא למועד אחר.",
-  "לאחר מכן: זיכוי לצפייה בהקלטה בלבד.",
   "פתיחת כל סדנא מותנית במינימום 15 נרשמים. במקרה של דחייה יינתן החזר מלא או זיכוי.",
 ];
 
@@ -388,6 +387,7 @@ function Landing() {
     return { ...w, date: formatSessionDate(session?.starts_at) || w.date };
   });
   const pricingDateLabels = buildPricingDateLabels(coreSessions, premiumSessions);
+  const scheduleItemsResolved = buildScheduleItems(openSession, coreSessions, premiumSessions);
 
   const toggle = useCallback((id: string) => {
     setSelected((s) => {
@@ -425,7 +425,7 @@ function Landing() {
     <RegistrationModalContext.Provider value={{ open, selected, toggle, coreLesson }}>
       <div className="min-h-screen bg-ink text-cream font-sans">
         <AnnouncementBar dateISO={openWebinarsResolved[0].dateISO} />
-        <TopBar />
+        <TopBar scheduleItems={scheduleItemsResolved} />
         <Hero />
         <ModelSection />
         <OpenWebinarsSection data={openWebinarsResolved} />
@@ -442,7 +442,7 @@ function Landing() {
 
 /* -------------------------- top bar -------------------------- */
 
-function TopBar() {
+function TopBar({ scheduleItems }: { scheduleItems: ScheduleItem[] }) {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   return (
     <>
@@ -479,7 +479,7 @@ function TopBar() {
           </div>
         </div>
       </div>
-      <ScheduleDialog open={scheduleOpen} onOpenChange={setScheduleOpen} />
+      <ScheduleDialog open={scheduleOpen} onOpenChange={setScheduleOpen} items={scheduleItems} />
     </>
   );
 }
@@ -490,30 +490,60 @@ type ScheduleItem = {
   kind: "וובינר פתוח" | "סדרת הליבה" | "סדנה";
   title: string;
   date: string;
-  sortKey: string; // ISO-ish for sorting
+  sortKey: string; // ISO instant
 };
 
-const scheduleItems: ScheduleItem[] = ([
-  { kind: "וובינר פתוח", title: "כמה זה עולה לעשות עסקת נדל״ן?", date: "15.7 · 10:00", sortKey: "2026-07-15T10:00" },
-  { kind: "סדנה", title: "העתיד כבר כאן! AI ואוטומציות בעבודת עורך הדין", date: "21.7 · 10:00", sortKey: "2026-07-21T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 1 · המפה המשפטית", date: "26.7 · 10:00", sortKey: "2026-07-26T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 2 · דגשים בבדיקות מקדמיות", date: "27.7 · 10:00", sortKey: "2026-07-27T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 3 · לב העסקה - חלק א׳", date: "28.7 · 10:00", sortKey: "2026-07-28T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 4 · לב העסקה - חלק ב׳", date: "30.7 · 10:00", sortKey: "2026-07-30T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 5 · המשכנתא", date: "3.8 · 10:00", sortKey: "2026-08-03T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 6 · מעמד החתימה ורישום הזכויות", date: "4.8 · 10:00", sortKey: "2026-08-04T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 7 · הסכם השכירות", date: "9.8 · 10:00", sortKey: "2026-08-09T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 8 · פינוי מושכר", date: "11.8 · 10:00", sortKey: "2026-08-11T10:00" },
-  { kind: "סדרת הליבה", title: "מפגש 9 · העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים", date: "12.8 · 10:00", sortKey: "2026-08-12T10:00" },
-  { kind: "סדנה", title: "רישום בית משותף (סדנה יומית · 4 שעות)", date: "13.8 · 09:00", sortKey: "2026-08-13T09:00" },
-  { kind: "סדנה", title: "ליטיגציה בנדל״ן - סוגיות נבחרות", date: "16.8 · 10:00", sortKey: "2026-08-16T10:00" },
-  { kind: "סדנה", title: "שיתוף במקרקעין", date: "17.8 · 10:00", sortKey: "2026-08-17T10:00" },
-] as ScheduleItem[]).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+// Built from the live sessions data (not hardcoded) so the "לו״ז המפגשים"
+// dialog always matches whatever dates are currently set in the admin
+// schedule editor.
+function buildScheduleItems(
+  openSession: { starts_at: string } | null,
+  coreSessions: { starts_at: string }[],
+  premiumSessions: { key: string | null; starts_at: string }[],
+): ScheduleItem[] {
+  const items: ScheduleItem[] = [];
+  if (openSession) {
+    items.push({
+      kind: "וובינר פתוח",
+      title: openWebinars[0].title,
+      date: formatSessionDate(openSession.starts_at) || openWebinars[0].dateLabel,
+      sortKey: openSession.starts_at,
+    });
+  }
+  coreSeries.forEach((s, i) => {
+    const session = coreSessions[i];
+    if (!session) return;
+    items.push({
+      kind: "סדרת הליבה",
+      title: `מפגש ${i + 1} · ${s.t}`,
+      date: formatSessionDate(session.starts_at) || s.date,
+      sortKey: session.starts_at,
+    });
+  });
+  premiumWorkshops.forEach((w, i) => {
+    const session = premiumSessions.find((p) => p.key === PREMIUM_WORKSHOP_IDS[i]);
+    items.push({
+      kind: "סדנה",
+      title: w.t,
+      date: (session && formatSessionDate(session.starts_at)) || w.date,
+      sortKey: session?.starts_at || w.date,
+    });
+  });
+  return items.sort((a, b) => new Date(a.sortKey).getTime() - new Date(b.sortKey).getTime());
+}
 
-function ScheduleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+function ScheduleDialog({
+  open,
+  onOpenChange,
+  items,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  items: ScheduleItem[];
+}) {
   const nextIdx = (() => {
     const now = Date.now();
-    const i = scheduleItems.findIndex((it) => new Date(it.sortKey + ":00+03:00").getTime() > now);
+    const i = items.findIndex((it) => new Date(it.sortKey).getTime() > now);
     return i === -1 ? -1 : i;
   })();
 
@@ -540,7 +570,7 @@ function ScheduleDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
         </DialogHeader>
 
         <ol className="mt-4 space-y-2">
-          {scheduleItems.map((it, i) => {
+          {items.map((it, i) => {
             const isNext = i === nextIdx;
             return (
               <li
@@ -1046,8 +1076,15 @@ function CoreSeriesSection({ data }: { data: typeof coreSeries }) {
                       <w.icon size={24} strokeWidth={1.25} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block font-serif text-xl sm:text-2xl md:text-3xl text-cream group-hover:text-gold transition-colors leading-tight">
-                        {w.t}
+                      <span className="flex items-center gap-2 flex-wrap">
+                        <span className="block font-serif text-xl sm:text-2xl md:text-3xl text-cream group-hover:text-gold transition-colors leading-tight">
+                          {w.t}
+                        </span>
+                        {w.free && (
+                          <span className="text-[10px] font-semibold tracking-[0.2em] uppercase px-2.5 py-1 rounded border border-gold bg-gold/10 text-gold">
+                            בחינם!
+                          </span>
+                        )}
                       </span>
                       <span className="block mt-1.5 text-muted-brown text-[13.5px] sm:text-[14.5px] md:text-[15px] leading-[1.7]">
                         {w.d}
@@ -1649,7 +1686,7 @@ function RegistrationSection({ dateLabels }: { dateLabels: Record<string, string
     // No paid package selected (free open-webinar registration) — send them
     // to the full thank-you/offers page, same as the standalone /webinar
     // flow, instead of a dead-end inline success card.
-    navigate({ to: "/thank-you" });
+    window.location.href = "/thank-you?registered=1";
   }
 
 

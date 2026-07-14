@@ -76,6 +76,10 @@ function FilterSelect({
 
 const PACKAGE_OPTIONS = Object.entries(PACKAGE_LABELS).map(([value, label]) => ({ value, label }));
 const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }));
+const LESSON_OPTIONS = Array.from({ length: 9 }, (_, i) => ({
+  value: String(i + 1),
+  label: `שיעור ${i + 1}`,
+}));
 
 function AdminDashboard() {
   const { registrations, orders } = Route.useLoaderData();
@@ -83,15 +87,21 @@ function AdminDashboard() {
   const router = useRouter();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [leadPackageFilter, setLeadPackageFilter] = useState("all");
+  const [leadLessonFilter, setLeadLessonFilter] = useState("all");
   const [orderPackageFilter, setOrderPackageFilter] = useState("all");
   const [orderStatusFilter, setOrderStatusFilter] = useState("all");
 
-  const filteredRegistrations = registrations.filter(
-    (r) => leadPackageFilter === "all" || r.selected_packages.includes(leadPackageFilter),
-  );
+  const filteredRegistrations = registrations.filter((r) => {
+    const matchesPackage =
+      leadPackageFilter === "all" || r.selected_packages.includes(leadPackageFilter);
+    const matchesLesson =
+      leadLessonFilter === "all" ||
+      (r.selected_packages.includes("core_single") &&
+        String(r.core_single_lesson_index) === leadLessonFilter);
+    return matchesPackage && matchesLesson;
+  });
   const filteredOrders = orders.filter((o) => {
-    const packages = o.package_id.split(",");
-    const matchesPackage = orderPackageFilter === "all" || packages.includes(orderPackageFilter);
+    const matchesPackage = orderPackageFilter === "all" || o.package_id === orderPackageFilter;
     const matchesStatus = orderStatusFilter === "all" || o.status === orderStatusFilter;
     return matchesPackage && matchesStatus;
   });
@@ -134,12 +144,20 @@ function AdminDashboard() {
                 : ""}
               )
             </h2>
-            <FilterSelect
-              label="מוצר"
-              value={leadPackageFilter}
-              onChange={setLeadPackageFilter}
-              options={PACKAGE_OPTIONS}
-            />
+            <div className="flex flex-wrap items-center gap-4">
+              <FilterSelect
+                label="מוצר"
+                value={leadPackageFilter}
+                onChange={setLeadPackageFilter}
+                options={PACKAGE_OPTIONS}
+              />
+              <FilterSelect
+                label="שיעור בודד"
+                value={leadLessonFilter}
+                onChange={setLeadLessonFilter}
+                options={LESSON_OPTIONS}
+              />
+            </div>
           </div>
           <div className="border border-cream/10 rounded-lg overflow-x-auto">
             <table className="w-full text-sm min-w-[760px] table-fixed">
@@ -250,10 +268,10 @@ function AdminDashboard() {
                 <tr>
                   <th className="px-4 py-3 font-semibold">מספר עסקה</th>
                   <th className="px-4 py-3 font-semibold">אימייל</th>
-                  <th className="px-4 py-3 font-semibold">חבילה</th>
+                  <th className="px-4 py-3 font-semibold">מוצר</th>
                   <th className="px-4 py-3 font-semibold">סכום</th>
                   <th className="px-4 py-3 font-semibold">סטטוס</th>
-                  <th className="px-4 py-3 font-semibold">עודכן</th>
+                  <th className="px-4 py-3 font-semibold">מועד המפגש</th>
                 </tr>
               </thead>
               <tbody>
@@ -267,7 +285,7 @@ function AdminDashboard() {
                     </td>
                     <td className="px-4 py-3 ltr-inline text-muted-brown break-all">{o.email}</td>
                     <td className="px-4 py-3 break-words">
-                      {packagesLabel(o.package_id.split(","))}
+                      {PACKAGE_LABELS[o.package_id] || o.package_id}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {o.amount ? `₪${o.amount}` : "—"}
@@ -285,7 +303,7 @@ function AdminDashboard() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
-                      {formatSessionDate(o.updated_at)}
+                      {formatSessionDate(o.session_starts_at) || "—"}
                     </td>
                   </tr>
                 ))}

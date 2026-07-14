@@ -48,7 +48,7 @@ const OPEN_WEBINAR_RECAP = {
   dateLabel: "15.7 · 10:00",
 };
 
-const CORE_SERIES: { t: string; d: string; topics: string[]; icon: LucideIcon; date: string }[] = [
+const CORE_SERIES: { t: string; d: string; topics: string[]; icon: LucideIcon; date: string; free?: boolean }[] = [
   { t: "המפה המשפטית", d: "נסח הטאבו כמפת סיכונים", icon: FileSearch, date: "26.7 · 10:00", topics: ["הקריאה הנכונה של נסח היא ההבדל בין בדיקת נאותות לבין ניחוש. 90 דקות על כל מה שמסתתר בין השורות."] },
   { t: "דגשים בבדיקות מקדמיות", d: "עסקאות נוגדות", icon: Scale, date: "27.7 · 10:00", topics: ["סעיף 9 לחוק המקרקעין הוא זירת הקרב של תחרות הזכויות. איך מגינים על הלקוח ואיך תוקפים רישום מתחרה."] },
   { t: "לב העסקה - חלק א'", d: "התמודדות בניסוח סעיפים מגבילים", icon: ShieldAlert, date: "28.7 · 10:00", topics: ["מתן פתרון לניסוח סעיפים למחיקת הערות, עיקולים ומניעות רישום.", "מיפוי המניעות ומתן דרכי התמודדות."] },
@@ -56,7 +56,7 @@ const CORE_SERIES: { t: string; d: string; topics: string[]; icon: LucideIcon; d
   { t: "המשכנתא", d: "מימון העסקה, בטוחות ומנגנוני תשלום בעסקת מכר", icon: Banknote, date: "3.8 · 10:00", topics: ["התמורה בגין העסקה למול חוות הדעת השמאית והמשמעות.", "בניית לוח התשלומים לרבות פיקדונות מסים – מדריך מעשי."] },
   { t: "מעמד החתימה ורישום הזכויות", d: "צ'ק ליסט מעשי למעמד חתימת העיסקה", icon: ClipboardCheck, date: "4.8 · 10:00", topics: ["המסמכים הנלווים", "חשיבות סיום העיסקה ברישום"] },
   { t: "הסכם השכירות", d: "בדיקת הצדדים להסכם וניסוח הסכם השכירות", icon: Home, date: "9.8 · 10:00", topics: ["מבדיקת השוכרים והבטוחות ועד לניסוח מותאם של סעיפי ההסכם.", "סעיפי ליבה בהשכרת דירה חדשה מקבלן ומשמעויות."] },
-  { t: "פינוי מושכר", d: "הליך הפינוי בהבדל מהסעד הכספי", icon: DoorOpen, date: "11.8 · 10:00", topics: ["סדר הדין בתביעה לפינוי מושכר", "הליך הפינוי בהבדל מהסעד הכספי"] },
+  { t: "פינוי מושכר", d: "הליך הפינוי בהבדל מהסעד הכספי", icon: DoorOpen, date: "11.8 · 10:00", free: true, topics: ["סדר הדין בתביעה לפינוי מושכר", "הליך הפינוי בהבדל מהסעד הכספי"] },
   { t: "העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים", d: "מה קורה במקרה של הפרה, מהי הפרה יסודית ודרכי ההתמודדות", icon: Gavel, date: "12.8 · 10:00", topics: ["אכיפת התחייבות למול ביטול ההסכם", "ההליכים המשפטיים שניתן לבצע"] },
 ];
 
@@ -74,7 +74,7 @@ const PRICING: {
 
 const GROUP_DISCOUNTS = [
   { t: "רישום קבוצתי ממשרד אחד", d: "3 עד 4 משתתפים 15% הנחה. 5 משתתפים ומעלה 20% הנחה." },
-  { t: "רישיון משרדי לסדרה המלאה", d: "עד 10 צופים ותוספת הקלטות לשימוש פנימי במשרד. ₪ 6,900." },
+  { t: "רישיון משרדי לסדרה המלאה", d: "עד 10 צופים ותוספת הקלטות לשימוש פנימי במשרד ₪ 6,900." },
   { t: "מתמחים וסטודנטים למשפטים", d: "40% הנחה בהצגת אישור, על וובינרים בודדים בלבד." },
   { t: "לשכות, ארגונים ומחלקות משפטיות", d: "הצעת מחיר פרטנית להרצאה סגורה החל מ-₪ 4,500 למפגש." },
 ];
@@ -82,7 +82,6 @@ const GROUP_DISCOUNTS = [
 const CANCELLATION_POLICY = [
   "ביטול עד 7 ימי עסקים לפני המפגש הראשון: החזר מלא.",
   "ביטול עד 48 שעות לפני: החזר של 50% או זיכוי מלא למועד אחר.",
-  "לאחר מכן: זיכוי לצפייה בהקלטה בלבד.",
   "פתיחת כל סדנא מותנית במינימום 15 נרשמים. במקרה של דחייה יינתן החזר מלא או זיכוי.",
 ];
 
@@ -109,6 +108,9 @@ function ThankYouPage() {
   const { openSession, coreSessions, premiumSessions } = Route.useLoaderData();
   const [selected, setSelected] = useState<Set<string>>(() =>
     sanitizeSelection(loadSelection("thank-you") ?? new Set()),
+  );
+  const [registered] = useState(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("registered") === "1",
   );
   const formRef = useRef<HTMLDivElement>(null);
 
@@ -144,22 +146,34 @@ function ThankYouPage() {
       <main className="max-w-5xl mx-auto px-6 py-14">
         <section className="text-center mb-14 fade-rise">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full border border-gold text-gold mb-5">
-            <Check size={26} strokeWidth={1.5} />
+            {registered ? <Check size={26} strokeWidth={1.5} /> : <Calendar size={24} strokeWidth={1.5} />}
           </div>
-          <h1 className="font-serif text-4xl sm:text-5xl text-cream mb-4">תודה שנרשמת לוובינר הפתוח!</h1>
-          <p className="text-muted-brown text-[17px] leading-[1.85] max-w-xl mx-auto mb-5">
-            "{openWebinarRecap.title}"
-          </p>
-          <div className="inline-flex items-center gap-2 text-sm font-semibold text-cream bg-gold/10 border border-gold/40 px-4 py-2 rounded-md">
-            <Calendar size={16} className="text-gold" />
-            <span>{openWebinarRecap.dateLabel}</span>
-          </div>
+          <h1 className="font-serif text-4xl sm:text-5xl text-cream mb-4">
+            {registered ? "תודה שנרשמת לוובינר הפתוח!" : "כל התוכניות והמחירים של IBDA"}
+          </h1>
+          {registered ? (
+            <>
+              <p className="text-cream text-[20px] font-medium leading-[1.85] max-w-xl mx-auto mb-5">
+                {openWebinarRecap.title}
+              </p>
+              <div className="inline-flex items-center gap-2 text-sm font-semibold text-cream bg-gold/10 border border-gold/40 px-4 py-2 rounded-md">
+                <Calendar size={16} className="text-gold" />
+                <span>{openWebinarRecap.dateLabel}</span>
+              </div>
+            </>
+          ) : (
+            <p className="text-cream text-[20px] font-medium leading-[1.85] max-w-xl mx-auto mb-5">
+              הצצה לכל תוכניות ההמשך של IBDA, כולל תמחור מוקדם ומועדים.
+            </p>
+          )}
         </section>
 
         <section className="mb-10">
           <div className="text-center mb-8">
             <SectionLabel>What's Next</SectionLabel>
-            <h2 className="font-serif text-3xl md:text-4xl text-gold">בזמן שממתינים לוובינר, הכירו את ההמשך</h2>
+            <h2 className="font-serif text-3xl md:text-4xl text-gold">
+              {registered ? "בזמן שממתינים לוובינר, הכירו את ההמשך" : "בחרו את המסלול או הסדנה המתאימים לכם"}
+            </h2>
             <p className="mt-4 text-muted-brown max-w-2xl mx-auto">
               מחיר ההרשמה המוקדמת בתוקף ל-72 שעות מסיום הוובינר הפתוח.
             </p>
@@ -279,12 +293,29 @@ function ThankYouPage() {
               <li key={s.t} className="flex items-start gap-3 bg-ink/40 border border-cream/10 rounded-md p-3">
                 <span className="font-serif text-gold ltr-inline w-6 shrink-0">{String(i + 1).padStart(2, "0")}</span>
                 <div className="min-w-0">
-                  <div className="text-cream text-[15px] font-medium">{s.t}</div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="text-cream text-[15px] font-medium">{s.t}</div>
+                    {s.free && (
+                      <span className="text-[10px] font-semibold tracking-[0.18em] uppercase px-2 py-0.5 rounded border border-gold bg-gold/10 text-gold">
+                        בחינם!
+                      </span>
+                    )}
+                  </div>
                   <div className="text-muted-brown text-[13px] mt-0.5">{s.d}</div>
                   <div className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-gold">
                     <Calendar size={12} />
                     {s.date}
                   </div>
+                  {s.topics.length > 0 && (
+                    <ul className="mt-2 space-y-1">
+                      {s.topics.map((topic) => (
+                        <li key={topic} className="flex items-start gap-2 text-muted-brown text-[12.5px] leading-relaxed">
+                          <span className="mt-1.5 w-1 h-1 rounded-full bg-gold/70 shrink-0" />
+                          <span>{topic}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </li>
             ))}

@@ -12,22 +12,29 @@ export type OrderRow = {
   status: OrderStatus;
   created_at: string;
   updated_at: string;
+  session_title: string | null;
+  session_starts_at: string | null;
 };
 
-// One row per purchase attempt, keyed by order_reference — not by email —
-// so a customer buying two different packages at different times shows up
-// as two separate rows, never merged/deduped by contact identity.
+// One row per (order_reference, package) — a single Sumit transaction that
+// covers several packages at once produces several rows sharing the same
+// order_reference, so the admin buyers table can show each product on its
+// own line with its own session date, instead of one comma-joined row.
 export async function recordOrder(input: {
   orderReference: string;
   email: string;
-  packageId: string;
-  amount: number;
+  packages: { packageId: string; amount: number; sessionId: string | null }[];
 }): Promise<void> {
-  await sql()`
-    INSERT INTO orders (order_reference, email, package_id, amount, status)
-    VALUES (${input.orderReference}, ${input.email.toLowerCase()}, ${input.packageId}, ${input.amount}, 'created')
-    ON CONFLICT (order_reference) DO NOTHING
-  `;
+  for (const pkg of input.packages) {
+    await sql()`
+      INSERT INTO orders (order_reference, email, package_id, amount, session_id, status)
+      VALUES (
+        ${input.orderReference}, ${input.email.toLowerCase()}, ${pkg.packageId},
+        ${pkg.amount}, ${pkg.sessionId}, 'created'
+      )
+      ON CONFLICT (order_reference, package_id) DO NOTHING
+    `;
+  }
 }
 
 export async function markOrderStatus(input: {
@@ -46,8 +53,12 @@ export async function markOrderStatus(input: {
 
 export async function listOrders(): Promise<OrderRow[]> {
   return sql()<OrderRow[]>`
-    SELECT id, order_reference, transaction_id, email, package_id, amount, status, created_at, updated_at
-    FROM orders
-    ORDER BY created_at DESC
+    SELECT
+      o.id, o.order_reference, o.transaction_id, o.email, o.package_id, o.amount,
+      o.status, o.created_at, o.updated_at,
+      s.title AS session_title, s.starts_at AS session_starts_at
+    FROM orders o
+    LEFT JOIN sessions s ON s.id = o.session_id
+    ORDER BY o.created_at DESC
   `;
 }

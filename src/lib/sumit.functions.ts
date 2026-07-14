@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createSumitPaymentPage, getPackagePrice, verifySumitTransaction } from "./sumit.server";
 import { updateResendPaymentStatusByEmail } from "./resend.server";
 import { recordOrder } from "./orders.server";
+import { resolvePackageSessions } from "./schedule.server";
 
 const CreatePaymentSchema = z.object({
   package_ids: z.array(z.string()).min(1),
@@ -23,14 +24,21 @@ export const createSumitPayment = createServerFn({ method: "POST" })
       console.error("[createSumitPayment] failed", data.package_ids, data.order_reference, err);
       throw err;
     }
-    const amount = data.package_ids.reduce((sum, id) => sum + (getPackagePrice(id) ?? 0), 0);
+    const packages = await Promise.all(
+      data.package_ids.map(async (id) => {
+        const amount = getPackagePrice(id) ?? 0;
+        const resolved = await resolvePackageSessions(id);
+        const sessionId =
+          resolved.kind === "single"
+            ? (resolved.session?.id ?? null)
+            : (resolved.anchor?.id ?? null);
+        return { packageId: id, amount, sessionId };
+      }),
+    );
     await recordOrder({
       orderReference: data.order_reference,
       email: data.email,
-      // Comma-joined for a multi-package purchase — one Sumit transaction
-      // covers every selected item, so it's one order row, not several.
-      packageId: data.package_ids.join(","),
-      amount,
+      packages,
     });
     return result;
   });

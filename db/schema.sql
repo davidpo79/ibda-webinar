@@ -46,7 +46,7 @@ ALTER TABLE registrations ADD COLUMN IF NOT EXISTS core_single_lesson_index int;
 
 CREATE TABLE IF NOT EXISTS orders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_reference text UNIQUE NOT NULL,
+  order_reference text NOT NULL,
   transaction_id text,
   email text NOT NULL,
   package_id text NOT NULL,
@@ -55,6 +55,21 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- A multi-package purchase (one Sumit transaction) used to be stored as a
+-- single row with a comma-joined package_id; it's now one row per package so
+-- the admin buyers table can show each product with its own session date.
+-- Drop the old single-column uniqueness and replace it with
+-- (order_reference, package_id), which still prevents duplicate inserts on
+-- webhook retries without collapsing separate packages into one row.
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_order_reference_key;
+CREATE UNIQUE INDEX IF NOT EXISTS orders_reference_package_unique ON orders (order_reference, package_id);
+
+-- Column added after the table already existed in production — the session
+-- a given order row's package refers to (earliest session for a
+-- multi-session package like core_full/premium_bundle), shown in the admin
+-- buyers table.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS session_id uuid REFERENCES sessions(id);
 
 -- One row per (registration, package) that needs a "day before" reminder
 -- email. Populated at registration time; the in-process scheduler
