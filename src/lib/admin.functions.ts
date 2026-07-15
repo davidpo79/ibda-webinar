@@ -391,3 +391,27 @@ export const verifyOrderPaymentAction = createServerFn({ method: "POST" })
     }
     return { outcome: "unresolved" as const };
   });
+
+const ForceMarkOrderPaidSchema = z.object({
+  orderReference: z.string().min(1),
+});
+
+// The admin dashboard's "אישור ידני" action — a deliberate bypass of
+// verifyOrderPaymentAction's real Sumit check, for when the admin has
+// already confirmed the charge went through some other way (Sumit's own
+// dashboard, a bank statement) and verifyOrderPaymentAction can't resolve
+// it (e.g. Sumit's verify endpoint erroring on an old/edge-case
+// transaction). Unconditionally marks the order paid and sends the
+// customer's real welcome email — the client always confirms with the
+// admin before calling this, since there's no independent check here.
+export const forceMarkOrderPaidAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => ForceMarkOrderPaidSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    const order = await getOrderPackages(data.orderReference);
+    if (!order) return { outcome: "not_found" as const };
+    await updateResendPaymentStatusByEmail(order.email, "שולם", order.packageIds);
+    await markOrderStatus({ orderReference: data.orderReference, status: "paid" });
+    if (order.couponCode) await markCouponUsed(order.couponCode);
+    return { outcome: "paid" as const };
+  });

@@ -7,6 +7,7 @@ import {
   updateRegistrationAction,
   sendCouponToLeadAction,
   verifyOrderPaymentAction,
+  forceMarkOrderPaidAction,
 } from "@/lib/admin.functions";
 import type { RegistrationRow } from "@/lib/registrations.server";
 import type { OrderWithContact } from "@/lib/admin.functions";
@@ -120,6 +121,7 @@ function AdminDashboard() {
   const [orderPackageFilter, setOrderPackageFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
   const [verifyingOrders, setVerifyingOrders] = useState<Set<string>>(new Set());
+  const [forcingOrders, setForcingOrders] = useState<Set<string>>(new Set());
 
   const leadSearchNorm = leadSearch.trim().toLowerCase();
   const filteredRegistrations = registrations.filter((r) => {
@@ -185,6 +187,38 @@ function AdminDashboard() {
       toast.error("שגיאה באימות ההזמנה");
     } finally {
       setVerifyingOrders((s) => {
+        const n = new Set(s);
+        n.delete(orderReference);
+        return n;
+      });
+    }
+  }
+
+  // Bypasses the Sumit check entirely — for when the admin has already
+  // confirmed the charge some other way (Sumit's own dashboard, a bank
+  // statement) and the real verify above can't resolve it.
+  async function onForceMarkPaid(orderReference: string) {
+    if (
+      !window.confirm(
+        'לאשר ידנית שההזמנה שולמה?\n\nהפעולה תסמן את ההזמנה כ"שולם" ותשלח ללקוח את מייל הוובינר — ללא בדיקה מול חברת הסליקה. יש להשתמש בזה רק אם וידאתם בעצמכם שהתשלום התקבל בפועל.',
+      )
+    ) {
+      return;
+    }
+    setForcingOrders((s) => new Set(s).add(orderReference));
+    try {
+      const result = await forceMarkOrderPaidAction({ data: { orderReference } });
+      if (result.outcome === "paid") {
+        toast.success('ההזמנה סומנה כ"שולם" והמייל נשלח ללקוח');
+        await router.invalidate();
+      } else {
+        toast.error("ההזמנה לא נמצאה");
+      }
+    } catch (err) {
+      console.error("[admin] force mark paid error", err);
+      toast.error("השמירה נכשלה. נסו שוב.");
+    } finally {
+      setForcingOrders((s) => {
         const n = new Set(s);
         n.delete(orderReference);
         return n;
@@ -416,9 +450,10 @@ function AdminDashboard() {
             נוטשי עגלה ({abandonedGroups.length})
           </h3>
           <p className="text-muted-brown text-xs mb-4 -mt-2">
-            הזמנות שעדיין ממתינות או שנכשלו. אם לקוח מדווח שהחיוב עבר אבל לא קיבל מייל, אפשר ללחוץ
-            "אימות הזמנה" — זה בודק את התשלום מול הסליקה בפועל, ורק אם הוא אכן אושר שם ההזמנה תסומן
-            כשולם והמייל יישלח.
+            הזמנות שעדיין ממתינות או שנכשלו. אם לקוח מדווח שהחיוב עבר אבל לא קיבל מייל, "אימות
+            הזמנה" בודק את התשלום מול הסליקה בפועל ומסמן כשולם רק אם הוא אכן אושר שם. אם וידאתם
+            בעצמכם שהתשלום התקבל (למשל בדוח הסליקה) והבדיקה האוטומטית לא הצליחה, אפשר להשתמש ב"אישור
+            ידני" שמסמן ושולח מייד, ללא בדיקה.
           </p>
           <OrderGroupsTable
             groups={abandonedGroups}
@@ -428,6 +463,8 @@ function AdminDashboard() {
             showVerify
             verifyingOrders={verifyingOrders}
             onVerifyOrder={onVerifyOrder}
+            forcingOrders={forcingOrders}
+            onForceMarkPaid={onForceMarkPaid}
           />
         </section>
       </main>
@@ -496,6 +533,8 @@ function OrderGroupsTable({
   showVerify = false,
   verifyingOrders,
   onVerifyOrder,
+  forcingOrders,
+  onForceMarkPaid,
 }: {
   groups: { order_reference: string; items: OrderWithContact[] }[];
   expandedOrders: Set<string>;
@@ -504,6 +543,8 @@ function OrderGroupsTable({
   showVerify?: boolean;
   verifyingOrders?: Set<string>;
   onVerifyOrder?: (orderReference: string, transactionId: string) => void;
+  forcingOrders?: Set<string>;
+  onForceMarkPaid?: (orderReference: string) => void;
 }) {
   return (
     <>
@@ -517,6 +558,8 @@ function OrderGroupsTable({
               order={o}
               onVerify={showVerify ? onVerifyOrder : undefined}
               verifying={verifyingOrders?.has(o.order_reference) ?? false}
+              onForceMarkPaid={showVerify ? onForceMarkPaid : undefined}
+              forcing={forcingOrders?.has(o.order_reference) ?? false}
             />
           ))}
         {groups.length === 0 && (
@@ -532,7 +575,7 @@ function OrderGroupsTable({
         <table
           className={cn(
             "w-full text-sm table-fixed",
-            showVerify ? "min-w-[1330px]" : "min-w-[1190px]",
+            showVerify ? "min-w-[1620px]" : "min-w-[1320px]",
           )}
         >
           <colgroup>
@@ -545,7 +588,8 @@ function OrderGroupsTable({
             <col className="w-[90px]" />
             <col className="w-[100px]" />
             <col className="w-[130px]" />
-            {showVerify && <col className="w-[140px]" />}
+            <col className="w-[130px]" />
+            {showVerify && <col className="w-[300px]" />}
           </colgroup>
           <thead className="bg-sand/70 text-right">
             <tr>
@@ -558,6 +602,7 @@ function OrderGroupsTable({
               <th className="px-4 py-3 font-semibold">סכום</th>
               <th className="px-4 py-3 font-semibold">סטטוס</th>
               <th className="px-4 py-3 font-semibold">מועד המפגש הבא</th>
+              <th className="px-4 py-3 font-semibold">בוצע בתאריך</th>
               {showVerify && <th className="px-4 py-3 font-semibold">פעולות</th>}
             </tr>
           </thead>
@@ -568,6 +613,7 @@ function OrderGroupsTable({
               const isOpen = expandedOrders.has(group.order_reference);
               const totalAmount = sumAmounts(group.items);
               const verifying = verifyingOrders?.has(group.order_reference) ?? false;
+              const forcing = forcingOrders?.has(group.order_reference) ?? false;
               return (
                 <Fragment key={group.order_reference}>
                   <tr className="border-t border-cream/10 hover:bg-cream/[0.03] align-top">
@@ -604,22 +650,35 @@ function OrderGroupsTable({
                     <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
                       {isMulti ? "—" : formatSessionDate(head.session_starts_at) || "—"}
                     </td>
+                    <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
+                      {formatSessionDate(head.created_at) || "—"}
+                    </td>
                     {showVerify && (
                       <td className="px-4 py-3">
-                        {head.transaction_id ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                          {head.transaction_id ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onVerifyOrder?.(group.order_reference, head.transaction_id!)
+                              }
+                              disabled={verifying}
+                              className="border border-gold/50 text-gold px-3 py-1 rounded-md text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-50"
+                            >
+                              {verifying ? "בודק..." : "אימות מול הסליקה"}
+                            </button>
+                          ) : (
+                            <span className="text-muted-brown text-xs">אין עסקה לאימות</span>
+                          )}
                           <button
                             type="button"
-                            onClick={() =>
-                              onVerifyOrder?.(group.order_reference, head.transaction_id!)
-                            }
-                            disabled={verifying}
-                            className="border border-gold/50 text-gold px-3 py-1 rounded-md text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-50"
+                            onClick={() => onForceMarkPaid?.(group.order_reference)}
+                            disabled={forcing}
+                            className="border border-cream/20 text-cream px-3 py-1 rounded-md text-xs font-semibold hover:bg-cream/10 transition-colors disabled:opacity-50"
                           >
-                            {verifying ? "בודק..." : "אימות הזמנה"}
+                            {forcing ? "שומר..." : "אישור ידני"}
                           </button>
-                        ) : (
-                          <span className="text-muted-brown text-xs">אין עסקה לאימות</span>
-                        )}
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -639,6 +698,7 @@ function OrderGroupsTable({
                         <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
                           {formatSessionDate(item.session_starts_at) || "—"}
                         </td>
+                        <td />
                         {showVerify && <td />}
                       </tr>
                     ))}
@@ -648,7 +708,7 @@ function OrderGroupsTable({
             {groups.length === 0 && (
               <tr>
                 <td
-                  colSpan={showVerify ? 10 : 9}
+                  colSpan={showVerify ? 11 : 10}
                   className="px-4 py-8 text-center text-muted-brown"
                 >
                   {emptyMessage}
@@ -683,10 +743,14 @@ function OrderCard({
   order: o,
   onVerify,
   verifying,
+  onForceMarkPaid,
+  forcing,
 }: {
   order: OrderWithContact;
   onVerify?: (orderReference: string, transactionId: string) => void;
   verifying?: boolean;
+  onForceMarkPaid?: (orderReference: string) => void;
+  forcing?: boolean;
 }) {
   return (
     <div className="border border-cream/10 rounded-lg p-4 bg-ink/20">
@@ -710,8 +774,12 @@ function OrderCard({
         <span className="whitespace-nowrap">{formatSessionDate(o.session_starts_at) || "—"}</span>
         <span className="ltr-inline break-all">{o.order_reference}</span>
       </div>
+      <div className="mt-1 text-xs text-muted-brown">
+        בוצע בתאריך:{" "}
+        <span className="whitespace-nowrap">{formatSessionDate(o.created_at) || "—"}</span>
+      </div>
       {onVerify && (
-        <div className="mt-3">
+        <div className="mt-3 space-y-2">
           {o.transaction_id ? (
             <button
               type="button"
@@ -719,10 +787,20 @@ function OrderCard({
               disabled={verifying}
               className="w-full border border-gold/50 text-gold px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-50"
             >
-              {verifying ? "בודק..." : "אימות הזמנה"}
+              {verifying ? "בודק..." : "אימות מול הסליקה"}
             </button>
           ) : (
-            <span className="text-muted-brown text-xs">אין עסקה לאימות מול הסליקה</span>
+            <span className="text-muted-brown text-xs block">אין עסקה לאימות מול הסליקה</span>
+          )}
+          {onForceMarkPaid && (
+            <button
+              type="button"
+              onClick={() => onForceMarkPaid(o.order_reference)}
+              disabled={forcing}
+              className="w-full border border-cream/20 text-cream px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-cream/10 transition-colors disabled:opacity-50"
+            >
+              {forcing ? "שומר..." : "אישור ידני"}
+            </button>
           )}
         </div>
       )}
