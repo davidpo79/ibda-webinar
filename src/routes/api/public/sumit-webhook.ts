@@ -4,8 +4,12 @@ async function handle(request: Request) {
   const { verifySumitTransactionWithRetry, verifySumitWebhookSignature } =
     await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
-  const { markOrderStatus, getOrderPackages, isTransactionReusedElsewhere } =
-    await import("@/lib/orders.server");
+  const {
+    markOrderStatus,
+    getOrderPackages,
+    isTransactionReusedElsewhere,
+    recordObservedTransactionId,
+  } = await import("@/lib/orders.server");
   const { markCouponUsed } = await import("@/lib/coupons.server");
 
   const rawBody = await request.text();
@@ -69,6 +73,18 @@ async function handle(request: Request) {
   // coupon than what was actually bought.
   const order = orderReference ? await getOrderPackages(orderReference) : null;
 
+  // Record the transaction id against the order immediately, before
+  // attempting verification below — so even if gettransaction is still
+  // settling (or this call never resolves paid/failed at all), the order
+  // isn't left with no transaction_id to re-check later.
+  if (order && transactionId && orderReference) {
+    try {
+      await recordObservedTransactionId(orderReference, transactionId);
+    } catch (err) {
+      console.error("[sumit-webhook] record transaction id error", err);
+    }
+  }
+
   // The signature check above only actually authenticates the payload when
   // SUMIT_WEBHOOK_KEY is configured; otherwise it's a no-op. A "paid"
   // determination must always come from an independent
@@ -85,7 +101,13 @@ async function handle(request: Request) {
       // whether the customer's browser stays open — worth spending a few
       // extra seconds retrying through Sumit's settlement lag here rather
       // than depending entirely on the browser-return/client-poll fallback.
-      validation = await verifySumitTransactionWithRetry(transactionId);
+      // The default 3 attempts (~4-8s) has been observed to still be too
+      // short: a real order's gettransaction call kept returning
+      // "Transaction not found" for at least that long while a second,
+      // independent Sumit webhook (the accounting-document event) proved
+      // the charge had already settled. No customer is waiting on this
+      // response, so it can afford to be considerably more patient.
+      validation = await verifySumitTransactionWithRetry(transactionId, 6, 4000);
       if (validation.paid && orderReference) {
         const reused = await isTransactionReusedElsewhere(transactionId, orderReference);
         if (reused) {

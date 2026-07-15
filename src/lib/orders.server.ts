@@ -52,6 +52,24 @@ export async function recordOrder(input: {
   }
 }
 
+// Persists a transaction id onto an order the moment it's observed in a
+// webhook/return call, independent of whether that call could actually
+// resolve paid/failed. Without this, an order whose verify attempt comes
+// back ambiguous (Sumit's gettransaction lagging) is left with no
+// transaction_id at all, so the admin dashboard's real "אימות מול הסליקה"
+// re-check has nothing to check against — the only recovery left is the
+// blind "אישור ידני" override. COALESCE keeps this from clobbering a
+// transaction_id a later, successful resolution already set.
+export async function recordObservedTransactionId(
+  orderReference: string,
+  transactionId: string,
+): Promise<void> {
+  await sql()`
+    UPDATE orders SET transaction_id = COALESCE(transaction_id, ${transactionId})
+    WHERE order_reference = ${orderReference}
+  `;
+}
+
 export async function markOrderStatus(input: {
   orderReference: string;
   transactionId?: string | null;

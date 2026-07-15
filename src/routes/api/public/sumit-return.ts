@@ -3,8 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 async function handle(request: Request) {
   const { verifySumitTransactionWithRetry } = await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
-  const { markOrderStatus, getOrderPackages, isTransactionReusedElsewhere } =
-    await import("@/lib/orders.server");
+  const {
+    markOrderStatus,
+    getOrderPackages,
+    isTransactionReusedElsewhere,
+    recordObservedTransactionId,
+  } = await import("@/lib/orders.server");
   const { markCouponUsed } = await import("@/lib/coupons.server");
 
   const url = new URL(request.url);
@@ -73,6 +77,18 @@ async function handle(request: Request) {
   // params — so this endpoint can't be used to claim a different (pricier)
   // package or a different recipient than what was actually bought.
   const order = orderReference ? await getOrderPackages(orderReference) : null;
+
+  // Record the transaction id immediately, even if verification below can't
+  // resolve paid/failed — see the matching comment in sumit-webhook.ts. This
+  // is what lets the admin's real "אימות מול הסליקה" re-check work at all
+  // for an order this endpoint couldn't settle on the spot.
+  if (order && transactionId && orderReference) {
+    try {
+      await recordObservedTransactionId(orderReference, transactionId);
+    } catch (err) {
+      console.error("[sumit-return] record transaction id error", err);
+    }
+  }
 
   // Sumit's gettransaction endpoint has a real settlement lag right after a
   // redirect-flow checkout completes — verified.paid === false here often
