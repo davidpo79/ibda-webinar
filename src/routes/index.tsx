@@ -1728,11 +1728,25 @@ function RegistrationSection({
       const errs: Record<string, string> = {};
       parsed.error.issues.forEach((i) => (errs[i.path.join(".")] = i.message));
       setErrors(errs);
+      const missing = Object.values(errs);
+      toast.error(missing.length === 1 ? missing[0] : "חסרים פרטים בטופס ההרשמה", {
+        description: missing.length > 1 ? missing.join(" · ") : undefined,
+        duration: 8000,
+      });
+      requestAnimationFrame(() => {
+        document.getElementById("register")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
     }
     if (hasPaid && (parsed.data.id_number || "").trim().length < 5) {
       setErrors({ id_number: "מספר ת.ז / ח.פ הכרחי לצורך הפקת חשבונית" });
-      toast.error("יש להזין מספר ת.ז או ח.פ תקין");
+      toast.error("מספר ת.ז / ח.פ הכרחי לצורך הפקת חשבונית", {
+        description: "יש להשלים את השדה בתחתית הטופס לפני שממשיכים לתשלום.",
+        duration: 8000,
+      });
+      requestAnimationFrame(() => {
+        document.getElementById("register")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
     }
     if (selected.size === 0) {

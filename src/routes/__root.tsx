@@ -10,6 +10,7 @@ import {
 import type { ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -73,17 +74,37 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "IBDA | סדרת וובינרים בעסקאות נדל\"ן וליטיגציה" },
-      { name: "description", content: "סדרת וובינרים מקצועית לעורכי דין בגישת Deal Flow, מהשיחה הראשונה עם הלקוח ועד השלמת רישום הזכויות, בשילוב כלי בינה מלאכותית ופרקטיקה יישומית." },
+      { title: 'IBDA | סדרת וובינרים בעסקאות נדל"ן וליטיגציה' },
+      {
+        name: "description",
+        content:
+          "סדרת וובינרים מקצועית לעורכי דין בגישת Deal Flow, מהשיחה הראשונה עם הלקוח ועד השלמת רישום הזכויות, בשילוב כלי בינה מלאכותית ופרקטיקה יישומית.",
+      },
       { name: "author", content: "IBDA" },
-      { property: "og:title", content: "IBDA | סדרת וובינרים בעסקאות נדל\"ן וליטיגציה" },
-      { property: "og:description", content: "סדרת וובינרים מקצועית לעורכי דין בגישת Deal Flow, מהשיחה הראשונה עם הלקוח ועד השלמת רישום הזכויות, בשילוב כלי בינה מלאכותית ופרקטיקה יישומית." },
+      { property: "og:title", content: 'IBDA | סדרת וובינרים בעסקאות נדל"ן וליטיגציה' },
+      {
+        property: "og:description",
+        content:
+          "סדרת וובינרים מקצועית לעורכי דין בגישת Deal Flow, מהשיחה הראשונה עם הלקוח ועד השלמת רישום הזכויות, בשילוב כלי בינה מלאכותית ופרקטיקה יישומית.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "IBDA | סדרת וובינרים בעסקאות נדל\"ן וליטיגציה" },
-      { name: "twitter:description", content: "סדרת וובינרים מקצועית לעורכי דין בגישת Deal Flow, מהשיחה הראשונה עם הלקוח ועד השלמת רישום הזכויות, בשילוב כלי בינה מלאכותית ופרקטיקה יישומית." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/KeBCwESB0cUsdmh5R3OVOFOiglf2/social-images/social-1783861089632-IMG-20260526-WA0047.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/KeBCwESB0cUsdmh5R3OVOFOiglf2/social-images/social-1783861089632-IMG-20260526-WA0047.webp" },
+      { name: "twitter:title", content: 'IBDA | סדרת וובינרים בעסקאות נדל"ן וליטיגציה' },
+      {
+        name: "twitter:description",
+        content:
+          "סדרת וובינרים מקצועית לעורכי דין בגישת Deal Flow, מהשיחה הראשונה עם הלקוח ועד השלמת רישום הזכויות, בשילוב כלי בינה מלאכותית ופרקטיקה יישומית.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/KeBCwESB0cUsdmh5R3OVOFOiglf2/social-images/social-1783861089632-IMG-20260526-WA0047.webp",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/KeBCwESB0cUsdmh5R3OVOFOiglf2/social-images/social-1783861089632-IMG-20260526-WA0047.webp",
+      },
     ],
     links: [
       {
@@ -119,6 +140,9 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
+      {/* Every toast.success()/toast.error() call site-wide renders through
+          this single instance — without it, those calls are silent no-ops. */}
+      <Toaster richColors position="top-center" dir="rtl" />
     </QueryClientProvider>
   );
 }
