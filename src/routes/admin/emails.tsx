@@ -3,6 +3,21 @@ import { useMemo, useState } from "react";
 import { getAdminEmailContentData, updateEmailContentAction } from "@/lib/admin.functions";
 import { escapeHtml } from "@/lib/escape-html";
 
+// Mirrors email-templates.server.ts's escapeMultiline() — deliberately not
+// imported from that .server file, since it transitively pulls in
+// unsubscribe.server.ts (HMAC signing) which must never end up in a
+// client-bundled route component.
+function escapeMultiline(text: string): string {
+  return escapeHtml(text).split("\n").join("<br />");
+}
+
+// Fields whose default/override value can contain admin-typed line breaks
+// (textarea newlines) that the server renders as <br /> instead of a plain
+// escaped string — the live-preview patch below must use the same
+// transform for these or its find-and-replace on the fetched HTML won't
+// match.
+const MULTILINE_FIELDS = new Set(["welcome.presenter"]);
+
 // Which editable field(s) affect a given preview's rendered body — used to
 // patch the server-fetched preview HTML live as the admin types, without a
 // round trip. Every one of these fields is HTML-escaped server-side before
@@ -12,13 +27,19 @@ import { escapeHtml } from "@/lib/escape-html";
 function fieldsForPreviewKey(previewKey: string): string[] {
   if (previewKey.startsWith("welcome:")) {
     const pkgId = previewKey.slice("welcome:".length);
-    return pkgId === "core_single" ? [] : [`welcome.${pkgId}.intro`];
+    return [
+      "welcome.title",
+      "welcome.presenter",
+      ...(pkgId === "core_single" ? [] : [`welcome.${pkgId}.intro`]),
+      `welcome.${pkgId}.closing`,
+    ];
   }
   if (previewKey.startsWith("reminder:")) {
-    return [`reminder.${previewKey.slice("reminder:".length)}.verb`];
+    const pkgId = previewKey.slice("reminder:".length);
+    return [`reminder.${pkgId}.verb`, "reminder.notice", "reminder.closing"];
   }
-  if (previewKey === "coupon") return ["coupon.intro"];
-  if (previewKey === "price_notice") return ["price_notice.intro"];
+  if (previewKey === "coupon") return ["coupon.intro", "coupon.instruction"];
+  if (previewKey === "price_notice") return ["price_notice.intro", "price_notice.reminder"];
   if (previewKey === "payment_status_paid") {
     return ["payment_status.paid.title", "payment_status.paid.body"];
   }
@@ -51,6 +72,10 @@ function AdminEmailsPage() {
 
   const initial = useMemo(() => {
     const map: Record<string, string> = {};
+    map["welcome.title"] = overrides["welcome.title"] ?? defaults.welcomeTitle;
+    map["welcome.presenter"] = overrides["welcome.presenter"] ?? defaults.welcomePresenter;
+    map["reminder.notice"] = overrides["reminder.notice"] ?? defaults.reminderNotice;
+    map["reminder.closing"] = overrides["reminder.closing"] ?? defaults.reminderClosing;
     for (const pkg of packages) {
       map[`welcome.${pkg.id}.subject`] =
         overrides[`welcome.${pkg.id}.subject`] ?? defaults.welcomeSubject[pkg.id] ?? "";
@@ -58,11 +83,16 @@ function AdminEmailsPage() {
         map[`welcome.${pkg.id}.intro`] =
           overrides[`welcome.${pkg.id}.intro`] ?? defaults.welcomeIntro[pkg.id] ?? "";
       }
+      map[`welcome.${pkg.id}.closing`] =
+        overrides[`welcome.${pkg.id}.closing`] ?? defaults.welcomeClosing[pkg.id] ?? "";
       map[`reminder.${pkg.id}.verb`] =
         overrides[`reminder.${pkg.id}.verb`] ?? defaults.reminderVerb[pkg.id] ?? "";
     }
     map["coupon.intro"] = overrides["coupon.intro"] ?? defaults.couponIntro;
+    map["coupon.instruction"] = overrides["coupon.instruction"] ?? defaults.couponInstruction;
     map["price_notice.intro"] = overrides["price_notice.intro"] ?? defaults.priceNoticeIntro;
+    map["price_notice.reminder"] =
+      overrides["price_notice.reminder"] ?? defaults.priceNoticeReminder;
     map["payment_status.paid.title"] =
       overrides["payment_status.paid.title"] ?? defaults.paymentStatusPaidTitle;
     map["payment_status.paid.body"] =
@@ -167,7 +197,8 @@ function AdminEmailsPage() {
       const oldVal = baseline[key] ?? "";
       const newVal = values[key] ?? "";
       if (!oldVal || oldVal === newVal) continue;
-      html = html.split(escapeHtml(oldVal)).join(escapeHtml(newVal));
+      const esc = MULTILINE_FIELDS.has(key) ? escapeMultiline : escapeHtml;
+      html = html.split(esc(oldVal)).join(esc(newVal));
     }
     const subjectKey = previewKey.startsWith("welcome:")
       ? `welcome.${previewKey.slice("welcome:".length)}.subject`
@@ -195,6 +226,40 @@ function AdminEmailsPage() {
             שהוא נשלח בפועל. שמירת שדה מעדכנת מיד את התבנית בריסנד ותשפיע על כל המיילים שיישלחו
             ללקוחות מרגע השמירה והלאה.
           </p>
+
+          <details className="glass-gold rounded-xl p-5" open>
+            <summary className="cursor-pointer text-sm font-semibold text-gold">
+              תוכן משותף — מייל ברוכים הבאים (כל התוכניות)
+            </summary>
+            <div className="space-y-4 mt-4">
+              <Field
+                fieldKey="welcome.title"
+                label="כותרת ראשית"
+                value={values["welcome.title"] ?? ""}
+                dirty={dirtyKeys.includes("welcome.title")}
+                saving={savingKeys.has("welcome.title")}
+                saved={savedKeys.has("welcome.title")}
+                error={errorByKey["welcome.title"]}
+                onChange={(v) => setField("welcome.title", v)}
+                onSave={() => saveField("welcome.title", "כותרת ראשית")}
+                onPreview={() => setPreviewKey("welcome:open")}
+              />
+              <Field
+                fieldKey="welcome.presenter"
+                label="שורת המציגה"
+                value={values["welcome.presenter"] ?? ""}
+                dirty={dirtyKeys.includes("welcome.presenter")}
+                saving={savingKeys.has("welcome.presenter")}
+                saved={savedKeys.has("welcome.presenter")}
+                error={errorByKey["welcome.presenter"]}
+                onChange={(v) => setField("welcome.presenter", v)}
+                onSave={() => saveField("welcome.presenter", "שורת המציגה")}
+                onPreview={() => setPreviewKey("welcome:open")}
+                hint="שורה חדשה (Enter) בתוך השדה תוצג כשורה נפרדת במייל"
+                multiline
+              />
+            </div>
+          </details>
 
           {packages.map((pkg) => (
             <details key={pkg.id} className="glass-gold rounded-xl p-5">
@@ -235,6 +300,20 @@ function AdminEmailsPage() {
                   />
                 )}
                 <Field
+                  fieldKey={`welcome.${pkg.id}.closing`}
+                  label="שורת סיום מייל הברוכים הבאים"
+                  value={values[`welcome.${pkg.id}.closing`] ?? ""}
+                  dirty={dirtyKeys.includes(`welcome.${pkg.id}.closing`)}
+                  saving={savingKeys.has(`welcome.${pkg.id}.closing`)}
+                  saved={savedKeys.has(`welcome.${pkg.id}.closing`)}
+                  error={errorByKey[`welcome.${pkg.id}.closing`]}
+                  onChange={(v) => setField(`welcome.${pkg.id}.closing`, v)}
+                  onSave={() =>
+                    saveField(`welcome.${pkg.id}.closing`, "שורת סיום מייל הברוכים הבאים")
+                  }
+                  onPreview={() => setPreviewKey(`welcome:${pkg.id}`)}
+                />
+                <Field
                   fieldKey={`reminder.${pkg.id}.verb`}
                   label="ניסוח תזכורת יום לפני"
                   value={values[`reminder.${pkg.id}.verb`] ?? ""}
@@ -253,6 +332,38 @@ function AdminEmailsPage() {
 
           <details className="glass-gold rounded-xl p-5">
             <summary className="cursor-pointer text-sm font-semibold text-gold">
+              תוכן משותף — מייל תזכורת (כל התוכניות)
+            </summary>
+            <div className="space-y-4 mt-4">
+              <Field
+                fieldKey="reminder.notice"
+                label="שורת התראה (בדיקת שם בזום)"
+                value={values["reminder.notice"] ?? ""}
+                dirty={dirtyKeys.includes("reminder.notice")}
+                saving={savingKeys.has("reminder.notice")}
+                saved={savedKeys.has("reminder.notice")}
+                error={errorByKey["reminder.notice"]}
+                onChange={(v) => setField("reminder.notice", v)}
+                onSave={() => saveField("reminder.notice", "שורת התראה")}
+                onPreview={() => setPreviewKey("reminder:open")}
+              />
+              <Field
+                fieldKey="reminder.closing"
+                label="שורת סיום"
+                value={values["reminder.closing"] ?? ""}
+                dirty={dirtyKeys.includes("reminder.closing")}
+                saving={savingKeys.has("reminder.closing")}
+                saved={savedKeys.has("reminder.closing")}
+                error={errorByKey["reminder.closing"]}
+                onChange={(v) => setField("reminder.closing", v)}
+                onSave={() => saveField("reminder.closing", "שורת סיום")}
+                onPreview={() => setPreviewKey("reminder:open")}
+              />
+            </div>
+          </details>
+
+          <details className="glass-gold rounded-xl p-5">
+            <summary className="cursor-pointer text-sm font-semibold text-gold">
               קוד הנחה אישי
             </summary>
             <div className="space-y-4 mt-4">
@@ -268,6 +379,19 @@ function AdminEmailsPage() {
                 onSave={() => saveField("coupon.intro", "פתיח מייל קוד הנחה")}
                 onPreview={() => setPreviewKey("coupon")}
                 hint="ניתן להשתמש ב-{percent} כדי להציג את אחוז ההנחה"
+                multiline
+              />
+              <Field
+                fieldKey="coupon.instruction"
+                label="שורת הנחיה מתחת לקוד"
+                value={values["coupon.instruction"] ?? ""}
+                dirty={dirtyKeys.includes("coupon.instruction")}
+                saving={savingKeys.has("coupon.instruction")}
+                saved={savedKeys.has("coupon.instruction")}
+                error={errorByKey["coupon.instruction"]}
+                onChange={(v) => setField("coupon.instruction", v)}
+                onSave={() => saveField("coupon.instruction", "שורת הנחיה מתחת לקוד")}
+                onPreview={() => setPreviewKey("coupon")}
                 multiline
               />
             </div>
@@ -290,6 +414,19 @@ function AdminEmailsPage() {
                 onSave={() => saveField("price_notice.intro", "פתיח מייל התראת מחיר")}
                 onPreview={() => setPreviewKey("price_notice")}
                 hint="ניתן להשתמש ב-{package}, {hours}, {price}"
+                multiline
+              />
+              <Field
+                fieldKey="price_notice.reminder"
+                label="שורת תזכורת"
+                value={values["price_notice.reminder"] ?? ""}
+                dirty={dirtyKeys.includes("price_notice.reminder")}
+                saving={savingKeys.has("price_notice.reminder")}
+                saved={savedKeys.has("price_notice.reminder")}
+                error={errorByKey["price_notice.reminder"]}
+                onChange={(v) => setField("price_notice.reminder", v)}
+                onSave={() => saveField("price_notice.reminder", "שורת תזכורת")}
+                onPreview={() => setPreviewKey("price_notice")}
                 multiline
               />
             </div>

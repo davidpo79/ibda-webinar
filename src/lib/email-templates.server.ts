@@ -129,6 +129,41 @@ export const REMINDER_VERB: Record<string, string> = {
   premium_ai: "מתחילה הסדנא שלנו",
 };
 
+// Packages whose welcome email lists several sessions (buildWelcomeEmail's
+// "list" branch) rather than announcing one date — fixed by the package's
+// own structure, not admin-configurable. Used only to pick the right
+// default closing-line phrasing (singular "מפגש" vs plural "מפגשים") for
+// the admin email-content editor; the actual send path still gets this from
+// resolvePackageSessions's real kind.
+const LIST_KIND_PACKAGES = new Set(["core_full", "premium_bundle"]);
+
+// Every other previously-hardcoded line in the welcome/reminder emails,
+// exposed the same way as WELCOME_INTRO/REMINDER_VERB above so the admin
+// can edit them too — see src/routes/admin/emails.tsx.
+export const WELCOME_TITLE_DEFAULT = 'ברוכים הבאים לתוכנית עסקאות נדל"ן וליטיגציה!';
+export const WELCOME_PRESENTER_DEFAULT =
+  "ואנחנו נרגשים לפתוח אותו יחד עם\nעורכת הדין והנוטריון יפעת בן דוד עמית";
+export const WELCOME_CLOSING_DEFAULT: Record<string, string> = Object.fromEntries(
+  Object.keys(WELCOME_INTRO).map((id) => [
+    id,
+    LIST_KIND_PACKAGES.has(id)
+      ? "מצפים לנו מפגשים מרתקים, מחכים לך!"
+      : "מצפה לנו מפגש מרתק, מחכים לך!",
+  ]),
+);
+export const REMINDER_NOTICE_DEFAULT =
+  "שים לב! כשאתה נכנס לזום ודא שהשם שלך מוצג בדיוק כפי שנרשמת באתר הוובינרים.";
+export const REMINDER_CLOSING_DEFAULT = "מצפה לנו מפגש מרתק מחר, מחכים לך!";
+
+// escapeHtml + preserve line breaks the admin typed (textarea newlines)
+// as <br /> — lets the presenter line stay two lines without hardcoding a
+// break the admin can't control. Exported so the admin email-editor's
+// client-side live preview can apply the exact same transform when
+// patching the already-rendered HTML (see src/routes/admin/emails.tsx).
+export function escapeMultiline(text: string): string {
+  return escapeHtml(text).split("\n").join("<br />");
+}
+
 function sessionLinkLabel(s: Session): string {
   // Core sessions carry their historical "מפגש N" numbering (sort_order 1-9);
   // premium workshops are listed by title alone.
@@ -153,6 +188,12 @@ export function buildWelcomeEmail(
   const preheader = WELCOME_PREHEADER[packageId];
   if (!preheader) return null;
 
+  const title = escapeHtml(overrides["welcome.title"] ?? WELCOME_TITLE_DEFAULT);
+  const presenter = escapeMultiline(overrides["welcome.presenter"] ?? WELCOME_PRESENTER_DEFAULT);
+  const closing = escapeHtml(
+    overrides[`welcome.${packageId}.closing`] ?? WELCOME_CLOSING_DEFAULT[packageId] ?? "",
+  );
+
   let bodyInner: string;
 
   if (sessions.kind === "single") {
@@ -169,9 +210,9 @@ export function buildWelcomeEmail(
     bodyInner = `
       <p dir="rtl" style="margin:0 0 10px;">${intro}</p>
       <p dir="rtl" style="margin:0 0 10px;">המפגש שלנו ייצא לדרך ב${dateLabel}</p>
-      <p dir="rtl" style="margin:0 0 18px;">ואנחנו נרגשים לפתוח אותו יחד עם<br />עורכת הדין והנוטריון יפעת בן דוד עמית</p>
+      <p dir="rtl" style="margin:0 0 18px;">${presenter}</p>
       <p dir="rtl" style="margin:0 0 18px;">קישור להצטרפות:<br />${goldLink(link, link)}</p>
-      <p dir="rtl" style="margin:0;">מצפה לנו מפגש מרתק, מחכים לך!</p>
+      <p dir="rtl" style="margin:0;">${closing}</p>
     `;
   } else {
     const anchorLabel = sessions.anchor ? formatHebrewFull(sessions.anchor.starts_at) : "";
@@ -196,14 +237,14 @@ export function buildWelcomeEmail(
     bodyInner = `
       <p dir="rtl" style="margin:0 0 10px;">${listIntro}</p>
       <p dir="rtl" style="margin:0 0 18px;">${kickoffLine}</p>
-      <p dir="rtl" style="margin:0 0 10px;">ואנחנו נרגשים לפתוח אותו יחד עם<br />עורכת הדין והנוטריון יפעת בן דוד עמית</p>
+      <p dir="rtl" style="margin:0 0 10px;">${presenter}</p>
       <div dir="rtl" style="margin:0 0 18px;">${linksHtml}</div>
-      <p dir="rtl" style="margin:0;">מצפים לנו מפגשים מרתקים, מחכים לך!</p>
+      <p dir="rtl" style="margin:0;">${closing}</p>
     `;
   }
 
   const html = marketingShell(
-    `<h1 dir="rtl" style="font-size:20px;font-weight:bold;margin:0 0 18px;">ברוכים הבאים לתוכנית עסקאות נדל"ן וליטיגציה!</h1>${bodyInner}`,
+    `<h1 dir="rtl" style="font-size:20px;font-weight:bold;margin:0 0 18px;">${title}</h1>${bodyInner}`,
     recipientEmail,
     preheader,
   );
@@ -229,13 +270,15 @@ export function buildReminderEmail(
   const verb = escapeHtml(
     overrides[`reminder.${packageId}.verb`] ?? REMINDER_VERB[packageId] ?? "מתחיל המפגש שלנו",
   );
+  const notice = escapeHtml(overrides["reminder.notice"] ?? REMINDER_NOTICE_DEFAULT);
+  const closing = escapeHtml(overrides["reminder.closing"] ?? REMINDER_CLOSING_DEFAULT);
   const link = session.zoom_url || "#";
   const bodyInner = `
     <p dir="rtl" style="margin:0 0 14px;">שלום ${escapeHtml(firstName)}</p>
     <p dir="rtl" style="margin:0 0 14px;">🎉 מחר, ${dateLabel} ${verb}</p>
-    <p dir="rtl" style="margin:0 0 14px;">שים לב! כשאתה נכנס לזום ודא שהשם שלך מוצג בדיוק כפי שנרשמת באתר הוובינרים.</p>
+    <p dir="rtl" style="margin:0 0 14px;">${notice}</p>
     <p dir="rtl" style="margin:0 0 18px;">קישור להצטרפות:<br />${goldLink(link, link)}</p>
-    <p dir="rtl" style="margin:0;">מצפה לנו מפגש מרתק מחר, מחכים לך!</p>
+    <p dir="rtl" style="margin:0;">${closing}</p>
   `;
   const html = marketingShell(bodyInner, recipientEmail);
   return { subject: `תזכורת - מחר בשעה ${hourLabel} מתחילים!`, html };

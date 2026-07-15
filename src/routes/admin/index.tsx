@@ -1,10 +1,12 @@
 import { createFileRoute, redirect, useNavigate, useRouter, Link } from "@tanstack/react-router";
 import { Fragment, useState } from "react";
+import { toast } from "sonner";
 import {
   getAdminDashboardData,
   adminLogout,
   updateRegistrationAction,
   sendCouponToLeadAction,
+  verifyOrderPaymentAction,
 } from "@/lib/admin.functions";
 import type { RegistrationRow } from "@/lib/registrations.server";
 import type { OrderWithContact } from "@/lib/admin.functions";
@@ -101,7 +103,6 @@ function FilterSelect({
 }
 
 const PACKAGE_OPTIONS = Object.entries(PACKAGE_LABELS).map(([value, label]) => ({ value, label }));
-const STATUS_OPTIONS = Object.entries(STATUS_LABELS).map(([value, label]) => ({ value, label }));
 const LESSON_OPTIONS = Array.from({ length: 9 }, (_, i) => ({
   value: String(i + 1),
   label: `שיעור ${i + 1}`,
@@ -117,8 +118,8 @@ function AdminDashboard() {
   const [leadLessonFilter, setLeadLessonFilter] = useState("all");
   const [leadSearch, setLeadSearch] = useState("");
   const [orderPackageFilter, setOrderPackageFilter] = useState("all");
-  const [orderStatusFilter, setOrderStatusFilter] = useState("all");
   const [orderSearch, setOrderSearch] = useState("");
+  const [verifyingOrders, setVerifyingOrders] = useState<Set<string>>(new Set());
 
   const leadSearchNorm = leadSearch.trim().toLowerCase();
   const filteredRegistrations = registrations.filter((r) => {
@@ -138,18 +139,21 @@ function AdminDashboard() {
   const orderSearchNorm = orderSearch.trim().toLowerCase();
   const filteredOrders = orders.filter((o) => {
     const matchesPackage = orderPackageFilter === "all" || o.package_id === orderPackageFilter;
-    const matchesStatus = orderStatusFilter === "all" || o.status === orderStatusFilter;
     const matchesSearch =
       !orderSearchNorm ||
       o.email.toLowerCase().includes(orderSearchNorm) ||
       o.order_reference.toLowerCase().includes(orderSearchNorm);
-    return matchesPackage && matchesStatus && matchesSearch;
+    return matchesPackage && matchesSearch;
   });
-  const orderGroups = groupOrdersByReference(filteredOrders);
+  // Split by outcome rather than filtering to one status at a time — a
+  // "רוכשים" table of confirmed sales and a "נוטשי עגלה" table of
+  // pending/failed orders that need attention, shown side by side instead
+  // of behind a status dropdown.
+  const paidGroups = groupOrdersByReference(filteredOrders.filter((o) => o.status === "paid"));
+  const abandonedGroups = groupOrdersByReference(filteredOrders.filter((o) => o.status !== "paid"));
   const leadFiltersActive =
     leadPackageFilter !== "all" || leadLessonFilter !== "all" || Boolean(leadSearchNorm);
-  const orderFiltersActive =
-    orderPackageFilter !== "all" || orderStatusFilter !== "all" || Boolean(orderSearchNorm);
+  const orderFiltersActive = orderPackageFilter !== "all" || Boolean(orderSearchNorm);
 
   function clearLeadFilters() {
     setLeadPackageFilter("all");
@@ -158,8 +162,34 @@ function AdminDashboard() {
   }
   function clearOrderFilters() {
     setOrderPackageFilter("all");
-    setOrderStatusFilter("all");
     setOrderSearch("");
+  }
+
+  async function onVerifyOrder(orderReference: string, transactionId: string) {
+    setVerifyingOrders((s) => new Set(s).add(orderReference));
+    try {
+      const result = await verifyOrderPaymentAction({ data: { orderReference, transactionId } });
+      if (result.outcome === "paid") {
+        toast.success("התשלום אומת מול הסליקה — ההזמנה סומנה כשולם והמייל נשלח ללקוח");
+        await router.invalidate();
+      } else if (result.outcome === "failed") {
+        toast.error("מול הסליקה, התשלום הזה לא אושר — ההזמנה סומנה כנכשלה");
+        await router.invalidate();
+      } else if (result.outcome === "not_found") {
+        toast.error("ההזמנה לא נמצאה");
+      } else {
+        toast.error("לא ניתן לאמת כרגע מול הסליקה. נסו שוב בעוד רגע.");
+      }
+    } catch (err) {
+      console.error("[admin] verify order error", err);
+      toast.error("שגיאה באימות ההזמנה");
+    } finally {
+      setVerifyingOrders((s) => {
+        const n = new Set(s);
+        n.delete(orderReference);
+        return n;
+      });
+    }
   }
 
   function toggle(id: string) {
@@ -347,10 +377,7 @@ function AdminDashboard() {
 
         <section>
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <h2 className="font-serif text-lg text-gold">
-              רוכשים ({filteredOrders.length}
-              {filteredOrders.length !== orders.length ? ` מתוך ${orders.length}` : ""})
-            </h2>
+            <h2 className="font-serif text-lg text-gold">סינון רוכשים</h2>
             <div className="flex flex-wrap items-center gap-4">
               <input
                 type="search"
@@ -365,12 +392,6 @@ function AdminDashboard() {
                 onChange={setOrderPackageFilter}
                 options={PACKAGE_OPTIONS}
               />
-              <FilterSelect
-                label="סטטוס"
-                value={orderStatusFilter}
-                onChange={setOrderStatusFilter}
-                options={STATUS_OPTIONS}
-              />
               {orderFiltersActive && (
                 <button
                   type="button"
@@ -382,122 +403,32 @@ function AdminDashboard() {
               )}
             </div>
           </div>
-          {/* Mobile: one card per order — a fixed-width table doesn't fit a phone screen */}
-          <div className="md:hidden space-y-3">
-            {filteredOrders.map((o) => (
-              <OrderCard key={o.id} order={o} />
-            ))}
-            {filteredOrders.length === 0 && (
-              <div className="border border-cream/10 rounded-lg px-4 py-8 text-center text-muted-brown text-sm">
-                {orders.length === 0 ? "אין עדיין רוכשים" : "אין רוכשים התואמים לסינון"}
-              </div>
-            )}
-          </div>
 
-          {/* Desktop: full table — one row per transaction, expandable into
-              its per-product line items (same pattern as the leads table). */}
-          <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto">
-            <table className="w-full text-sm min-w-[1190px] table-fixed">
-              <colgroup>
-                <col className="w-10" />
-                <col className="w-[190px]" />
-                <col className="w-[140px]" />
-                <col className="w-[110px]" />
-                <col className="w-[190px]" />
-                <col />
-                <col className="w-[90px]" />
-                <col className="w-[100px]" />
-                <col className="w-[130px]" />
-              </colgroup>
-              <thead className="bg-sand/70 text-right">
-                <tr>
-                  <th className="px-4 py-3 font-semibold"></th>
-                  <th className="px-4 py-3 font-semibold">מספר עסקה</th>
-                  <th className="px-4 py-3 font-semibold">שם</th>
-                  <th className="px-4 py-3 font-semibold">טלפון</th>
-                  <th className="px-4 py-3 font-semibold">אימייל</th>
-                  <th className="px-4 py-3 font-semibold">מוצר</th>
-                  <th className="px-4 py-3 font-semibold">סכום</th>
-                  <th className="px-4 py-3 font-semibold">סטטוס</th>
-                  <th className="px-4 py-3 font-semibold">מועד המפגש הבא</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orderGroups.map((group) => {
-                  const head = group.items[0];
-                  const isMulti = group.items.length > 1;
-                  const isOpen = expandedOrders.has(group.order_reference);
-                  const totalAmount = sumAmounts(group.items);
-                  return (
-                    <Fragment key={group.order_reference}>
-                      <tr className="border-t border-cream/10 hover:bg-cream/[0.03] align-top">
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => toggleOrder(group.order_reference)}
-                            aria-label="פרטי מוצרים"
-                            className="w-6 h-6 rounded border border-gold/40 text-gold flex items-center justify-center hover:bg-gold/10 transition-colors"
-                          >
-                            {isOpen ? "–" : "+"}
-                          </button>
-                        </td>
-                        <td className="px-4 py-3 text-muted-brown">
-                          <span className="ltr-inline break-all">{group.order_reference}</span>
-                        </td>
-                        <td className="px-4 py-3 font-medium break-words">
-                          {head.buyer_name || "—"}
-                        </td>
-                        <td className="px-4 py-3 text-muted-brown">
-                          <span className="ltr-inline whitespace-nowrap">
-                            {head.buyer_phone || "—"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-muted-brown">
-                          <span className="ltr-inline break-all">{head.email}</span>
-                        </td>
-                        <td className="px-4 py-3 break-words">
-                          {packagesLabel(group.items.map((item) => item.package_id))}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {totalAmount ? `₪${totalAmount}` : "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <OrderStatusBadge status={head.status} />
-                        </td>
-                        <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
-                          {isMulti ? "—" : formatSessionDate(head.session_starts_at) || "—"}
-                        </td>
-                      </tr>
-                      {isOpen &&
-                        group.items.map((item) => (
-                          <tr key={item.id} className="border-t border-cream/10 bg-ink/40">
-                            <td colSpan={5} />
-                            <td className="px-4 py-3 pr-8 break-words text-muted-brown">
-                              {PACKAGE_LABELS[item.package_id] || item.package_id}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-muted-brown">
-                              {item.amount ? `₪${item.amount}` : "—"}
-                            </td>
-                            <td className="px-4 py-3">
-                              <OrderStatusBadge status={item.status} />
-                            </td>
-                            <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
-                              {formatSessionDate(item.session_starts_at) || "—"}
-                            </td>
-                          </tr>
-                        ))}
-                    </Fragment>
-                  );
-                })}
-                {orderGroups.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-muted-brown">
-                      {orders.length === 0 ? "אין עדיין רוכשים" : "אין רוכשים התואמים לסינון"}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <h3 className="font-serif text-lg text-gold mb-4">רוכשים ({paidGroups.length})</h3>
+          <OrderGroupsTable
+            groups={paidGroups}
+            expandedOrders={expandedOrders}
+            toggleOrder={toggleOrder}
+            emptyMessage="אין עדיין רוכשים"
+          />
+
+          <h3 className="font-serif text-lg text-gold mb-4 mt-10">
+            נוטשי עגלה ({abandonedGroups.length})
+          </h3>
+          <p className="text-muted-brown text-xs mb-4 -mt-2">
+            הזמנות שעדיין ממתינות או שנכשלו. אם לקוח מדווח שהחיוב עבר אבל לא קיבל מייל, אפשר ללחוץ
+            "אימות הזמנה" — זה בודק את התשלום מול הסליקה בפועל, ורק אם הוא אכן אושר שם ההזמנה תסומן
+            כשולם והמייל יישלח.
+          </p>
+          <OrderGroupsTable
+            groups={abandonedGroups}
+            expandedOrders={expandedOrders}
+            toggleOrder={toggleOrder}
+            emptyMessage="אין נוטשי עגלה"
+            showVerify
+            verifyingOrders={verifyingOrders}
+            onVerifyOrder={onVerifyOrder}
+          />
         </section>
       </main>
     </div>
@@ -553,6 +484,184 @@ function LeadCard({
   );
 }
 
+// Renders one orders section (mobile cards + desktop table) — shared by the
+// "רוכשים" (paid) and "נוטשי עגלה" (pending/failed) sections so the two
+// don't duplicate the whole table markup. showVerify adds the "אימות
+// הזמנה" action, only relevant for the abandoned-cart section.
+function OrderGroupsTable({
+  groups,
+  expandedOrders,
+  toggleOrder,
+  emptyMessage,
+  showVerify = false,
+  verifyingOrders,
+  onVerifyOrder,
+}: {
+  groups: { order_reference: string; items: OrderWithContact[] }[];
+  expandedOrders: Set<string>;
+  toggleOrder: (orderReference: string) => void;
+  emptyMessage: string;
+  showVerify?: boolean;
+  verifyingOrders?: Set<string>;
+  onVerifyOrder?: (orderReference: string, transactionId: string) => void;
+}) {
+  return (
+    <>
+      {/* Mobile: one card per order — a fixed-width table doesn't fit a phone screen */}
+      <div className="md:hidden space-y-3 mb-10">
+        {groups
+          .flatMap((g) => g.items)
+          .map((o) => (
+            <OrderCard
+              key={o.id}
+              order={o}
+              onVerify={showVerify ? onVerifyOrder : undefined}
+              verifying={verifyingOrders?.has(o.order_reference) ?? false}
+            />
+          ))}
+        {groups.length === 0 && (
+          <div className="border border-cream/10 rounded-lg px-4 py-8 text-center text-muted-brown text-sm">
+            {emptyMessage}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: full table — one row per transaction, expandable into
+          its per-product line items (same pattern as the leads table). */}
+      <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto mb-10">
+        <table
+          className={cn(
+            "w-full text-sm table-fixed",
+            showVerify ? "min-w-[1330px]" : "min-w-[1190px]",
+          )}
+        >
+          <colgroup>
+            <col className="w-10" />
+            <col className="w-[190px]" />
+            <col className="w-[140px]" />
+            <col className="w-[110px]" />
+            <col className="w-[190px]" />
+            <col />
+            <col className="w-[90px]" />
+            <col className="w-[100px]" />
+            <col className="w-[130px]" />
+            {showVerify && <col className="w-[140px]" />}
+          </colgroup>
+          <thead className="bg-sand/70 text-right">
+            <tr>
+              <th className="px-4 py-3 font-semibold"></th>
+              <th className="px-4 py-3 font-semibold">מספר עסקה</th>
+              <th className="px-4 py-3 font-semibold">שם</th>
+              <th className="px-4 py-3 font-semibold">טלפון</th>
+              <th className="px-4 py-3 font-semibold">אימייל</th>
+              <th className="px-4 py-3 font-semibold">מוצר</th>
+              <th className="px-4 py-3 font-semibold">סכום</th>
+              <th className="px-4 py-3 font-semibold">סטטוס</th>
+              <th className="px-4 py-3 font-semibold">מועד המפגש הבא</th>
+              {showVerify && <th className="px-4 py-3 font-semibold">פעולות</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => {
+              const head = group.items[0];
+              const isMulti = group.items.length > 1;
+              const isOpen = expandedOrders.has(group.order_reference);
+              const totalAmount = sumAmounts(group.items);
+              const verifying = verifyingOrders?.has(group.order_reference) ?? false;
+              return (
+                <Fragment key={group.order_reference}>
+                  <tr className="border-t border-cream/10 hover:bg-cream/[0.03] align-top">
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => toggleOrder(group.order_reference)}
+                        aria-label="פרטי מוצרים"
+                        className="w-6 h-6 rounded border border-gold/40 text-gold flex items-center justify-center hover:bg-gold/10 transition-colors"
+                      >
+                        {isOpen ? "–" : "+"}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-muted-brown">
+                      <span className="ltr-inline break-all">{group.order_reference}</span>
+                    </td>
+                    <td className="px-4 py-3 font-medium break-words">{head.buyer_name || "—"}</td>
+                    <td className="px-4 py-3 text-muted-brown">
+                      <span className="ltr-inline whitespace-nowrap">
+                        {head.buyer_phone || "—"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-muted-brown">
+                      <span className="ltr-inline break-all">{head.email}</span>
+                    </td>
+                    <td className="px-4 py-3 break-words">
+                      {packagesLabel(group.items.map((item) => item.package_id))}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {totalAmount ? `₪${totalAmount}` : "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <OrderStatusBadge status={head.status} />
+                    </td>
+                    <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
+                      {isMulti ? "—" : formatSessionDate(head.session_starts_at) || "—"}
+                    </td>
+                    {showVerify && (
+                      <td className="px-4 py-3">
+                        {head.transaction_id ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onVerifyOrder?.(group.order_reference, head.transaction_id!)
+                            }
+                            disabled={verifying}
+                            className="border border-gold/50 text-gold px-3 py-1 rounded-md text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-50"
+                          >
+                            {verifying ? "בודק..." : "אימות הזמנה"}
+                          </button>
+                        ) : (
+                          <span className="text-muted-brown text-xs">אין עסקה לאימות</span>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                  {isOpen &&
+                    group.items.map((item) => (
+                      <tr key={item.id} className="border-t border-cream/10 bg-ink/40">
+                        <td colSpan={5} />
+                        <td className="px-4 py-3 pr-8 break-words text-muted-brown">
+                          {PACKAGE_LABELS[item.package_id] || item.package_id}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-muted-brown">
+                          {item.amount ? `₪${item.amount}` : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <OrderStatusBadge status={item.status} />
+                        </td>
+                        <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
+                          {formatSessionDate(item.session_starts_at) || "—"}
+                        </td>
+                        {showVerify && <td />}
+                      </tr>
+                    ))}
+                </Fragment>
+              );
+            })}
+            {groups.length === 0 && (
+              <tr>
+                <td
+                  colSpan={showVerify ? 10 : 9}
+                  className="px-4 py-8 text-center text-muted-brown"
+                >
+                  {emptyMessage}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
 function OrderStatusBadge({ status }: { status: OrderWithContact["status"] }) {
   return (
     <span
@@ -568,8 +677,17 @@ function OrderStatusBadge({ status }: { status: OrderWithContact["status"] }) {
   );
 }
 
-// Mobile card for one order — same reasoning as LeadCard above.
-function OrderCard({ order: o }: { order: OrderWithContact }) {
+// Mobile card for one order — same reasoning as LeadCard above. onVerify is
+// only passed for the abandoned-cart section's cards.
+function OrderCard({
+  order: o,
+  onVerify,
+  verifying,
+}: {
+  order: OrderWithContact;
+  onVerify?: (orderReference: string, transactionId: string) => void;
+  verifying?: boolean;
+}) {
   return (
     <div className="border border-cream/10 rounded-lg p-4 bg-ink/20">
       <div className="flex items-start justify-between gap-3">
@@ -592,6 +710,22 @@ function OrderCard({ order: o }: { order: OrderWithContact }) {
         <span className="whitespace-nowrap">{formatSessionDate(o.session_starts_at) || "—"}</span>
         <span className="ltr-inline break-all">{o.order_reference}</span>
       </div>
+      {onVerify && (
+        <div className="mt-3">
+          {o.transaction_id ? (
+            <button
+              type="button"
+              onClick={() => onVerify(o.order_reference, o.transaction_id!)}
+              disabled={verifying}
+              className="w-full border border-gold/50 text-gold px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-50"
+            >
+              {verifying ? "בודק..." : "אימות הזמנה"}
+            </button>
+          ) : (
+            <span className="text-muted-brown text-xs">אין עסקה לאימות מול הסליקה</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

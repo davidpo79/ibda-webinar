@@ -5,6 +5,8 @@ import { applyPlaceholders, getEmailOverrides } from "./email-content.server";
 
 export const COUPON_INTRO_DEFAULT =
   "קיבלת קוד הנחה אישי של {percent}% על כל אחת מתוכניות ההמשך של IBDA.";
+export const COUPON_INSTRUCTION_DEFAULT =
+  "לחיצה על הקוד תזין אותו אוטומטית באתר. אפשר גם להעתיק את הקוד ולהדביק אותו ידנית בעת ההרשמה לתשלום.";
 
 export type CouponRow = {
   id: string;
@@ -149,7 +151,7 @@ export function couponEmailHtml(
           <p dir="rtl" style="color:#D9D0BB;font-size:13px;line-height:1.7;">
             ${
               codeUrl
-                ? "לחיצה על הקוד תזין אותו אוטומטית באתר. אפשר גם להעתיק את הקוד ולהדביק אותו ידנית בעת ההרשמה לתשלום."
+                ? escapeHtml(overrides["coupon.instruction"] ?? COUPON_INSTRUCTION_DEFAULT)
                 : 'יש להזין את הקוד בעת ההרשמה לתשלום, בעמוד "כל התוכניות".'
             }
           </p>

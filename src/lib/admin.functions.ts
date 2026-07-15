@@ -12,8 +12,16 @@ import {
 } from "./admin-auth.server";
 import { listRegistrations, updateRegistrationContact } from "./registrations.server";
 import type { RegistrationRow } from "./registrations.server";
-import { listOrders } from "./orders.server";
+import {
+  listOrders,
+  markOrderStatus,
+  getOrderPackages,
+  isTransactionReusedElsewhere,
+} from "./orders.server";
 import type { OrderRow } from "./orders.server";
+import { verifySumitTransactionWithRetry } from "./sumit.server";
+import { updateResendPaymentStatusByEmail } from "./resend.server";
+import { markCouponUsed } from "./coupons.server";
 import {
   getAllSessions,
   updateSessionDate,
@@ -28,11 +36,24 @@ import {
   sendCouponEmailToRegistration,
   sendCouponEmailToAddress,
   COUPON_INTRO_DEFAULT,
+  COUPON_INSTRUCTION_DEFAULT,
 } from "./coupons.server";
 import { getEmailSendPolicy, updateEmailSendPolicy } from "./email-policy.server";
 import { getEmailOverrides, setEmailOverrides, EDITABLE_PACKAGES } from "./email-content.server";
-import { WELCOME_SUBJECT_BY_PACKAGE, WELCOME_INTRO, REMINDER_VERB } from "./email-templates.server";
-import { PRICE_NOTICE_INTRO_DEFAULT } from "./pricing-notices.server";
+import {
+  WELCOME_SUBJECT_BY_PACKAGE,
+  WELCOME_INTRO,
+  WELCOME_TITLE_DEFAULT,
+  WELCOME_PRESENTER_DEFAULT,
+  WELCOME_CLOSING_DEFAULT,
+  REMINDER_VERB,
+  REMINDER_NOTICE_DEFAULT,
+  REMINDER_CLOSING_DEFAULT,
+} from "./email-templates.server";
+import {
+  PRICE_NOTICE_INTRO_DEFAULT,
+  PRICE_NOTICE_REMINDER_DEFAULT,
+} from "./pricing-notices.server";
 import { PAYMENT_STATUS_PAID_DEFAULT, PAYMENT_STATUS_FAILED_DEFAULT } from "./resend.server";
 import { buildAllEmailPreviews } from "./email-preview.server";
 
@@ -286,11 +307,18 @@ export const getAdminEmailContentData = createServerFn({ method: "GET" }).handle
     previews,
     packages: EDITABLE_PACKAGES,
     defaults: {
+      welcomeTitle: WELCOME_TITLE_DEFAULT,
+      welcomePresenter: WELCOME_PRESENTER_DEFAULT,
       welcomeSubject: WELCOME_SUBJECT_BY_PACKAGE,
       welcomeIntro: WELCOME_INTRO,
+      welcomeClosing: WELCOME_CLOSING_DEFAULT,
       reminderVerb: REMINDER_VERB,
+      reminderNotice: REMINDER_NOTICE_DEFAULT,
+      reminderClosing: REMINDER_CLOSING_DEFAULT,
       couponIntro: COUPON_INTRO_DEFAULT,
+      couponInstruction: COUPON_INSTRUCTION_DEFAULT,
       priceNoticeIntro: PRICE_NOTICE_INTRO_DEFAULT,
+      priceNoticeReminder: PRICE_NOTICE_REMINDER_DEFAULT,
       paymentStatusPaidTitle: PAYMENT_STATUS_PAID_DEFAULT.title,
       paymentStatusPaidBody: PAYMENT_STATUS_PAID_DEFAULT.body,
       paymentStatusFailedTitle: PAYMENT_STATUS_FAILED_DEFAULT.title,
@@ -309,4 +337,57 @@ export const updateEmailContentAction = createServerFn({ method: "POST" })
     assertAdminSession();
     await setEmailOverrides(data.changes);
     return { ok: true };
+  });
+
+const VerifyOrderPaymentSchema = z.object({
+  orderReference: z.string().min(1),
+  transactionId: z.string().min(1),
+});
+
+// Answers the admin dashboard's "אימות הזמנה" button on a pending/failed
+// order that already has a transaction id — an independent, real check
+// against Sumit (never a blind "mark as paid"), for the case where a charge
+// actually went through but our own webhook/return-redirect never resolved
+// it (the settlement-lag race this exists to catch — see
+// verifySumitTransactionWithRetry). Only a genuinely confirmed payment
+// marks the order paid and sends the customer their real welcome email;
+// anything else is reported back without changing anything.
+export const verifyOrderPaymentAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => VerifyOrderPaymentSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    const order = await getOrderPackages(data.orderReference);
+    if (!order) return { outcome: "not_found" as const };
+
+    let validation;
+    try {
+      validation = await verifySumitTransactionWithRetry(data.transactionId);
+    } catch (err) {
+      console.error("[verifyOrderPaymentAction] verify error", err);
+      return { outcome: "unresolved" as const };
+    }
+
+    if (validation.paid) {
+      const reused = await isTransactionReusedElsewhere(data.transactionId, data.orderReference);
+      if (reused) {
+        return { outcome: "failed" as const, reason: "transaction_reused" as const };
+      }
+      await updateResendPaymentStatusByEmail(order.email, "שולם", order.packageIds);
+      await markOrderStatus({
+        orderReference: data.orderReference,
+        transactionId: data.transactionId,
+        status: "paid",
+      });
+      if (order.couponCode) await markCouponUsed(order.couponCode);
+      return { outcome: "paid" as const };
+    }
+    if (validation.definitivelyFailed) {
+      await markOrderStatus({
+        orderReference: data.orderReference,
+        transactionId: data.transactionId,
+        status: "failed",
+      });
+      return { outcome: "failed" as const };
+    }
+    return { outcome: "unresolved" as const };
   });

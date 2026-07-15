@@ -8,6 +8,8 @@ import { applyPlaceholders, getEmailOverrides } from "./email-content.server";
 
 export const PRICE_NOTICE_INTRO_DEFAULT =
   'מחיר ההרשמה המוקדמת ל"{package}" עולה בעוד כ-{hours} שעות, למחיר של ₪{price}.';
+export const PRICE_NOTICE_REMINDER_DEFAULT =
+  "אם עדיין לא השלמתם את ההרשמה, זה הזמן להשלים אותה במחיר הנוכחי.";
 
 const PACKAGE_TITLES: Record<string, string> = {
   core_single: "וובינר בודד מסדרת הליבה",
@@ -48,7 +50,7 @@ export function priceNoticeEmailHtml(
             ${escapeHtml(intro)}
           </p>
           <p dir="rtl" style="color:#D9D0BB;font-size:14px;line-height:1.7;">
-            אם עדיין לא השלמתם את ההרשמה, זה הזמן להשלים אותה במחיר הנוכחי.
+            ${escapeHtml(overrides["price_notice.reminder"] ?? PRICE_NOTICE_REMINDER_DEFAULT)}
           </p>
         </td></tr>
       </table>
