@@ -242,6 +242,13 @@ CREATE TABLE IF NOT EXISTS email_send_policy (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO email_send_policy (id) VALUES (true) ON CONFLICT (id) DO NOTHING;
+-- Saturday is otherwise blocked for its full 24h like any other blocked
+-- weekday — this lets it reopen at a fixed hour instead (Shabbat safely
+-- ends by 21:00 in Israel year-round), so a reminder due the evening
+-- before a Sunday session isn't silently dropped for having no window
+-- left to send in at all. NULL keeps the old full-day-block behavior.
+ALTER TABLE email_send_policy ADD COLUMN IF NOT EXISTS saturday_ends_hour int DEFAULT 21;
+UPDATE email_send_policy SET saturday_ends_hour = 21 WHERE saturday_ends_hour IS NULL;
 
 -- Admin-editable overrides for specific pieces of automated-email wording
 -- (subject lines, intro sentences, etc.) — see src/lib/email-content.server.ts.

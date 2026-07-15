@@ -285,6 +285,7 @@ const UpdateEmailPolicySchema = z.object({
   allowedHourStart: z.number().int().min(0).max(23),
   allowedHourEnd: z.number().int().min(1).max(24),
   blockedDates: z.array(z.string().min(1)),
+  saturdayEndsHour: z.number().int().min(0).max(23).nullable(),
 });
 
 export const updateEmailSendPolicyAction = createServerFn({ method: "POST" })

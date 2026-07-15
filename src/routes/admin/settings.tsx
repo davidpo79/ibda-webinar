@@ -35,6 +35,9 @@ function AdminSettingsPage() {
   );
   const [allowedHourStart, setAllowedHourStart] = useState(String(policy.allowed_hour_start));
   const [allowedHourEnd, setAllowedHourEnd] = useState(String(policy.allowed_hour_end));
+  const [saturdayEndsHour, setSaturdayEndsHour] = useState(
+    policy.saturday_ends_hour == null ? "" : String(policy.saturday_ends_hour),
+  );
   const [blockedDates, setBlockedDates] = useState<string[]>(policy.blocked_dates);
   const [newDate, setNewDate] = useState("");
   const [saving, setSaving] = useState(false);
@@ -74,6 +77,7 @@ function AdminSettingsPage() {
           allowedHourStart: Number(allowedHourStart),
           allowedHourEnd: Number(allowedHourEnd),
           blockedDates,
+          saturdayEndsHour: saturdayEndsHour === "" ? null : Number(saturdayEndsHour),
         },
       });
       setSaved(true);
@@ -124,6 +128,26 @@ function AdminSettingsPage() {
                 );
               })}
             </div>
+            {blockedWeekdays.has(6) && (
+              <label className="block mt-4 max-w-xs">
+                <span className="text-[12px] text-muted-brown mb-1 block">
+                  שבת מסתיימת בשעה (ואז מיילים חוזרים להישלח, גם אם המפגש הבא הוא ביום ראשון) —
+                  השאירו ריק כדי לחסום את כל השבת
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  max={23}
+                  placeholder="21"
+                  value={saturdayEndsHour}
+                  onChange={(e) => {
+                    setSaturdayEndsHour(e.target.value);
+                    setSaved(false);
+                  }}
+                  className="w-24 bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-gold ltr-inline"
+                />
+              </label>
+            )}
           </div>
 
           <div className="flex flex-wrap items-end gap-4">

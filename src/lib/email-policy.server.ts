@@ -7,6 +7,12 @@ export type EmailSendPolicy = {
   allowed_hour_start: number;
   allowed_hour_end: number;
   blocked_dates: string[];
+  // Saturday, alone among blocked weekdays, can reopen at a fixed Israel-time
+  // hour instead of staying blocked for its full 24h — Shabbat safely ends
+  // by 21:00 in Israel year-round, and without this a reminder due the
+  // evening before a Sunday session has no window left to send in at all
+  // before that session starts. null preserves the old full-day block.
+  saturday_ends_hour: number | null;
 };
 
 const DEFAULT_POLICY: EmailSendPolicy = {
@@ -14,11 +20,12 @@ const DEFAULT_POLICY: EmailSendPolicy = {
   allowed_hour_start: 8,
   allowed_hour_end: 21,
   blocked_dates: [],
+  saturday_ends_hour: 21,
 };
 
 export async function getEmailSendPolicy(): Promise<EmailSendPolicy> {
   const rows = await sql()<EmailSendPolicy[]>`
-    SELECT blocked_weekdays, allowed_hour_start, allowed_hour_end, blocked_dates
+    SELECT blocked_weekdays, allowed_hour_start, allowed_hour_end, blocked_dates, saturday_ends_hour
     FROM email_send_policy WHERE id = true
   `;
   return rows[0] ?? DEFAULT_POLICY;
@@ -29,6 +36,7 @@ export async function updateEmailSendPolicy(data: {
   allowedHourStart: number;
   allowedHourEnd: number;
   blockedDates: string[];
+  saturdayEndsHour: number | null;
 }): Promise<void> {
   await sql()`
     UPDATE email_send_policy SET
@@ -36,6 +44,7 @@ export async function updateEmailSendPolicy(data: {
       allowed_hour_start = ${data.allowedHourStart},
       allowed_hour_end = ${data.allowedHourEnd},
       blocked_dates = ${data.blockedDates},
+      saturday_ends_hour = ${data.saturdayEndsHour},
       updated_at = now()
     WHERE id = true
   `;
@@ -77,7 +86,11 @@ function israelParts(date: Date): { weekday: number; dateStr: string; hour: numb
 // gated by this — only the scheduled sweeps are.
 export function isAllowedSendTime(date: Date, policy: EmailSendPolicy): boolean {
   const { weekday, dateStr, hour } = israelParts(date);
-  if (policy.blocked_weekdays.includes(weekday)) return false;
+  if (policy.blocked_weekdays.includes(weekday)) {
+    const shabbatReopened =
+      weekday === 6 && policy.saturday_ends_hour != null && hour >= policy.saturday_ends_hour;
+    if (!shabbatReopened) return false;
+  }
   if (policy.blocked_dates.includes(dateStr)) return false;
   if (hour < policy.allowed_hour_start || hour >= policy.allowed_hour_end) return false;
   return true;
