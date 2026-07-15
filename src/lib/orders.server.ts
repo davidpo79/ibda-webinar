@@ -52,6 +52,25 @@ export async function recordOrder(input: {
   }
 }
 
+// Sumit's accounting-document webhook event (fired alongside — sometimes
+// instead of promptly resolving — the payment IPN) carries no order
+// reference at all, only its own internal EntityID. This is how the
+// webhook handler correlates that event back to the order the *first*
+// IPN call already recorded a transaction_id for (see
+// recordObservedTransactionId), so a second, later event for the same
+// transaction can retry resolving an order the first attempt left
+// ambiguous — instead of being silently dropped as "no identifiers".
+export async function findOrderReferenceByTransactionId(
+  transactionId: string,
+): Promise<string | null> {
+  const rows = await sql()<{ order_reference: string }[]>`
+    SELECT order_reference FROM orders
+    WHERE transaction_id = ${transactionId} AND status = 'created'
+    LIMIT 1
+  `;
+  return rows[0]?.order_reference ?? null;
+}
+
 // Persists a transaction id onto an order the moment it's observed in a
 // webhook/return call, independent of whether that call could actually
 // resolve paid/failed. Without this, an order whose verify attempt comes

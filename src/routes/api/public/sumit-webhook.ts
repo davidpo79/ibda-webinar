@@ -1,5 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+// Sumit sends (at least) two distinct webhook shapes for the same
+// redirect-flow checkout: the payment IPN ({valid, documentid, orderRef,
+// ...} — carries our own identifiers, handled by the normal extraction
+// above) and a separate accounting-document creation event ({Folder,
+// EntityID, Type, Properties, ...}, arriving form-encoded as a single
+// "json" field) that carries none of our identifiers, only Sumit's own
+// EntityID for the document — which is the same id as the payment IPN's
+// documentid/transactionId. Recognizing this second shape (instead of
+// dropping it as "no identifiers") lets a stuck order get a second,
+// later shot at resolving via the transaction id the first IPN already
+// recorded onto it (see recordObservedTransactionId).
+function extractSumitEventTransactionId(payload: Record<string, unknown>): string | null {
+  const direct = payload as { EntityID?: unknown; Folder?: unknown };
+  if (direct.EntityID != null && direct.Folder != null) return String(direct.EntityID);
+  if (typeof payload.json === "string") {
+    try {
+      const inner = JSON.parse(payload.json) as { EntityID?: unknown; Folder?: unknown };
+      if (inner.EntityID != null && inner.Folder != null) return String(inner.EntityID);
+    } catch {
+      // not the shape we're looking for — fall through to "no identifiers"
+    }
+  }
+  return null;
+}
+
 async function handle(request: Request) {
   const { verifySumitTransactionWithRetry, verifySumitWebhookSignature } =
     await import("@/lib/sumit.server");
@@ -9,6 +34,7 @@ async function handle(request: Request) {
     getOrderPackages,
     isTransactionReusedElsewhere,
     recordObservedTransactionId,
+    findOrderReferenceByTransactionId,
   } = await import("@/lib/orders.server");
   const { markCouponUsed } = await import("@/lib/coupons.server");
 
@@ -49,10 +75,24 @@ async function handle(request: Request) {
     if (!(key in payload)) payload[key] = value;
   });
 
-  const transactionId =
+  let transactionId =
     String(payload.TransactionID || payload.ChargeID || payload.documentid || "") || null;
-  const orderReference =
+  let orderReference =
     String(payload.ExternalIdentifier || payload.orderRef || payload.order_reference || "") || null;
+
+  // Neither of the usual identifiers — check whether this is the
+  // accounting-document event shape instead, and if so, try to recover the
+  // order reference from a transaction id the first IPN already recorded.
+  if (!transactionId && !orderReference) {
+    const eventTransactionId = extractSumitEventTransactionId(payload);
+    const matchedOrderReference = eventTransactionId
+      ? await findOrderReferenceByTransactionId(eventTransactionId)
+      : null;
+    if (eventTransactionId && matchedOrderReference) {
+      transactionId = eventTransactionId;
+      orderReference = matchedOrderReference;
+    }
+  }
 
   console.log("[sumit-webhook] received", {
     transactionId,
