@@ -40,6 +40,13 @@ function applyDiscount(price: number, discountPercent: number): number {
 
 type SumitValidation = {
   paid: boolean;
+  // True only when Sumit's response is confident enough to conclude this
+  // transaction genuinely did NOT succeed (a real transaction record with a
+  // recognized terminal failure status, or an explicit cancel/replay). When
+  // both paid and definitivelyFailed are false, the outcome is still
+  // unknown — callers must treat that as pending, not as a failure, and
+  // must not notify the customer or change the order status from it.
+  definitivelyFailed: boolean;
   status: string;
   raw: Record<string, unknown>;
 };
@@ -265,7 +272,7 @@ export function parseSumitTransactionStatus(payload: Record<string, unknown>): S
   // implementation of this exact flow. Treat that as authoritative on its
   // own; it's the common case, not an edge case.
   if (String(payload.valid ?? "") === "1") {
-    return { paid: true, status: "valid", raw: payload };
+    return { paid: true, definitivelyFailed: false, status: "valid", raw: payload };
   }
   const statusStr = String(payload.Status ?? "");
   const success = payload.Success === true || statusStr.startsWith("Success");
@@ -273,7 +280,26 @@ export function parseSumitTransactionStatus(payload: Record<string, unknown>): S
   const txnStatus = String(txn.Status ?? "").toLowerCase();
   const amount = Number(txn.Amount ?? txn.TotalAmount ?? 0);
   const paid = success && ["paid", "approved", "success", "1"].includes(txnStatus) && amount > 0;
-  return { paid, status: txnStatus || statusStr, raw: payload };
+  // gettransaction has a real settlement lag right after a redirect-flow
+  // checkout completes — calling it seconds too early doesn't return a
+  // decline, it returns an empty/unrecognized result. Only conclude this
+  // transaction genuinely failed when Sumit actually returned a real
+  // transaction record (success) carrying a recognized terminal failure
+  // status — never merely because the response didn't parse as "paid".
+  // Treating "not (yet) paid" as "failed" was sending customers a false
+  // "payment failed" email moments after a successful charge.
+  const KNOWN_FAILURE_STATUSES = [
+    "declined",
+    "failed",
+    "error",
+    "cancelled",
+    "canceled",
+    "0",
+    "-1",
+  ];
+  const definitivelyFailed =
+    !paid && success && txnStatus !== "" && KNOWN_FAILURE_STATUSES.includes(txnStatus);
+  return { paid, definitivelyFailed, status: txnStatus || statusStr, raw: payload };
 }
 
 // Fail-closed HMAC-SHA256 signature check for the Sumit IPN webhook. When no

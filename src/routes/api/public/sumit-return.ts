@@ -23,9 +23,19 @@ async function handle(request: Request) {
   const transactionId =
     params.get("TransactionID") || params.get("ChargeID") || params.get("documentid");
 
-  let verified: { paid: boolean; status: string; raw: unknown } | null = null;
+  let verified: {
+    paid: boolean;
+    definitivelyFailed: boolean;
+    status: string;
+    raw: unknown;
+  } | null = null;
   if (cancelled) {
-    verified = { paid: false, status: "cancelled", raw: Object.fromEntries(params.entries()) };
+    verified = {
+      paid: false,
+      definitivelyFailed: true,
+      status: "cancelled",
+      raw: Object.fromEntries(params.entries()),
+    };
   } else if (transactionId) {
     try {
       verified = await verifySumitTransaction(transactionId);
@@ -37,7 +47,12 @@ async function handle(request: Request) {
             transactionId,
             orderReference,
           );
-          verified = { paid: false, status: "transaction_reused", raw: verified.raw };
+          verified = {
+            paid: false,
+            definitivelyFailed: true,
+            status: "transaction_reused",
+            raw: verified.raw,
+          };
         }
       }
     } catch (err) {
@@ -54,11 +69,18 @@ async function handle(request: Request) {
   // package or a different recipient than what was actually bought.
   const order = orderReference ? await getOrderPackages(orderReference) : null;
 
-  if (verified && order) {
+  // Sumit's gettransaction endpoint has a real settlement lag right after a
+  // redirect-flow checkout completes — verified.paid === false here often
+  // just means "not confirmed yet", not "failed". Only email/update the
+  // order when the outcome is actually known (paid, or a real confirmed
+  // failure); otherwise leave it for a retry — see definitivelyFailed.
+  const resolved = verified !== null && (verified.paid || verified.definitivelyFailed);
+
+  if (resolved && order) {
     try {
       await updateResendPaymentStatusByEmail(
         order.email,
-        verified.paid ? "שולם" : "נכשל",
+        verified!.paid ? "שולם" : "נכשל",
         order.packageIds,
       );
     } catch (err) {
@@ -66,12 +88,12 @@ async function handle(request: Request) {
     }
   }
 
-  if (verified && orderReference) {
+  if (resolved && orderReference) {
     try {
       await markOrderStatus({
         orderReference,
         transactionId,
-        status: verified.paid ? "paid" : "failed",
+        status: verified!.paid ? "paid" : "failed",
       });
     } catch (err) {
       console.error("[sumit-return] order status update error", err);
@@ -87,7 +109,7 @@ async function handle(request: Request) {
   }
 
   const redirectUrl = new URL("/payment/success", url.origin);
-  const statusCode = verified === null ? "pending" : verified.paid ? "0" : "99";
+  const statusCode = !resolved ? "pending" : verified!.paid ? "0" : "99";
   redirectUrl.searchParams.set("statusCode", statusCode);
   if (transactionId) redirectUrl.searchParams.set("transactionId", transactionId);
   if (orderReference) redirectUrl.searchParams.set("orderRef", orderReference);

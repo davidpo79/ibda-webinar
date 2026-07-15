@@ -126,8 +126,22 @@ export const confirmSumitPayment = createServerFn({ method: "POST" })
             data.transactionId,
             data.orderReference,
           );
-          validation = { ...validation, paid: false, status: "transaction_reused" };
+          validation = {
+            ...validation,
+            paid: false,
+            definitivelyFailed: true,
+            status: "transaction_reused",
+          };
         }
+      }
+
+      // Sumit's gettransaction endpoint has a real settlement lag right
+      // after checkout completes — an unconfirmed result here doesn't mean
+      // the payment failed, just that it isn't verifiable yet. Report
+      // pending back to the caller (which keeps polling) instead of
+      // emailing/marking the order failed on a guess.
+      if (!validation.paid && !validation.definitivelyFailed) {
+        return { paid: false, pending: true };
       }
 
       await updateResendPaymentStatusByEmail(
@@ -145,7 +159,11 @@ export const confirmSumitPayment = createServerFn({ method: "POST" })
       }
       return { paid: validation.paid };
     } catch (err) {
+      // A thrown error here (network hiccup, Sumit rejecting the verify
+      // call itself) means the outcome is unknown, not that the payment
+      // failed — report pending so the caller keeps polling rather than
+      // treating a transient error as a confirmed failure.
       console.error("[confirmSumitPayment] error", err);
-      return { paid: false, error: (err as Error).message };
+      return { paid: false, pending: true, error: (err as Error).message };
     }
   });

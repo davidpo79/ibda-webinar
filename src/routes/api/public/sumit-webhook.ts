@@ -73,8 +73,9 @@ async function handle(request: Request) {
   // SUMIT_WEBHOOK_KEY is configured; otherwise it's a no-op. A "paid"
   // determination must always come from an independent
   // verifySumitTransaction() call when the signature wasn't really checked.
-  let validation: { paid: boolean; status: string; raw: unknown } = {
+  let validation: { paid: boolean; definitivelyFailed: boolean; status: string; raw: unknown } = {
     paid: false,
+    definitivelyFailed: false,
     status: "unverified",
     raw: payload,
   };
@@ -89,7 +90,12 @@ async function handle(request: Request) {
             transactionId,
             orderReference,
           );
-          validation = { paid: false, status: "transaction_reused", raw: validation.raw };
+          validation = {
+            paid: false,
+            definitivelyFailed: true,
+            status: "transaction_reused",
+            raw: validation.raw,
+          };
         }
       }
     }
@@ -104,7 +110,13 @@ async function handle(request: Request) {
     }
   }
 
-  if (order) {
+  // Neither confirmed paid nor confirmed failed: Sumit's verify endpoint
+  // hasn't settled yet (or this webhook call carries no useful signal).
+  // Leave the order and its emails alone — a retried webhook call or the
+  // browser-return / confirm fallback will resolve it once it's known.
+  const resolved = validation.paid || validation.definitivelyFailed;
+
+  if (order && resolved) {
     try {
       await updateResendPaymentStatusByEmail(
         order.email,
@@ -116,7 +128,7 @@ async function handle(request: Request) {
     }
   }
 
-  if (orderReference) {
+  if (orderReference && resolved) {
     try {
       await markOrderStatus({
         orderReference,

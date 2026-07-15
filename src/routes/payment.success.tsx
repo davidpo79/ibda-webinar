@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, Mail, AlertTriangle, ShieldAlert, Clock } from "lucide-react";
 import { confirmSumitPayment } from "@/lib/sumit.functions";
 
@@ -34,17 +34,20 @@ function parseSearch(): {
 }
 
 function PaymentSuccessPage() {
-  const [{ statusCode, errorMessage, transactionId, orderReference }, setState] =
-    useState(parseSearch);
+  const [{ errorMessage, transactionId, orderReference }, setState] = useState(parseSearch);
+  const [statusCode, setStatusCode] = useState<string | null>(() => parseSearch().statusCode);
 
   useEffect(() => {
-    setState(parseSearch());
+    const parsed = parseSearch();
+    setState(parsed);
+    setStatusCode(parsed.statusCode);
   }, []);
 
   // "pending" means the browser redirect couldn't independently verify the
-  // payment (Sumit's redirect query params aren't signed) — the signed
-  // webhook or the confirm fallback below resolves it; this is neither a
-  // confirmed success nor a confirmed failure.
+  // payment yet (Sumit's own verify endpoint has a real settlement lag
+  // right after checkout completes) — the signed webhook or the polling
+  // fallback below resolves it; this is neither a confirmed success nor a
+  // confirmed failure.
   const pending = statusCode === "pending";
   const success =
     !pending &&
@@ -59,13 +62,51 @@ function PaymentSuccessPage() {
   }, [success, pending]);
 
   // Fallback: guarantee the payment-status update lands even if the webhook
-  // missed — runs whenever we have enough to check (not just on confirmed
-  // success), since "pending" is exactly the case that needs this most.
+  // missed, and — while still pending — keep re-checking for up to half a
+  // minute so the screen resolves to success/failure on its own instead of
+  // leaving the visitor stuck on "confirming" until an email eventually
+  // arrives. Only ever moves off "pending" on a real answer (paid, or a
+  // confirmed failure) — an ambiguous/still-unconfirmed check never
+  // downgrades an already-shown success.
+  const pollStarted = useRef(false);
   useEffect(() => {
     if (statusCode === "99" || !transactionId || !orderReference) return;
-    confirmSumitPayment({ data: { transactionId, orderReference } }).catch((err) => {
-      console.error("[payment-success] confirm error", err);
-    });
+    if (pollStarted.current) return;
+    pollStarted.current = true;
+
+    const maxAttempts = statusCode === "pending" ? 6 : 1;
+    const intervalMs = 5000;
+    let cancelled = false;
+
+    async function attempt(count: number) {
+      try {
+        const result = await confirmSumitPayment({
+          data: {
+            transactionId: transactionId as string,
+            orderReference: orderReference as string,
+          },
+        });
+        if (cancelled) return;
+        if (result.paid) {
+          setStatusCode("0");
+          return;
+        }
+        if (!result.pending) {
+          setStatusCode("99");
+          return;
+        }
+      } catch (err) {
+        console.error("[payment-success] confirm error", err);
+      }
+      if (!cancelled && count + 1 < maxAttempts) {
+        setTimeout(() => attempt(count + 1), intervalMs);
+      }
+    }
+
+    attempt(0);
+    return () => {
+      cancelled = true;
+    };
   }, [statusCode, transactionId, orderReference]);
 
   return (
