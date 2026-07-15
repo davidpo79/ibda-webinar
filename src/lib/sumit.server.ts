@@ -264,6 +264,35 @@ export async function verifySumitTransaction(transactionId: string): Promise<Sum
   return parseSumitTransactionStatus(data as Record<string, unknown>);
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// gettransaction has a real settlement lag right after a redirect-flow
+// checkout completes — confirmed empirically: a transaction it reports as
+// "Transaction not found" at the moment the webhook fires reliably exists
+// there a few seconds later. Callers that don't have a user waiting
+// synchronously on the response (the webhook — the only path guaranteed to
+// run regardless of whether the customer's browser stays open) should use
+// this instead of a single verifySumitTransaction call, or a transient lag
+// gets stranded as "unresolved" rather than turning into a correct "paid".
+export async function verifySumitTransactionWithRetry(
+  transactionId: string,
+  attempts = 3,
+  delayMs = 2500,
+): Promise<SumitValidation> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await verifySumitTransaction(transactionId);
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) await delay(delayMs);
+    }
+  }
+  throw lastErr;
+}
+
 export function parseSumitTransactionStatus(payload: Record<string, unknown>): SumitValidation {
   // Sumit's real webhook/redirect callback for a beginredirect-initiated
   // payment (our whole checkout flow) is a "short form" carrying none of

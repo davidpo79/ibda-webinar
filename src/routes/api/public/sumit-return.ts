@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 async function handle(request: Request) {
-  const { verifySumitTransaction } = await import("@/lib/sumit.server");
+  const { verifySumitTransactionWithRetry } = await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
   const { markOrderStatus, getOrderPackages, isTransactionReusedElsewhere } =
     await import("@/lib/orders.server");
@@ -38,7 +38,12 @@ async function handle(request: Request) {
     };
   } else if (transactionId) {
     try {
-      verified = await verifySumitTransaction(transactionId);
+      // A short, bounded retry here (unlike the webhook's longer one) —
+      // this delays the customer's actual browser redirect, so it trades a
+      // couple of extra seconds for a real shot at resolving on the spot
+      // instead of falling through to "pending" and depending on the
+      // client-side poll or webhook to catch up later.
+      verified = await verifySumitTransactionWithRetry(transactionId, 2, 1500);
       if (verified.paid && orderReference) {
         const reused = await isTransactionReusedElsewhere(transactionId, orderReference);
         if (reused) {

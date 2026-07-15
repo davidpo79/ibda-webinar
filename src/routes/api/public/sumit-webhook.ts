@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 async function handle(request: Request) {
-  const { verifySumitTransaction, verifySumitWebhookSignature } =
+  const { verifySumitTransactionWithRetry, verifySumitWebhookSignature } =
     await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
   const { markOrderStatus, getOrderPackages, isTransactionReusedElsewhere } =
@@ -81,7 +81,11 @@ async function handle(request: Request) {
   };
   try {
     if (transactionId) {
-      validation = await verifySumitTransaction(transactionId);
+      // This is the only confirmation path guaranteed to run regardless of
+      // whether the customer's browser stays open — worth spending a few
+      // extra seconds retrying through Sumit's settlement lag here rather
+      // than depending entirely on the browser-return/client-poll fallback.
+      validation = await verifySumitTransactionWithRetry(transactionId);
       if (validation.paid && orderReference) {
         const reused = await isTransactionReusedElsewhere(transactionId, orderReference);
         if (reused) {
