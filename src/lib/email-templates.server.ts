@@ -165,7 +165,7 @@ export function buildWelcomeEmail(
     const intro =
       packageId === "core_single"
         ? `שמחים מאוד שהצטרפת אלינו לוובינר ${opts.lessonTitle || session?.title || ""}`
-        : (overrides[`welcome.${packageId}.intro`] ?? WELCOME_INTRO[packageId]);
+        : escapeHtml(overrides[`welcome.${packageId}.intro`] ?? WELCOME_INTRO[packageId]);
     bodyInner = `
       <p dir="rtl" style="margin:0 0 10px;">${intro}</p>
       <p dir="rtl" style="margin:0 0 10px;">המפגש שלנו ייצא לדרך ב${dateLabel}</p>
@@ -190,7 +190,9 @@ export function buildWelcomeEmail(
           `<p dir="rtl" style="margin:8px 0;">${goldLink(s.zoom_url || "#", sessionLinkLabel(s))}</p>`,
       )
       .join("");
-    const listIntro = overrides[`welcome.${packageId}.intro`] ?? WELCOME_INTRO[packageId];
+    const listIntro = escapeHtml(
+      overrides[`welcome.${packageId}.intro`] ?? WELCOME_INTRO[packageId],
+    );
     bodyInner = `
       <p dir="rtl" style="margin:0 0 10px;">${listIntro}</p>
       <p dir="rtl" style="margin:0 0 18px;">${kickoffLine}</p>
@@ -224,8 +226,9 @@ export function buildReminderEmail(
 ): ReminderEmail {
   const dateLabel = formatHebrewFull(session.starts_at);
   const hourLabel = formatIsraelTime(session.starts_at);
-  const verb =
-    overrides[`reminder.${packageId}.verb`] ?? REMINDER_VERB[packageId] ?? "מתחיל המפגש שלנו";
+  const verb = escapeHtml(
+    overrides[`reminder.${packageId}.verb`] ?? REMINDER_VERB[packageId] ?? "מתחיל המפגש שלנו",
+  );
   const link = session.zoom_url || "#";
   const bodyInner = `
     <p dir="rtl" style="margin:0 0 14px;">שלום ${escapeHtml(firstName)}</p>

@@ -1,6 +1,32 @@
 import { createFileRoute, redirect, Link, useRouter } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { getAdminEmailContentData, updateEmailContentAction } from "@/lib/admin.functions";
+import { escapeHtml } from "@/lib/escape-html";
+
+// Which editable field(s) affect a given preview's rendered body — used to
+// patch the server-fetched preview HTML live as the admin types, without a
+// round trip. Every one of these fields is HTML-escaped server-side before
+// being embedded (see email-templates.server.ts / coupons.server.ts /
+// pricing-notices.server.ts / resend.server.ts), so the same escaping is
+// applied here before the string replace.
+function fieldsForPreviewKey(previewKey: string): string[] {
+  if (previewKey.startsWith("welcome:")) {
+    const pkgId = previewKey.slice("welcome:".length);
+    return pkgId === "core_single" ? [] : [`welcome.${pkgId}.intro`];
+  }
+  if (previewKey.startsWith("reminder:")) {
+    return [`reminder.${previewKey.slice("reminder:".length)}.verb`];
+  }
+  if (previewKey === "coupon") return ["coupon.intro"];
+  if (previewKey === "price_notice") return ["price_notice.intro"];
+  if (previewKey === "payment_status_paid") {
+    return ["payment_status.paid.title", "payment_status.paid.body"];
+  }
+  if (previewKey === "payment_status_failed") {
+    return ["payment_status.failed.title", "payment_status.failed.body"];
+  }
+  return [];
+}
 
 export const Route = createFileRoute("/admin/emails")({
   head: () => ({
@@ -129,6 +155,28 @@ function AdminEmailsPage() {
   }
 
   const activePreview = previewKey ? previewByKey[previewKey] : null;
+
+  // Patches the server-fetched preview HTML/subject with whatever's
+  // currently typed (not yet saved) for the field(s) that feed this
+  // preview, so the panel reflects edits as they happen instead of only
+  // after a save + reload.
+  const livePreview = useMemo(() => {
+    if (!activePreview || !previewKey) return null;
+    let html = activePreview.html;
+    for (const key of fieldsForPreviewKey(previewKey)) {
+      const oldVal = baseline[key] ?? "";
+      const newVal = values[key] ?? "";
+      if (!oldVal || oldVal === newVal) continue;
+      html = html.split(escapeHtml(oldVal)).join(escapeHtml(newVal));
+    }
+    const subjectKey = previewKey.startsWith("welcome:")
+      ? `welcome.${previewKey.slice("welcome:".length)}.subject`
+      : null;
+    const subject = subjectKey
+      ? (values[subjectKey] ?? activePreview.subject)
+      : activePreview.subject;
+    return { ...activePreview, html, subject };
+  }, [activePreview, previewKey, values, baseline]);
 
   return (
     <div className="min-h-screen bg-ink text-cream font-sans" dir="rtl">
@@ -330,9 +378,9 @@ function AdminEmailsPage() {
           <div className="glass-gold rounded-xl p-4 h-[80vh] flex flex-col">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-cream">תצוגה מקדימה</h2>
-              {activePreview && (
+              {livePreview && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-brown">{activePreview.label}</span>
+                  <span className="text-xs text-muted-brown">{livePreview.label}</span>
                   <button
                     type="button"
                     onClick={() => setPreviewKey(null)}
@@ -344,12 +392,12 @@ function AdminEmailsPage() {
                 </div>
               )}
             </div>
-            {activePreview ? (
+            {livePreview ? (
               <>
-                <div className="text-xs text-muted-brown mb-2">נושא: {activePreview.subject}</div>
+                <div className="text-xs text-muted-brown mb-2">נושא: {livePreview.subject}</div>
                 <iframe
                   title="email-preview"
-                  srcDoc={activePreview.html}
+                  srcDoc={livePreview.html}
                   sandbox=""
                   className="flex-1 w-full rounded-md bg-white border border-cream/15"
                 />
