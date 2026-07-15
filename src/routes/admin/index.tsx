@@ -269,6 +269,12 @@ function AdminDashboard() {
           <Link to="/admin/settings" className="text-muted-brown hover:text-gold transition-colors">
             הגדרות מייל
           </Link>
+          <Link
+            to="/admin/webhook-log"
+            className="text-muted-brown hover:text-gold transition-colors"
+          >
+            יומן סליקה
+          </Link>
           <button onClick={onLogout} className="text-muted-brown hover:text-gold transition-colors">
             התנתקות
           </button>

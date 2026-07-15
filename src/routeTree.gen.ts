@@ -15,6 +15,7 @@ import { Route as AccessibilityRouteImport } from './routes/accessibility'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
+import { Route as AdminWebhookLogRouteImport } from './routes/admin/webhook-log'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminScheduleRouteImport } from './routes/admin/schedule'
 import { Route as AdminPricingRouteImport } from './routes/admin/pricing'
@@ -54,6 +55,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
   id: '/payment/success',
   path: '/payment/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminWebhookLogRoute = AdminWebhookLogRouteImport.update({
+  id: '/admin/webhook-log',
+  path: '/admin/webhook-log',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/webhook-log': typeof AdminWebhookLogRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
   '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByTo {
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/webhook-log': typeof AdminWebhookLogRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin': typeof AdminIndexRoute
   '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   '/admin/pricing': typeof AdminPricingRoute
   '/admin/schedule': typeof AdminScheduleRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/webhook-log': typeof AdminWebhookLogRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
   '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
@@ -176,6 +185,7 @@ export interface FileRouteTypes {
     | '/admin/pricing'
     | '/admin/schedule'
     | '/admin/settings'
+    | '/admin/webhook-log'
     | '/payment/success'
     | '/admin/'
     | '/api/admin/verify-transaction'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/admin/pricing'
     | '/admin/schedule'
     | '/admin/settings'
+    | '/admin/webhook-log'
     | '/payment/success'
     | '/admin'
     | '/api/admin/verify-transaction'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/admin/pricing'
     | '/admin/schedule'
     | '/admin/settings'
+    | '/admin/webhook-log'
     | '/payment/success'
     | '/admin/'
     | '/api/admin/verify-transaction'
@@ -231,6 +243,7 @@ export interface RootRouteChildren {
   AdminPricingRoute: typeof AdminPricingRoute
   AdminScheduleRoute: typeof AdminScheduleRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminWebhookLogRoute: typeof AdminWebhookLogRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiAdminVerifyTransactionRoute: typeof ApiAdminVerifyTransactionRoute
@@ -281,6 +294,13 @@ declare module '@tanstack/react-router' {
       path: '/payment/success'
       fullPath: '/payment/success'
       preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/webhook-log': {
+      id: '/admin/webhook-log'
+      path: '/admin/webhook-log'
+      fullPath: '/admin/webhook-log'
+      preLoaderRoute: typeof AdminWebhookLogRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/settings': {
@@ -367,6 +387,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminPricingRoute: AdminPricingRoute,
   AdminScheduleRoute: AdminScheduleRoute,
   AdminSettingsRoute: AdminSettingsRoute,
+  AdminWebhookLogRoute: AdminWebhookLogRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiAdminVerifyTransactionRoute: ApiAdminVerifyTransactionRoute,

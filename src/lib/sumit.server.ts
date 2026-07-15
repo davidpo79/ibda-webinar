@@ -264,6 +264,36 @@ export async function verifySumitTransaction(transactionId: string): Promise<Sum
   return parseSumitTransactionStatus(data as Record<string, unknown>);
 }
 
+// Sumit's accounting-document webhook event (see extractSumitEventTransactionId
+// in sumit-webhook-parse.ts) carries only its own EntityID, never our order
+// reference — but createSumitPaymentPage always sets Customer.ExternalIdentifier
+// to our order_reference at checkout time, and that comes back here. This is
+// what lets a stuck order resolve even when the *first* payment IPN never
+// arrives at all (not just when it fails to verify in time): the accounting
+// event alone is enough to look the order back up directly from Sumit.
+export async function getSumitDocumentDetails(
+  documentId: string,
+): Promise<{ externalIdentifier: string | null }> {
+  const payload = { Credentials: sumitCredentials(), DocumentID: Number(documentId) };
+  const res = await fetch(`${SUMIT_BASE_URL}/accounting/documents/getdetails/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Sumit getdetails failed ${res.status}: ${text}`);
+  const data = JSON.parse(text) as { Data?: Record<string, unknown> };
+  const doc = data.Data ?? {};
+  const inner = (doc.Document as Record<string, unknown>) || {};
+  const customer =
+    (inner.Customer as Record<string, unknown>) || (doc.Customer as Record<string, unknown>) || {};
+  const externalIdentifier =
+    String(
+      inner.ExternalIdentifier || doc.ExternalIdentifier || customer.ExternalIdentifier || "",
+    ) || null;
+  return { externalIdentifier };
+}
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -1,32 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-// Sumit sends (at least) two distinct webhook shapes for the same
-// redirect-flow checkout: the payment IPN ({valid, documentid, orderRef,
-// ...} — carries our own identifiers, handled by the normal extraction
-// above) and a separate accounting-document creation event ({Folder,
-// EntityID, Type, Properties, ...}, arriving form-encoded as a single
-// "json" field) that carries none of our identifiers, only Sumit's own
-// EntityID for the document — which is the same id as the payment IPN's
-// documentid/transactionId. Recognizing this second shape (instead of
-// dropping it as "no identifiers") lets a stuck order get a second,
-// later shot at resolving via the transaction id the first IPN already
-// recorded onto it (see recordObservedTransactionId).
-function extractSumitEventTransactionId(payload: Record<string, unknown>): string | null {
-  const direct = payload as { EntityID?: unknown; Folder?: unknown };
-  if (direct.EntityID != null && direct.Folder != null) return String(direct.EntityID);
-  if (typeof payload.json === "string") {
-    try {
-      const inner = JSON.parse(payload.json) as { EntityID?: unknown; Folder?: unknown };
-      if (inner.EntityID != null && inner.Folder != null) return String(inner.EntityID);
-    } catch {
-      // not the shape we're looking for — fall through to "no identifiers"
-    }
-  }
-  return null;
-}
-
 async function handle(request: Request) {
-  const { verifySumitTransactionWithRetry, verifySumitWebhookSignature } =
+  const { extractSumitEventTransactionId, extractSumitIdentifiers } =
+    await import("@/lib/sumit-webhook-parse");
+  const { verifySumitTransactionWithRetry, verifySumitWebhookSignature, getSumitDocumentDetails } =
     await import("@/lib/sumit.server");
   const { updateResendPaymentStatusByEmail } = await import("@/lib/resend.server");
   const {
@@ -37,6 +14,8 @@ async function handle(request: Request) {
     findOrderReferenceByTransactionId,
   } = await import("@/lib/orders.server");
   const { markCouponUsed } = await import("@/lib/coupons.server");
+  const { logSumitWebhookEvent, markWebhookLogOutcome } =
+    await import("@/lib/sumit-webhook-log.server");
 
   const rawBody = await request.text();
   if (!rawBody.trim()) {
@@ -75,22 +54,32 @@ async function handle(request: Request) {
     if (!(key in payload)) payload[key] = value;
   });
 
-  let transactionId =
-    String(payload.TransactionID || payload.ChargeID || payload.documentid || "") || null;
-  let orderReference =
-    String(payload.ExternalIdentifier || payload.orderRef || payload.order_reference || "") || null;
+  let { transactionId, orderReference } = extractSumitIdentifiers(payload);
 
   // Neither of the usual identifiers — check whether this is the
-  // accounting-document event shape instead, and if so, try to recover the
-  // order reference from a transaction id the first IPN already recorded.
+  // accounting-document event shape instead. First try to recover the order
+  // reference from a transaction id an earlier IPN already recorded onto an
+  // order (recordObservedTransactionId below); if that comes up empty too —
+  // e.g. this accounting event is the *only* webhook call Sumit ever sent
+  // for this charge — fall back to asking Sumit directly for the document,
+  // which carries back the order reference we set as Customer.ExternalIdentifier
+  // at checkout time.
   if (!transactionId && !orderReference) {
     const eventTransactionId = extractSumitEventTransactionId(payload);
-    const matchedOrderReference = eventTransactionId
-      ? await findOrderReferenceByTransactionId(eventTransactionId)
-      : null;
-    if (eventTransactionId && matchedOrderReference) {
-      transactionId = eventTransactionId;
-      orderReference = matchedOrderReference;
+    if (eventTransactionId) {
+      let matchedOrderReference = await findOrderReferenceByTransactionId(eventTransactionId);
+      if (!matchedOrderReference) {
+        try {
+          const details = await getSumitDocumentDetails(eventTransactionId);
+          matchedOrderReference = details.externalIdentifier;
+        } catch (err) {
+          console.error("[sumit-webhook] getdetails fallback failed", eventTransactionId, err);
+        }
+      }
+      if (matchedOrderReference) {
+        transactionId = eventTransactionId;
+        orderReference = matchedOrderReference;
+      }
     }
   }
 
@@ -101,7 +90,18 @@ async function handle(request: Request) {
   });
   console.log("[sumit-webhook] raw payload", JSON.stringify(payload));
 
+  const logId = await logSumitWebhookEvent({
+    transactionId,
+    orderReference,
+    rawBody,
+    parsedPayload: payload,
+  }).catch((err) => {
+    console.error("[sumit-webhook] log insert failed", err);
+    return null;
+  });
+
   if (!transactionId && !orderReference) {
+    if (logId) await markWebhookLogOutcome(logId, "no_identifiers").catch(() => {});
     // 200 so Sumit doesn't keep retrying a call we can't process.
     return new Response("ok (no identifiers)", { status: 200 });
   }
@@ -178,8 +178,9 @@ async function handle(request: Request) {
 
   // Neither confirmed paid nor confirmed failed: Sumit's verify endpoint
   // hasn't settled yet (or this webhook call carries no useful signal).
-  // Leave the order and its emails alone — a retried webhook call or the
-  // browser-return / confirm fallback will resolve it once it's known.
+  // Leave the order and its emails alone — a retried webhook call, the
+  // periodic reconcile sweep (sumit-reconcile.server.ts), or the browser-
+  // return / confirm fallback will resolve it once it's known.
   const resolved = validation.paid || validation.definitivelyFailed;
 
   if (order && resolved) {
@@ -212,6 +213,20 @@ async function handle(request: Request) {
     } catch (err) {
       console.error("[sumit-webhook] coupon mark-used error", err);
     }
+  }
+
+  if (logId) {
+    const outcome =
+      validation.status === "transaction_reused"
+        ? "transaction_reused"
+        : validation.paid
+          ? "paid"
+          : validation.definitivelyFailed
+            ? "failed"
+            : "ambiguous";
+    await markWebhookLogOutcome(logId, outcome).catch((err) => {
+      console.error("[sumit-webhook] log outcome update failed", err);
+    });
   }
 
   return new Response("ok", { status: 200 });

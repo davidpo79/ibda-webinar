@@ -6,6 +6,7 @@ import { sendRawEmail } from "./resend.server";
 import { getEmailSendPolicy, isAllowedSendTime } from "./email-policy.server";
 import { runPriceIncreaseNoticeSweep } from "./pricing-notices.server";
 import { getEmailOverrides } from "./email-content.server";
+import { runSumitWebhookReconcileSweep } from "./sumit-reconcile.server";
 
 // Populates registration_reminders row(s) for (registration, package),
 // pointing at whatever session(s) currently anchor that package. Called
@@ -160,6 +161,14 @@ export function startAutomationScheduler(): void {
       console.log(`[pricing-notices] sweep checked ${checked} due, sent ${sent}`);
     } catch (err) {
       console.error("[pricing-notices] sweep failed", err);
+    }
+    try {
+      const { scanned, recovered, errors } = await runSumitWebhookReconcileSweep();
+      console.log(
+        `[sumit-reconcile] sweep scanned ${scanned}, recovered ${recovered}, errors ${errors}`,
+      );
+    } catch (err) {
+      console.error("[sumit-reconcile] sweep failed", err);
     }
   };
 

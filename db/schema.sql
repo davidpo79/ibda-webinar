@@ -260,3 +260,23 @@ CREATE TABLE IF NOT EXISTS email_content_overrides (
   value text NOT NULL,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Every Sumit webhook call that passes the signature check gets a row here,
+-- regardless of whether it could be resolved — the point is that nothing a
+-- payment provider actually sent us is ever silently lost to an ephemeral
+-- console log. outcome is null until the call (or a later reconcile-sweep
+-- retry, see sumit-reconcile.server.ts) determines paid/failed/etc;
+-- reconcile_attempts caps how many sweep ticks will keep retrying a row
+-- that never resolves, so an orphaned call doesn't get retried forever.
+CREATE TABLE IF NOT EXISTS sumit_webhook_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  received_at timestamptz NOT NULL DEFAULT now(),
+  transaction_id text,
+  order_reference text,
+  raw_body text NOT NULL,
+  parsed_payload text,
+  outcome text,
+  reconcile_attempts int NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS sumit_webhook_log_outcome_idx
+  ON sumit_webhook_log (outcome, received_at);

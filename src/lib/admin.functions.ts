@@ -56,6 +56,8 @@ import {
 } from "./pricing-notices.server";
 import { PAYMENT_STATUS_PAID_DEFAULT, PAYMENT_STATUS_FAILED_DEFAULT } from "./resend.server";
 import { buildAllEmailPreviews } from "./email-preview.server";
+import { listRecentWebhookLogs } from "./sumit-webhook-log.server";
+import { runSumitWebhookReconcileSweep } from "./sumit-reconcile.server";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
@@ -416,3 +418,20 @@ export const forceMarkOrderPaidAction = createServerFn({ method: "POST" })
     if (order.couponCode) await markCouponUsed(order.couponCode);
     return { outcome: "paid" as const };
   });
+
+// Every Sumit webhook call that passed the signature check, most recent
+// first — the audit trail behind "did Sumit send it? did our handler
+// resolve it?" for diagnosing a stuck order without having to grep
+// ephemeral Railway logs across since-removed deployments.
+export const getAdminWebhookLogData = createServerFn({ method: "GET" }).handler(async () => {
+  assertAdminSession();
+  return { logs: await listRecentWebhookLogs(150) };
+});
+
+// Manually triggers the same reconcile pass the 10-minute background sweep
+// runs automatically — lets the admin force an immediate retry (e.g. right
+// after fixing something) instead of waiting for the next tick.
+export const runSumitReconcileNowAction = createServerFn({ method: "POST" }).handler(async () => {
+  assertAdminSession();
+  return await runSumitWebhookReconcileSweep();
+});
