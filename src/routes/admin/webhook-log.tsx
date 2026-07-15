@@ -72,7 +72,7 @@ function AdminWebhookLogPage() {
       await router.invalidate();
     } catch (err) {
       console.error("[admin/webhook-log] reconcile now failed", err);
-      toast.error("הרצת הפישוק נכשלה. נסו שוב.");
+      toast.error("הבדיקה נכשלה. נסו שוב.");
     } finally {
       setReconciling(false);
     }
@@ -90,8 +90,8 @@ function AdminWebhookLogPage() {
       <main className="max-w-5xl mx-auto px-6 py-10 space-y-6">
         <p className="text-muted-brown text-sm leading-relaxed">
           כל קריאת וובהוק מסאמיט שעברה את בדיקת החתימה נרשמת כאן — גם אם לא ניתן היה לפענח ממנה
-          הזמנה. רשומות שלא נפתרו (&quot;לא ברור&quot;) מנוסות שוב אוטומטית בכל סבב אוטומציה (כל 10
-          דקות), עד תקרה של כמה ניסיונות.
+          הזמנה. רשומות שלא נפתרו (&quot;לא ברור&quot;) נבדקות שוב אוטומטית מול סאמיט בכל סבב
+          אוטומציה (כל 10 דקות), עד תקרה של כמה ניסיונות.
         </p>
 
         <div className="flex items-center gap-3">
@@ -101,7 +101,7 @@ function AdminWebhookLogPage() {
             disabled={reconciling}
             className="bg-gold text-ink px-4 py-2 rounded-md text-sm font-semibold hover:bg-gold-deep transition-colors disabled:opacity-60"
           >
-            {reconciling ? "מריץ..." : "הרץ פישוק עכשיו"}
+            {reconciling ? "בודק..." : "בדוק מול סאמיט עכשיו"}
           </button>
         </div>
 
