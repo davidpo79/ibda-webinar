@@ -656,7 +656,7 @@ function OrderGroupsTable({
                     {showVerify && (
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          {head.transaction_id ? (
+                          {head.transaction_id && (
                             <button
                               type="button"
                               onClick={() =>
@@ -667,8 +667,6 @@ function OrderGroupsTable({
                             >
                               {verifying ? "בודק..." : "אימות מול הסליקה"}
                             </button>
-                          ) : (
-                            <span className="text-muted-brown text-xs">אין עסקה לאימות</span>
                           )}
                           <button
                             type="button"
@@ -780,7 +778,7 @@ function OrderCard({
       </div>
       {onVerify && (
         <div className="mt-3 space-y-2">
-          {o.transaction_id ? (
+          {o.transaction_id && (
             <button
               type="button"
               onClick={() => onVerify(o.order_reference, o.transaction_id!)}
@@ -789,8 +787,6 @@ function OrderCard({
             >
               {verifying ? "בודק..." : "אימות מול הסליקה"}
             </button>
-          ) : (
-            <span className="text-muted-brown text-xs block">אין עסקה לאימות מול הסליקה</span>
           )}
           {onForceMarkPaid && (
             <button
