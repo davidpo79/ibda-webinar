@@ -1666,21 +1666,28 @@ function RegistrationSection({
   // entirely of free lessons (e.g. only lesson 8) charges nothing.
   const hasPaid = total > 0;
 
-  async function applyCoupon() {
-    if (!couponCode.trim()) return;
+  async function applyCoupon(codeOverride?: string, announce = false) {
+    const code = (codeOverride ?? couponCode).trim();
+    if (!code) return;
     setCouponChecking(true);
     setCouponError(null);
     try {
-      const result = await validateCoupon({ data: { code: couponCode.trim() } });
+      const result = await validateCoupon({ data: { code } });
       if (result.valid) {
         setCouponApplied({
-          code: couponCode.trim().toUpperCase(),
+          code: code.toUpperCase(),
           discountPercent: result.discount_percent,
         });
-        saveCouponCode(couponCode.trim());
+        saveCouponCode(code);
+        if (announce) {
+          toast.success(
+            `קוד ההנחה ${code.toUpperCase()} הוזן אוטומטית מהמייל — הנחה של ${result.discount_percent}%`,
+          );
+        }
       } else {
         setCouponApplied(null);
         setCouponError("קוד ההנחה לא תקין או שכבר נוצל");
+        if (announce) toast.error("קוד ההנחה מהקישור אינו תקין או שכבר נוצל");
       }
     } catch (err) {
       console.error("[index] coupon validation error", err);
@@ -1689,6 +1696,29 @@ function RegistrationSection({
       setCouponChecking(false);
     }
   }
+
+  // A coupon email links back here with ?coupon=CODE so the recipient never
+  // has to copy/paste it — auto-fill and validate it once on first mount,
+  // then strip the param so a refresh or reshared link doesn't re-trigger.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get("coupon");
+    if (!fromUrl) return;
+    setCouponCode(fromUrl);
+    void applyCoupon(fromUrl, true);
+    params.delete("coupon");
+    const rest = params.toString();
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + (rest ? `?${rest}` : "") + window.location.hash,
+    );
+    requestAnimationFrame(() => {
+      document.getElementById("register")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -2029,7 +2059,7 @@ function RegistrationSection({
                     />
                     <button
                       type="button"
-                      onClick={applyCoupon}
+                      onClick={() => applyCoupon()}
                       disabled={couponChecking || !couponCode.trim()}
                       className="shrink-0 border border-gold/50 text-gold px-3 py-2 rounded-md text-xs font-semibold hover:bg-gold/10 transition-colors disabled:opacity-50"
                     >

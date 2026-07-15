@@ -104,6 +104,10 @@ export async function markCouponUsed(code: string): Promise<void> {
   `;
 }
 
+function siteOrigin(): string {
+  return (process.env.PUBLIC_SITE_URL || "").replace(/\/$/, "");
+}
+
 export function couponEmailHtml(
   greetingName: string | null,
   code: string,
@@ -113,6 +117,23 @@ export function couponEmailHtml(
   const greeting = greetingName ? `שלום ${escapeHtml(greetingName)},` : "שלום,";
   const introTemplate = overrides["coupon.intro"] ?? COUPON_INTRO_DEFAULT;
   const intro = applyPlaceholders(introTemplate, { percent: String(discountPercent) });
+  const origin = siteOrigin();
+  // The code itself is hard to select precisely on mobile mail apps, so the
+  // whole box is a link that pre-fills and auto-applies the coupon on the
+  // site — removing the need to copy it at all. Falls back to a plain,
+  // still-selectable code display if PUBLIC_SITE_URL isn't configured.
+  const codeUrl = origin ? `${origin}/?coupon=${encodeURIComponent(code)}#register` : null;
+  const codeBoxInner = `
+    <span dir="rtl" style="color:#C4A461;font-size:22px;font-weight:700;letter-spacing:2px;">${code}</span>
+    ${
+      codeUrl
+        ? `<div dir="rtl" style="color:#8A7F63;font-size:11px;margin-top:8px;">לחצו כאן להזנה אוטומטית באתר</div>`
+        : ""
+    }
+  `;
+  const codeBox = codeUrl
+    ? `<a href="${codeUrl}" dir="rtl" style="display:block;text-decoration:none;background-color:#17150F;border:1px solid #C4A461;border-radius:8px;padding:16px 20px;margin-bottom:18px;text-align:center;">${codeBoxInner}</a>`
+    : `<div dir="rtl" style="background-color:#17150F;border:1px solid #C4A461;border-radius:8px;padding:16px 20px;margin-bottom:18px;text-align:center;">${codeBoxInner}</div>`;
   return `<!DOCTYPE html>
 <html lang="he" dir="rtl"><head><meta charSet="utf-8" /></head>
 <body dir="rtl" style="margin:0;padding:0;background-color:#17150F;font-family:Georgia,'Times New Roman',serif;">
@@ -124,11 +145,13 @@ export function couponEmailHtml(
           <p dir="rtl" style="color:#D9D0BB;font-size:15px;line-height:1.8;margin:0 0 18px;">
             ${escapeHtml(intro)}
           </p>
-          <div dir="rtl" style="background-color:#17150F;border:1px solid #C4A461;border-radius:8px;padding:16px 20px;margin-bottom:18px;text-align:center;">
-            <span dir="rtl" style="color:#C4A461;font-size:22px;font-weight:700;letter-spacing:2px;">${code}</span>
-          </div>
+          ${codeBox}
           <p dir="rtl" style="color:#D9D0BB;font-size:13px;line-height:1.7;">
-            יש להזין את הקוד בעת ההרשמה לתשלום, בעמוד "כל התוכניות".
+            ${
+              codeUrl
+                ? "לחיצה על הקוד תזין אותו אוטומטית באתר. אפשר גם להעתיק את הקוד ולהדביק אותו ידנית בעת ההרשמה לתשלום."
+                : 'יש להזין את הקוד בעת ההרשמה לתשלום, בעמוד "כל התוכניות".'
+            }
           </p>
         </td></tr>
       </table>
