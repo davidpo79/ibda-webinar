@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
+import { AccessibilityWidget } from "@/components/AccessibilityWidget";
 
 function NotFoundComponent() {
   return (
@@ -143,6 +144,7 @@ function RootComponent() {
       {/* Every toast.success()/toast.error() call site-wide renders through
           this single instance — without it, those calls are silent no-ops. */}
       <Toaster richColors position="top-center" dir="rtl" />
+      <AccessibilityWidget />
     </QueryClientProvider>
   );
 }

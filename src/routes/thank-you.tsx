@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -54,28 +54,168 @@ const OPEN_WEBINAR_RECAP = {
   dateLabel: "15.7 · 10:00",
 };
 
-const CORE_SERIES: { t: string; d: string; topics: string[]; icon: LucideIcon; date: string; free?: boolean }[] = [
-  { t: "המפה המשפטית", d: "נסח הטאבו כמפת סיכונים", icon: FileSearch, date: "26.7 · 10:00", topics: ["הקריאה הנכונה של נסח היא ההבדל בין בדיקת נאותות לבין ניחוש. 90 דקות על כל מה שמסתתר בין השורות."] },
-  { t: "דגשים בבדיקות מקדמיות", d: "עסקאות נוגדות", icon: Scale, date: "27.7 · 10:00", topics: ["סעיף 9 לחוק המקרקעין הוא זירת הקרב של תחרות הזכויות. איך מגינים על הלקוח ואיך תוקפים רישום מתחרה."] },
-  { t: "לב העסקה - חלק א'", d: "התמודדות בניסוח סעיפים מגבילים", icon: ShieldAlert, date: "28.7 · 10:00", topics: ["מתן פתרון לניסוח סעיפים למחיקת הערות, עיקולים ומניעות רישום.", "מיפוי המניעות ומתן דרכי התמודדות."] },
-  { t: "לב העסקה - חלק ב'", d: "הסכם מכר דירה יד שנייה: סעיפי הליבה", icon: FileCheck, date: "30.7 · 10:00", topics: ['כלל "ייזהר המוכר" ודרכי התמודדות.', 'כלל "ייזהר הקונה" ודרכי התמודדות.'] },
-  { t: "המשכנתא", d: "מימון העסקה, בטוחות ומנגנוני תשלום בעסקת מכר", icon: Banknote, date: "3.8 · 10:00", topics: ["התמורה בגין העסקה למול חוות הדעת השמאית והמשמעות.", "בניית לוח התשלומים לרבות פיקדונות מסים – מדריך מעשי."] },
-  { t: "מעמד החתימה ורישום הזכויות", d: "צ'ק ליסט מעשי למעמד חתימת העיסקה", icon: ClipboardCheck, date: "4.8 · 10:00", topics: ["המסמכים הנלווים", "חשיבות סיום העיסקה ברישום"] },
-  { t: "הסכם השכירות", d: "בדיקת הצדדים להסכם וניסוח הסכם השכירות", icon: Home, date: "9.8 · 10:00", topics: ["מבדיקת השוכרים והבטוחות ועד לניסוח מותאם של סעיפי ההסכם.", "סעיפי ליבה בהשכרת דירה חדשה מקבלן ומשמעויות."] },
-  { t: "פינוי מושכר", d: "הליך הפינוי בהבדל מהסעד הכספי", icon: DoorOpen, date: "11.8 · 10:00", free: true, topics: ["סדר הדין בתביעה לפינוי מושכר", "הליך הפינוי בהבדל מהסעד הכספי"] },
-  { t: "העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים", d: "מה קורה במקרה של הפרה, מהי הפרה יסודית ודרכי ההתמודדות", icon: Gavel, date: "12.8 · 10:00", topics: ["אכיפת התחייבות למול ביטול ההסכם", "ההליכים המשפטיים שניתן לבצע"] },
+const CORE_SERIES: {
+  t: string;
+  d: string;
+  topics: string[];
+  icon: LucideIcon;
+  date: string;
+  free?: boolean;
+}[] = [
+  {
+    t: "המפה המשפטית",
+    d: "נסח הטאבו כמפת סיכונים",
+    icon: FileSearch,
+    date: "26.7 · 10:00",
+    topics: [
+      "הקריאה הנכונה של נסח היא ההבדל בין בדיקת נאותות לבין ניחוש. 90 דקות על כל מה שמסתתר בין השורות.",
+    ],
+  },
+  {
+    t: "דגשים בבדיקות מקדמיות",
+    d: "עסקאות נוגדות",
+    icon: Scale,
+    date: "27.7 · 10:00",
+    topics: [
+      "סעיף 9 לחוק המקרקעין הוא זירת הקרב של תחרות הזכויות. איך מגינים על הלקוח ואיך תוקפים רישום מתחרה.",
+    ],
+  },
+  {
+    t: "לב העסקה - חלק א'",
+    d: "התמודדות בניסוח סעיפים מגבילים",
+    icon: ShieldAlert,
+    date: "28.7 · 10:00",
+    topics: [
+      "מתן פתרון לניסוח סעיפים למחיקת הערות, עיקולים ומניעות רישום.",
+      "מיפוי המניעות ומתן דרכי התמודדות.",
+    ],
+  },
+  {
+    t: "לב העסקה - חלק ב'",
+    d: "הסכם מכר דירה יד שנייה: סעיפי הליבה",
+    icon: FileCheck,
+    date: "30.7 · 10:00",
+    topics: ['כלל "ייזהר המוכר" ודרכי התמודדות.', 'כלל "ייזהר הקונה" ודרכי התמודדות.'],
+  },
+  {
+    t: "המשכנתא",
+    d: "מימון העסקה, בטוחות ומנגנוני תשלום בעסקת מכר",
+    icon: Banknote,
+    date: "3.8 · 10:00",
+    topics: [
+      "התמורה בגין העסקה למול חוות הדעת השמאית והמשמעות.",
+      "בניית לוח התשלומים לרבות פיקדונות מסים – מדריך מעשי.",
+    ],
+  },
+  {
+    t: "מעמד החתימה ורישום הזכויות",
+    d: "צ'ק ליסט מעשי למעמד חתימת העיסקה",
+    icon: ClipboardCheck,
+    date: "4.8 · 10:00",
+    topics: ["המסמכים הנלווים", "חשיבות סיום העיסקה ברישום"],
+  },
+  {
+    t: "הסכם השכירות",
+    d: "בדיקת הצדדים להסכם וניסוח הסכם השכירות",
+    icon: Home,
+    date: "9.8 · 10:00",
+    topics: [
+      "מבדיקת השוכרים והבטוחות ועד לניסוח מותאם של סעיפי ההסכם.",
+      "סעיפי ליבה בהשכרת דירה חדשה מקבלן ומשמעויות.",
+    ],
+  },
+  {
+    t: "פינוי מושכר",
+    d: "הליך הפינוי בהבדל מהסעד הכספי",
+    icon: DoorOpen,
+    date: "11.8 · 10:00",
+    free: true,
+    topics: ["סדר הדין בתביעה לפינוי מושכר", "הליך הפינוי בהבדל מהסעד הכספי"],
+  },
+  {
+    t: "העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים",
+    d: "מה קורה במקרה של הפרה, מהי הפרה יסודית ודרכי ההתמודדות",
+    icon: Gavel,
+    date: "12.8 · 10:00",
+    topics: ["אכיפת התחייבות למול ביטול ההסכם", "ההליכים המשפטיים שניתן לבצע"],
+  },
 ];
 
 const PRICING: {
-  id: string; t: string; price?: string; early?: string; note: string; featured?: boolean; cta: string; duration?: string;
+  id: string;
+  t: string;
+  price?: string;
+  early?: string;
+  note: string;
+  featured?: boolean;
+  cta: string;
+  duration?: string;
 }[] = [
-  { id: "core_full", t: "הסדרה המלאה · 9 מפגשים", price: "₪ 2,520", early: "₪ 1,620", duration: "9 מפגשים · 90 דקות למפגש", note: "מחיר מוקדם ל-72 שעות מסיום הוובינר הפתוח.", featured: true, cta: "רכישת הסדרה המלאה" },
-  { id: "premium_litigation", t: "ליטיגציה בנדל״ן - סוגיות נבחרות", price: "₪ 480", early: "₪ 360", duration: "שעתיים", note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל-72 שעות.", cta: "רכישת סדנת ליטיגציה" },
-  { id: "premium_registration", t: "רישום בית משותף", price: "₪ 1,440", early: "₪ 1,080", duration: "4 שעות", note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל-72 שעות.", cta: "רכישת רישום בית משותף" },
-  { id: "premium_partnership", t: "סדנת שיתוף במקרקעין", price: "₪ 720", early: "₪ 540", duration: "שעתיים", note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל-72 שעות.", cta: "רכישת סדנת שיתוף" },
-  { id: "premium_ai", t: "AI ואוטומציות בעבודת עורך הדין", price: "₪ 480", early: "₪ 360", duration: "שעתיים", note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל-72 שעות.", cta: "רכישת סדנת AI" },
-  { id: "premium_bundle", t: "חבילת פרימיום הכל כלול", price: "₪ 3,720", early: "₪ 2,700", duration: "סדרה מלאה + 4 סדנאות", note: "סדרה מלאה בתוספת ארבע סדנאות הפרימיום. מחיר מוקדם ל-72 שעות.", featured: true, cta: "רכישת חבילת פרימיום" },
-  { id: "core_single", t: "וובינר בודד מסדרת הליבה", price: "₪ 360", early: "₪ 180", duration: "90 דקות", note: "בחרו כמה שיעורים לרכוש — כל שיעור נחשב בנפרד.", cta: "רכישת וובינר בודד" },
+  {
+    id: "core_full",
+    t: "הסדרה המלאה · 9 מפגשים",
+    price: "₪ 2,520",
+    early: "₪ 1,620",
+    duration: "9 מפגשים · 90 דקות למפגש",
+    note: "מחיר מוקדם ל-72 שעות מסיום הוובינר הפתוח.",
+    featured: true,
+    cta: "רכישת הסדרה המלאה",
+  },
+  {
+    id: "premium_litigation",
+    t: "ליטיגציה בנדל״ן - סוגיות נבחרות",
+    price: "₪ 480",
+    early: "₪ 360",
+    duration: "שעתיים",
+    note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל-72 שעות.",
+    cta: "רכישת סדנת ליטיגציה",
+  },
+  {
+    id: "premium_registration",
+    t: "רישום בית משותף",
+    price: "₪ 1,440",
+    early: "₪ 1,080",
+    duration: "4 שעות",
+    note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל-72 שעות.",
+    cta: "רכישת רישום בית משותף",
+  },
+  {
+    id: "premium_partnership",
+    t: "סדנת שיתוף במקרקעין",
+    price: "₪ 720",
+    early: "₪ 540",
+    duration: "שעתיים",
+    note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל-72 שעות.",
+    cta: "רכישת סדנת שיתוף",
+  },
+  {
+    id: "premium_ai",
+    t: "AI ואוטומציות בעבודת עורך הדין",
+    price: "₪ 480",
+    early: "₪ 360",
+    duration: "שעתיים",
+    note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל-72 שעות.",
+    cta: "רכישת סדנת AI",
+  },
+  {
+    id: "premium_bundle",
+    t: "חבילת פרימיום הכל כלול",
+    price: "₪ 3,720",
+    early: "₪ 2,700",
+    duration: "סדרה מלאה + 4 סדנאות",
+    note: "סדרה מלאה בתוספת ארבע סדנאות הפרימיום. מחיר מוקדם ל-72 שעות.",
+    featured: true,
+    cta: "רכישת חבילת פרימיום",
+  },
+  {
+    id: "core_single",
+    t: "וובינר בודד מסדרת הליבה",
+    price: "₪ 360",
+    early: "₪ 180",
+    duration: "90 דקות",
+    note: "בחרו כמה שיעורים לרכוש — כל שיעור נחשב בנפרד.",
+    cta: "רכישת וובינר בודד",
+  },
 ];
 
 const GROUP_DISCOUNTS = [
@@ -104,7 +244,9 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 justify-center mb-4">
       <span className="w-8 h-px bg-gold" />
-      <span className="text-[11px] tracking-[0.28em] uppercase text-gold font-semibold ltr-inline">{children}</span>
+      <span className="text-[11px] tracking-[0.28em] uppercase text-gold font-semibold ltr-inline">
+        {children}
+      </span>
       <span className="w-8 h-px bg-gold" />
     </div>
   );
@@ -126,13 +268,16 @@ function ThankYouPage() {
   const [couponError, setCouponError] = useState<string | null>(null);
   const [couponChecking, setCouponChecking] = useState(false);
   const [registered] = useState(
-    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("registered") === "1",
+    () =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("registered") === "1",
   );
   const formRef = useRef<HTMLDivElement>(null);
 
   const openWebinarRecap = {
     ...OPEN_WEBINAR_RECAP,
-    dateLabel: (openSession && formatSessionDate(openSession.starts_at)) || OPEN_WEBINAR_RECAP.dateLabel,
+    dateLabel:
+      (openSession && formatSessionDate(openSession.starts_at)) || OPEN_WEBINAR_RECAP.dateLabel,
   };
   const coreSeriesResolved = CORE_SERIES.map((s, i) => ({
     ...s,
@@ -219,7 +364,11 @@ function ThankYouPage() {
       <main className="max-w-5xl mx-auto px-6 py-14">
         <section className="text-center mb-14 fade-rise">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full border border-gold text-gold mb-5">
-            {registered ? <Check size={26} strokeWidth={1.5} /> : <Calendar size={24} strokeWidth={1.5} />}
+            {registered ? (
+              <Check size={26} strokeWidth={1.5} />
+            ) : (
+              <Calendar size={24} strokeWidth={1.5} />
+            )}
           </div>
           <h1 className="font-serif text-4xl sm:text-5xl text-cream mb-4">
             {registered ? "תודה שנרשמת לוובינר הפתוח!" : "כל התוכניות והמחירים של IBDA"}
@@ -245,7 +394,9 @@ function ThankYouPage() {
           <div className="text-center mb-8">
             <SectionLabel>What's Next</SectionLabel>
             <h2 className="font-serif text-3xl md:text-4xl text-gold">
-              {registered ? "בזמן שממתינים לוובינר, הכירו את ההמשך" : "בחרו את המסלול או הסדנה המתאימים לכם"}
+              {registered
+                ? "בזמן שממתינים לוובינר, הכירו את ההמשך"
+                : "בחרו את המסלול או הסדנה המתאימים לכם"}
             </h2>
             <p className="mt-4 text-muted-brown max-w-2xl mx-auto">
               מחיר ההרשמה המוקדמת בתוקף ל-72 שעות מסיום הוובינר הפתוח.
@@ -400,8 +551,13 @@ function ThankYouPage() {
         <CollapsiblePanel title="9 מפגשי סדרת הליבה בפירוט">
           <ul className="space-y-3">
             {coreSeriesResolved.map((s, i) => (
-              <li key={s.t} className="flex items-start gap-3 bg-ink/40 border border-cream/10 rounded-md p-3">
-                <span className="font-serif text-gold ltr-inline w-6 shrink-0">{String(i + 1).padStart(2, "0")}</span>
+              <li
+                key={s.t}
+                className="flex items-start gap-3 bg-ink/40 border border-cream/10 rounded-md p-3"
+              >
+                <span className="font-serif text-gold ltr-inline w-6 shrink-0">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="text-cream text-[15px] font-medium">{s.t}</div>
@@ -419,7 +575,10 @@ function ThankYouPage() {
                   {s.topics.length > 0 && (
                     <ul className="mt-2 space-y-1">
                       {s.topics.map((topic) => (
-                        <li key={topic} className="flex items-start gap-2 text-muted-brown text-[12.5px] leading-relaxed">
+                        <li
+                          key={topic}
+                          className="flex items-start gap-2 text-muted-brown text-[12.5px] leading-relaxed"
+                        >
                           <span className="mt-1.5 w-1 h-1 rounded-full bg-gold/70 shrink-0" />
                           <span>{topic}</span>
                         </li>
@@ -446,7 +605,10 @@ function ThankYouPage() {
         <CollapsiblePanel title="מדיניות הרשמה וביטולים">
           <ul className="space-y-2.5">
             {CANCELLATION_POLICY.map((line) => (
-              <li key={line} className="flex items-start gap-3 text-muted-brown text-sm leading-relaxed">
+              <li
+                key={line}
+                className="flex items-start gap-3 text-muted-brown text-sm leading-relaxed"
+              >
                 <span className="mt-2 w-1.5 h-1.5 rounded-full bg-gold flex-shrink-0" />
                 <span>{line}</span>
               </li>
@@ -464,15 +626,21 @@ function ThankYouPage() {
         </div>
 
         <div className="mt-10 text-center">
-          <a href="mailto:webinar@ibda-law.com" className="text-sm text-muted-brown hover:text-gold transition-colors">
+          <a
+            href="mailto:webinar@ibda-law.com"
+            className="text-sm text-muted-brown hover:text-gold transition-colors"
+          >
             שאלות? webinar@ibda-law.com
           </a>
         </div>
       </main>
 
       <footer className="py-8 border-t border-border">
-        <div className="max-w-5xl mx-auto px-6 text-center text-xs text-muted-brown">
-          © {new Date().getFullYear()} משרד עו״ד יפעת בן דוד עמית. כל הזכויות שמורות.
+        <div className="max-w-5xl mx-auto px-6 flex items-center justify-center gap-4 text-xs text-muted-brown">
+          <span>© {new Date().getFullYear()} משרד עו״ד יפעת בן דוד עמית. כל הזכויות שמורות.</span>
+          <Link to="/accessibility" className="hover:text-gold transition-colors underline">
+            הצהרת נגישות
+          </Link>
         </div>
       </footer>
     </div>
@@ -490,7 +658,10 @@ function CollapsiblePanel({ title, children }: { title: string; children: React.
         aria-expanded={open}
       >
         <h3 className="font-serif text-lg text-gold">{title}</h3>
-        <ChevronDown size={20} className={cn("text-gold transition-transform", open && "rotate-180")} />
+        <ChevronDown
+          size={20}
+          className={cn("text-gold transition-transform", open && "rotate-180")}
+        />
       </button>
       {open && <div className="px-6 pb-6 border-t border-cream/10 pt-5">{children}</div>}
     </div>
@@ -541,7 +712,15 @@ function RegistrationForm({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setServerError(null);
-    const parsed = RegSchema.safeParse({ first_name, last_name, email, phone, firm_name, bar_license, id_number });
+    const parsed = RegSchema.safeParse({
+      first_name,
+      last_name,
+      email,
+      phone,
+      firm_name,
+      bar_license,
+      id_number,
+    });
     if (!parsed.success) {
       const errs: Record<string, string> = {};
       parsed.error.issues.forEach((i) => (errs[i.path.join(".")] = i.message));
@@ -619,12 +798,45 @@ function RegistrationForm({
     <form onSubmit={onSubmit} className="glass-gold rounded-2xl p-6 md:p-8 fade-rise">
       <h3 className="font-serif text-2xl text-cream text-center mb-6">השלמת הרכישה</h3>
       <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <RegField label="שם פרטי" required value={first_name} onChange={setFirstName} error={errors.first_name} />
-        <RegField label="שם משפחה" required value={last_name} onChange={setLastName} error={errors.last_name} />
-        <RegField label="אימייל" type="email" required value={email} onChange={setEmail} error={errors.email} dir="ltr" />
-        <RegField label="טלפון נייד" type="tel" required value={phone} onChange={setPhone} error={errors.phone} dir="ltr" />
+        <RegField
+          label="שם פרטי"
+          required
+          value={first_name}
+          onChange={setFirstName}
+          error={errors.first_name}
+        />
+        <RegField
+          label="שם משפחה"
+          required
+          value={last_name}
+          onChange={setLastName}
+          error={errors.last_name}
+        />
+        <RegField
+          label="אימייל"
+          type="email"
+          required
+          value={email}
+          onChange={setEmail}
+          error={errors.email}
+          dir="ltr"
+        />
+        <RegField
+          label="טלפון נייד"
+          type="tel"
+          required
+          value={phone}
+          onChange={setPhone}
+          error={errors.phone}
+          dir="ltr"
+        />
         <RegField label="שם המשרד או חברה" value={firm_name} onChange={setFirmName} />
-        <RegField label="מספר רישיון עריכת דין" value={bar_license} onChange={setBarLicense} dir="ltr" />
+        <RegField
+          label="מספר רישיון עריכת דין"
+          value={bar_license}
+          onChange={setBarLicense}
+          dir="ltr"
+        />
         {requiresIdNumber && (
           <RegField
             label="ת.ז / ח.פ (לצורך הפקת חשבונית)"
@@ -659,8 +871,22 @@ function RegistrationForm({
 }
 
 function RegField({
-  label, value, onChange, type = "text", required, error, dir,
-}: { label: string; value: string; onChange: (v: string) => void; type?: string; required?: boolean; error?: string; dir?: "ltr" | "rtl" }) {
+  label,
+  value,
+  onChange,
+  type = "text",
+  required,
+  error,
+  dir,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  required?: boolean;
+  error?: string;
+  dir?: "ltr" | "rtl";
+}) {
   return (
     <label className="block">
       <span className="text-[14px] font-semibold text-cream mb-2 block">

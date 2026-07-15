@@ -388,3 +388,39 @@ input[type="date"] {
   }
 }
 
+/* Accessibility widget toggles (src/components/AccessibilityWidget.tsx) —
+   applied to <html> so they take effect across the whole site regardless of
+   which page/component is currently mounted. Text scaling itself is done
+   via html.style.fontSize directly in the widget (every Tailwind size is
+   rem-based, so it cascades without needing a rule here). */
+html.a11y-contrast {
+  filter: contrast(1.3) brightness(1.05);
+}
+
+html.a11y-grayscale {
+  filter: grayscale(1);
+}
+
+html.a11y-contrast.a11y-grayscale {
+  filter: grayscale(1) contrast(1.3) brightness(1.05);
+}
+
+html.a11y-underline-links a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+
+html.a11y-no-motion *,
+html.a11y-no-motion *::before,
+html.a11y-no-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+html.a11y-strong-focus *:focus-visible {
+  outline: 3px solid #4da3ff !important;
+  outline-offset: 2px !important;
+}
+

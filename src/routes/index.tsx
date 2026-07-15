@@ -1,8 +1,38 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
-import { ChevronDown, Check, Calendar, CalendarDays, Sparkles, MessageCircle, Map, SearchCheck, FileText, FileSignature, Landmark, Receipt, Building2, Handshake, HardHat, MonitorPlay, BookOpen, FileSearch, Scale, ShieldAlert, FileCheck, Banknote, ClipboardCheck, Home, DoorOpen, Gavel, BrainCircuit, Mail, type LucideIcon } from "lucide-react";
+import {
+  ChevronDown,
+  Check,
+  Calendar,
+  CalendarDays,
+  Sparkles,
+  MessageCircle,
+  Map,
+  SearchCheck,
+  FileText,
+  FileSignature,
+  Landmark,
+  Receipt,
+  Building2,
+  Handshake,
+  HardHat,
+  MonitorPlay,
+  BookOpen,
+  FileSearch,
+  Scale,
+  ShieldAlert,
+  FileCheck,
+  Banknote,
+  ClipboardCheck,
+  Home,
+  DoorOpen,
+  Gavel,
+  BrainCircuit,
+  Mail,
+  type LucideIcon,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -23,10 +53,7 @@ import {
 import { cn } from "@/lib/utils";
 import ibdaLogo from "@/assets/ibda-logo.png";
 import yifatPhoto from "@/assets/yifat.jpg";
-import {
-  RegistrationModalContext,
-  useRegistrationModal,
-} from "@/lib/registration-modal-context";
+import { RegistrationModalContext, useRegistrationModal } from "@/lib/registration-modal-context";
 import { subscribeRegistration } from "@/lib/resend.functions";
 import { createSumitPayment } from "@/lib/sumit.functions";
 import { validateCoupon } from "@/lib/coupons.functions";
@@ -46,7 +73,6 @@ import {
   parsePriceIls,
 } from "@/lib/checkout-client";
 
-
 function AnimatedCardIcon({
   Icon,
   className,
@@ -65,7 +91,9 @@ function AnimatedCardIcon({
     if (!svg) return;
 
     const segments = Array.from(
-      svg.querySelectorAll<SVGGeometryElement>("path, line, circle, rect, polyline, polygon, ellipse"),
+      svg.querySelectorAll<SVGGeometryElement>(
+        "path, line, circle, rect, polyline, polygon, ellipse",
+      ),
     );
 
     // Shared global epoch so every icon on the page is phase-aligned
@@ -74,7 +102,7 @@ function AnimatedCardIcon({
     if (!w.__iconDrawEpoch) w.__iconDrawEpoch = performance.now();
     const epoch = w.__iconDrawEpoch;
     const CYCLE_MS = 5800;
-    const offset = ((performance.now() - epoch) % CYCLE_MS);
+    const offset = (performance.now() - epoch) % CYCLE_MS;
 
     segments.forEach((segment) => {
       const length = Math.max(segment.getTotalLength(), 1);
@@ -98,7 +126,6 @@ function AnimatedCardIcon({
     svg.classList.add("is-drawn");
   }, [Icon]);
 
-
   return (
     <Icon
       ref={iconRef}
@@ -110,15 +137,10 @@ function AnimatedCardIcon({
   );
 }
 
-
-
-
 export const Route = createFileRoute("/")({
   loader: async () => getScheduleData(),
   component: Landing,
 });
-
-
 
 /* -------------------------- content -------------------------- */
 
@@ -139,9 +161,14 @@ const openWebinars = [
   },
 ];
 
-
-
-const coreSeries: { t: string; d: string; topics: string[]; icon: LucideIcon; date: string; free?: boolean }[] = [
+const coreSeries: {
+  t: string;
+  d: string;
+  topics: string[];
+  icon: LucideIcon;
+  date: string;
+  free?: boolean;
+}[] = [
   {
     t: "המפה המשפטית",
     d: "נסח הטאבו כמפת סיכונים",
@@ -175,10 +202,7 @@ const coreSeries: { t: string; d: string; topics: string[]; icon: LucideIcon; da
     d: "הסכם מכר דירה יד שנייה: סעיפי הליבה",
     icon: FileCheck,
     date: "30.7 · 10:00",
-    topics: [
-      'כלל "ייזהר המוכר" ודרכי התמודדות.',
-      'כלל "ייזהר הקונה" ודרכי התמודדות.',
-    ],
+    topics: ['כלל "ייזהר המוכר" ודרכי התמודדות.', 'כלל "ייזהר הקונה" ודרכי התמודדות.'],
   },
   {
     t: "המשכנתא",
@@ -195,10 +219,7 @@ const coreSeries: { t: string; d: string; topics: string[]; icon: LucideIcon; da
     d: "צ'ק ליסט מעשי למעמד חתימת העיסקה",
     icon: ClipboardCheck,
     date: "4.8 · 10:00",
-    topics: [
-      "המסמכים הנלווים",
-      "חשיבות סיום העיסקה ברישום",
-    ],
+    topics: ["המסמכים הנלווים", "חשיבות סיום העיסקה ברישום"],
   },
   {
     t: "הסכם השכירות",
@@ -216,26 +237,25 @@ const coreSeries: { t: string; d: string; topics: string[]; icon: LucideIcon; da
     icon: DoorOpen,
     date: "11.8 · 10:00",
     free: true,
-    topics: [
-      "סדר הדין בתביעה לפינוי מושכר",
-      "הליך הפינוי בהבדל מהסעד הכספי\u00A0",
-    ],
+    topics: ["סדר הדין בתביעה לפינוי מושכר", "הליך הפינוי בהבדל מהסעד הכספי\u00A0"],
   },
   {
     t: "העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים",
     d: "מה קורה במקרה של הפרה, מהי הפרה יסודית ודרכי ההתמודדות",
     icon: Gavel,
     date: "12.8 · 10:00",
-    topics: [
-      "אכיפת התחייבות למול ביטול ההסכם",
-      "ההליכים המשפטיים שניתן לבצע",
-    ],
+    topics: ["אכיפת התחייבות למול ביטול ההסכם", "ההליכים המשפטיים שניתן לבצע"],
   },
 ];
 
 // Matches premiumWorkshops' array order — used to look up each workshop's
 // dynamic date from the loaded sessions by key.
-const PREMIUM_WORKSHOP_IDS = ["premium_litigation", "premium_registration", "premium_partnership", "premium_ai"];
+const PREMIUM_WORKSHOP_IDS = [
+  "premium_litigation",
+  "premium_registration",
+  "premium_partnership",
+  "premium_ai",
+];
 
 const premiumWorkshops: { t: string; meta: string; d: string; date: string; topics: string[] }[] = [
   {
@@ -301,14 +321,78 @@ const pricing: {
   duration?: string;
   comingSoon?: boolean;
 }[] = [
-  { id: "open", t: "וובינר פתוח", free: true, note: "מפגש היכרות ללא תשלום, כולל מקבץ שאלות ותשובות.", cta: "להרשמה חינם" },
-  { id: "core_full", t: "הסדרה המלאה · 9 מפגשים", price: "₪ 2,520", early: "₪ 1,620", duration: "9 מפגשים · 90 דקות למפגש", note: "מחיר מוקדם ל 72 שעות מסיום הוובינר הפתוח.", featured: true, cta: "רכישת הסדרה המלאה" },
-  { id: "premium_litigation", t: "ליטיגציה בנדל״ן - סוגיות נבחרות", price: "₪ 480", early: "₪ 360", duration: "שעתיים", note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל 72 שעות.", cta: "רכישת סדנת ליטיגציה" },
-  { id: "premium_registration", t: "רישום בית משותף", price: "₪ 1,440", early: "₪ 1,080", duration: "4 שעות", note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל 72 שעות.", cta: "רכישת רישום בית משותף" },
-  { id: "premium_partnership", t: "סדנת שיתוף במקרקעין", price: "₪ 720", early: "₪ 540", duration: "שעתיים", note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל 72 שעות.", cta: "רכישת סדנת שיתוף" },
-  { id: "premium_ai", t: "AI ואוטומציות בעבודת עורך הדין", price: "₪ 480", early: "₪ 360", duration: "שעתיים", note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל 72 שעות.", cta: "רכישת סדנת AI" },
-  { id: "premium_bundle", t: "חבילת פרימיום הכל כלול", price: "₪ 3,720", early: "₪ 2,700", duration: "סדרה מלאה + 4 סדנאות", note: "סדרה מלאה בתוספת ארבע סדנאות הפרימיום. מחיר מוקדם ל 72 שעות.", featured: true, cta: "רכישת חבילת פרימיום" },
-  { id: "core_single", t: "וובינר בודד מסדרת הליבה", price: "₪ 360", early: "₪ 180", duration: "90 דקות", note: "בחרו כמה שיעורים לרכוש — כל שיעור נחשב בנפרד.", cta: "רכישת וובינר בודד" },
+  {
+    id: "open",
+    t: "וובינר פתוח",
+    free: true,
+    note: "מפגש היכרות ללא תשלום, כולל מקבץ שאלות ותשובות.",
+    cta: "להרשמה חינם",
+  },
+  {
+    id: "core_full",
+    t: "הסדרה המלאה · 9 מפגשים",
+    price: "₪ 2,520",
+    early: "₪ 1,620",
+    duration: "9 מפגשים · 90 דקות למפגש",
+    note: "מחיר מוקדם ל 72 שעות מסיום הוובינר הפתוח.",
+    featured: true,
+    cta: "רכישת הסדרה המלאה",
+  },
+  {
+    id: "premium_litigation",
+    t: "ליטיגציה בנדל״ן - סוגיות נבחרות",
+    price: "₪ 480",
+    early: "₪ 360",
+    duration: "שעתיים",
+    note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל 72 שעות.",
+    cta: "רכישת סדנת ליטיגציה",
+  },
+  {
+    id: "premium_registration",
+    t: "רישום בית משותף",
+    price: "₪ 1,440",
+    early: "₪ 1,080",
+    duration: "4 שעות",
+    note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל 72 שעות.",
+    cta: "רכישת רישום בית משותף",
+  },
+  {
+    id: "premium_partnership",
+    t: "סדנת שיתוף במקרקעין",
+    price: "₪ 720",
+    early: "₪ 540",
+    duration: "שעתיים",
+    note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל 72 שעות.",
+    cta: "רכישת סדנת שיתוף",
+  },
+  {
+    id: "premium_ai",
+    t: "AI ואוטומציות בעבודת עורך הדין",
+    price: "₪ 480",
+    early: "₪ 360",
+    duration: "שעתיים",
+    note: "סדנת פרימיום ממוקדת, מחיר מוקדם ל 72 שעות.",
+    cta: "רכישת סדנת AI",
+  },
+  {
+    id: "premium_bundle",
+    t: "חבילת פרימיום הכל כלול",
+    price: "₪ 3,720",
+    early: "₪ 2,700",
+    duration: "סדרה מלאה + 4 סדנאות",
+    note: "סדרה מלאה בתוספת ארבע סדנאות הפרימיום. מחיר מוקדם ל 72 שעות.",
+    featured: true,
+    cta: "רכישת חבילת פרימיום",
+  },
+  {
+    id: "core_single",
+    t: "וובינר בודד מסדרת הליבה",
+    price: "₪ 360",
+    early: "₪ 180",
+    duration: "90 דקות",
+    note: "בחרו כמה שיעורים לרכוש — כל שיעור נחשב בנפרד.",
+    cta: "רכישת וובינר בודד",
+  },
 ];
 
 const VALID_PACKAGE_IDS = new Set(pricing.map((p) => p.id));
@@ -334,7 +418,6 @@ const PURCHASE_URLS: Record<string, string> = {
   premium_bundle: "https://ibda-law.com",
 };
 
-
 function handleTicketAction(
   id: string,
   openModal: (packageId?: string, coreLessonTitle?: string) => void,
@@ -342,10 +425,6 @@ function handleTicketAction(
 ) {
   openModal(id, coreLessonTitle);
 }
-
-
-
-
 
 const includedItems = [
   "השתתפות חיה בזום כולל מקבץ שאלות ותשובות",
@@ -366,9 +445,7 @@ const cancellationPolicy = [
   "פתיחת כל סדנא מותנית במינימום 15 נרשמים. במקרה של דחייה יינתן החזר מלא או זיכוי.",
 ];
 
-
 /* -------------------------- schema -------------------------- */
-
 
 /* -------------------------- page -------------------------- */
 
@@ -379,8 +456,8 @@ function Landing() {
     premiumSessions,
     pricing: livePricing,
   } = Route.useLoaderData();
-  const [selected, setSelected] = useState<Set<string>>(
-    () => sanitizeSelection(loadSelection("index") ?? new Set(["open"])),
+  const [selected, setSelected] = useState<Set<string>>(() =>
+    sanitizeSelection(loadSelection("index") ?? new Set(["open"])),
   );
   const [coreLesson, setCoreLesson] = useState<string>("");
   const [coreSingleLessons, setCoreSingleLessons] = useState<Set<number>>(
@@ -464,7 +541,6 @@ function Landing() {
     </RegistrationModalContext.Provider>
   );
 }
-
 
 /* -------------------------- top bar -------------------------- */
 
@@ -576,7 +652,7 @@ function ScheduleDialog({
   const kindStyles: Record<ScheduleItem["kind"], string> = {
     "וובינר פתוח": "bg-gold text-ink",
     "סדרת הליבה": "bg-gold/15 text-gold border border-gold/40",
-    "סדנה": "bg-cream/10 text-cream border border-cream/25",
+    סדנה: "bg-cream/10 text-cream border border-cream/25",
   };
 
   return (
@@ -613,7 +689,12 @@ function ScheduleDialog({
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                    <span className={cn("inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded", kindStyles[it.kind])}>
+                    <span
+                      className={cn(
+                        "inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded",
+                        kindStyles[it.kind],
+                      )}
+                    >
                       {it.kind}
                     </span>
                     {isNext && (
@@ -657,8 +738,14 @@ function ScheduleButton({ onClick }: { onClick: () => void }) {
       className="group inline-flex text-xs sm:text-sm font-semibold text-ink bg-gold border border-gold px-2.5 sm:px-5 py-1.5 sm:py-2.5 rounded-md btn-pulse-glow btn-shimmer hover:-translate-y-0.5 hover:scale-[1.02] transition-all duration-300 whitespace-nowrap"
     >
       <span className="relative z-10 inline-flex items-center gap-1.5 sm:gap-2">
-        <CalendarDays size={15} className="sm:hidden text-ink/80 group-hover:text-ink transition-colors" />
-        <CalendarDays size={17} className="hidden sm:block text-ink/80 group-hover:text-ink transition-colors" />
+        <CalendarDays
+          size={15}
+          className="sm:hidden text-ink/80 group-hover:text-ink transition-colors"
+        />
+        <CalendarDays
+          size={17}
+          className="hidden sm:block text-ink/80 group-hover:text-ink transition-colors"
+        />
         <span className="hidden sm:inline">לו״ז מפגשים</span>
         <span className="sm:hidden">לו״ז</span>
       </span>
@@ -691,7 +778,9 @@ function AnnouncementBar({ dateISO }: { dateISO: string }) {
   }, []);
 
   if (!hydrated) {
-    return <div className="bg-sand/60 backdrop-blur-xl border-b border-gold/20 py-3 px-4" aria-hidden />;
+    return (
+      <div className="bg-sand/60 backdrop-blur-xl border-b border-gold/20 py-3 px-4" aria-hidden />
+    );
   }
 
   if (state.expired) {
@@ -726,7 +815,6 @@ function AnnouncementBar({ dateISO }: { dateISO: string }) {
   );
 }
 
-
 function Hero() {
   return (
     <section id="top" className="relative overflow-hidden">
@@ -746,9 +834,10 @@ function Hero() {
           </h1>
 
           <p className="mt-6 text-lg md:text-xl text-muted-brown leading-[1.85] max-w-xl">
-            סדרת וובינרים בגישת <span className="text-cream font-semibold">Deal Flow</span>, המלווה את עורך הדין לאורך כל שלבי עסקת הנדל״ן,
-            מהשיחה הראשונה עם הלקוח ועד השלמת רישום הזכויות,
-            בשילוב כלי <span className="ltr-inline font-semibold text-cream">AI</span> ופרקטיקה יישומית בכל שלב.
+            סדרת וובינרים בגישת <span className="text-cream font-semibold">Deal Flow</span>, המלווה
+            את עורך הדין לאורך כל שלבי עסקת הנדל״ן, מהשיחה הראשונה עם הלקוח ועד השלמת רישום הזכויות,
+            בשילוב כלי <span className="ltr-inline font-semibold text-cream">AI</span> ופרקטיקה
+            יישומית בכל שלב.
           </p>
 
           <div className="mt-8 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
@@ -758,7 +847,9 @@ function Hero() {
             >
               <div className="flex flex-col items-center leading-tight">
                 <span>הרשמה לוובינר הפתוח</span>
-                <span className="ltr-inline text-ink/80 text-[10px] tracking-[0.2em] uppercase font-bold">FREE</span>
+                <span className="ltr-inline text-ink/80 text-[10px] tracking-[0.2em] uppercase font-bold">
+                  FREE
+                </span>
               </div>
             </a>
             <a
@@ -768,7 +859,9 @@ function Hero() {
               className="group inline-flex items-center gap-3 border border-gold/50 text-cream px-5 py-3 rounded-md text-sm font-medium hover:border-gold hover:bg-gold/10 transition-all duration-300"
             >
               <MessageCircle size={18} className="text-green-500 fill-green-500/20" />
-              הצטרפו לקבוצת הוואטסאפ שלנו:<br />אתם law לבד!
+              הצטרפו לקבוצת הוואטסאפ שלנו:
+              <br />
+              אתם law לבד!
             </a>
           </div>
 
@@ -819,7 +912,9 @@ function Hero() {
             />
           </div>
           <div className="mt-6 text-center md:text-right">
-            <div className="text-xs tracking-[0.24em] uppercase text-gold ltr-inline">Instructor</div>
+            <div className="text-xs tracking-[0.24em] uppercase text-gold ltr-inline">
+              Instructor
+            </div>
             <div className="mt-2 font-serif text-2xl text-cream">עו״ד יפעת בן דוד עמית</div>
             <div className="text-sm text-muted-brown mt-1">מייסדת משרד IBDA</div>
           </div>
@@ -894,7 +989,8 @@ function ModelSection() {
           <SectionLabel>The Model</SectionLabel>
           <h2 className="font-serif text-4xl md:text-5xl text-gold">שלושה מסלולים. עומק אחד.</h2>
           <p className="mt-5 text-muted-brown max-w-2xl mx-auto text-[17px]">
-            מבנה מדורג שבנוי להעניק לעורך הדין ידע יישומי מלא, מהחשיפה הראשונה ועד להתמחות מרוכזת בסוגיות המורכבות ביותר בפרקטיקה.
+            מבנה מדורג שבנוי להעניק לעורך הדין ידע יישומי מלא, מהחשיפה הראשונה ועד להתמחות מרוכזת
+            בסוגיות המורכבות ביותר בפרקטיקה.
           </p>
         </div>
 
@@ -938,10 +1034,7 @@ function ModelSection() {
                 <div className="hairline mb-5 opacity-60" />
                 <ul className="space-y-3">
                   {c.lines.map((l) => (
-                    <li
-                      key={l}
-                      className="flex items-start gap-2 text-[15px] text-muted-brown"
-                    >
+                    <li key={l} className="flex items-start gap-2 text-[15px] text-muted-brown">
                       <span className="text-gold mt-2.5 w-1 h-1 rounded-full bg-gold shrink-0" />
                       <span>{l}</span>
                     </li>
@@ -1032,7 +1125,10 @@ function OpenWebinarsSection({ data }: { data: typeof openWebinars }) {
                   <div className="overflow-hidden">
                     <ul className="space-y-3 pr-1">
                       {w.topics.map((topic, i) => (
-                        <li key={i} className="flex items-start gap-3 text-[15px] text-muted-brown leading-[1.7]">
+                        <li
+                          key={i}
+                          className="flex items-start gap-3 text-[15px] text-muted-brown leading-[1.7]"
+                        >
                           <span className="mt-2.5 w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
                           <span>{topic}</span>
                         </li>
@@ -1050,8 +1146,9 @@ function OpenWebinarsSection({ data }: { data: typeof openWebinars }) {
           <p className="text-sm text-muted-brown leading-[1.8]">
             <span className="text-cream font-semibold">הטבת </span>
             <span className="ltr-inline text-cream font-semibold tracking-wider">Early Bird</span>
-            <span className="text-cream font-semibold"> למשתתפים.</span>{" "}
-            משתתפי הוובינר הפתוח יקבלו הצעה מוזלת לרכישת סדרת הליבה המלאה, תקפה ל<span className="ltr-inline font-semibold">72</span> שעות מסיום הוובינר.
+            <span className="text-cream font-semibold"> למשתתפים.</span> משתתפי הוובינר הפתוח יקבלו
+            הצעה מוזלת לרכישת סדרת הליבה המלאה, תקפה ל
+            <span className="ltr-inline font-semibold">72</span> שעות מסיום הוובינר.
           </p>
         </div>
       </div>
@@ -1088,7 +1185,10 @@ function CoreSeriesSection({ data }: { data: typeof coreSeries }) {
           {data.map((w, i) => {
             const isOpen = open === i;
             return (
-              <div key={w.t} className="bg-sand/70 backdrop-blur-2xl border border-cream/10 rounded-lg overflow-hidden">
+              <div
+                key={w.t}
+                className="bg-sand/70 backdrop-blur-2xl border border-cream/10 rounded-lg overflow-hidden"
+              >
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 py-5 px-4 sm:px-5 md:px-6">
                   <button
                     type="button"
@@ -1148,7 +1248,10 @@ function CoreSeriesSection({ data }: { data: typeof coreSeries }) {
                     <div className="pr-14 pl-4">
                       <ul className="space-y-2.5">
                         {w.topics.map((topic, ti) => (
-                          <li key={ti} className="flex items-start gap-3 text-[14.5px] text-muted-brown leading-[1.75]">
+                          <li
+                            key={ti}
+                            className="flex items-start gap-3 text-[14.5px] text-muted-brown leading-[1.75]"
+                          >
                             <span className="mt-2 w-1 h-1 rounded-full bg-gold shrink-0" />
                             <span>{topic}</span>
                           </li>
@@ -1180,7 +1283,7 @@ function PremiumSection({ data }: { data: typeof premiumWorkshops }) {
   const leftWorkshops = [data[0], data[1], data[2]];
   const leftIds = [premiumIds[0], premiumIds[1], premiumIds[2]];
 
-  const renderMeta = (w: typeof premiumWorkshops[0]) => (
+  const renderMeta = (w: (typeof premiumWorkshops)[0]) => (
     <div className="flex flex-wrap items-center gap-3">
       <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-cream bg-gold/10 border border-gold/30 px-2.5 py-1 rounded-md">
         <Calendar size={13} className="text-gold" />
@@ -1192,7 +1295,12 @@ function PremiumSection({ data }: { data: typeof premiumWorkshops }) {
     </div>
   );
 
-  const renderTopics = (w: typeof premiumWorkshops[0], i: number, isOpen: boolean, featuredCard = false) => (
+  const renderTopics = (
+    w: (typeof premiumWorkshops)[0],
+    i: number,
+    isOpen: boolean,
+    featuredCard = false,
+  ) => (
     <div
       className={cn(
         "grid transition-all duration-300 ease-out",
@@ -1203,7 +1311,9 @@ function PremiumSection({ data }: { data: typeof premiumWorkshops }) {
         <div
           className={cn(
             "mb-4 opacity-50",
-            featuredCard ? "h-px bg-gradient-to-l from-transparent via-gold/50 to-transparent" : "hairline",
+            featuredCard
+              ? "h-px bg-gradient-to-l from-transparent via-gold/50 to-transparent"
+              : "hairline",
           )}
         />
         <ul className="space-y-3">
@@ -1239,7 +1349,12 @@ function PremiumSection({ data }: { data: typeof premiumWorkshops }) {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(196,164,97,0.15),transparent_55%)]" />
             <div className="absolute inset-0 bg-gradient-to-br from-gold/[0.07] via-transparent to-transparent opacity-60" />
 
-            <AnimatedCardIcon Icon={Sparkles} size={160} className="left-[10%] md:left-[14%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 group-hover:opacity-75 transition-opacity duration-500" strokeWidth={0.9} />
+            <AnimatedCardIcon
+              Icon={Sparkles}
+              size={160}
+              className="left-[10%] md:left-[14%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 group-hover:opacity-75 transition-opacity duration-500"
+              strokeWidth={0.9}
+            />
 
             <span className="absolute top-3 right-3 font-serif text-4xl md:text-5xl text-gold/20 group-hover:text-gold/40 transition-colors z-10">
               01
@@ -1252,7 +1367,9 @@ function PremiumSection({ data }: { data: typeof premiumWorkshops }) {
               </span>
 
               <div className="mb-1">
-                <h3 className="font-serif text-lg md:text-xl text-cream leading-snug">{featured.t}</h3>
+                <h3 className="font-serif text-lg md:text-xl text-cream leading-snug">
+                  {featured.t}
+                </h3>
               </div>
 
               <p className="text-muted-brown text-[13px] leading-snug mb-3 max-w-lg line-clamp-2">
@@ -1275,7 +1392,10 @@ function PremiumSection({ data }: { data: typeof premiumWorkshops }) {
                   className="inline-flex items-center gap-2 text-sm font-semibold text-cream hover:text-gold transition-colors"
                 >
                   {open === featuredIndex ? "סגור פרטים" : "פרטים נוספים"}
-                  <ChevronDown size={16} className={cn("transition-transform", open === featuredIndex && "rotate-180")} />
+                  <ChevronDown
+                    size={16}
+                    className={cn("transition-transform", open === featuredIndex && "rotate-180")}
+                  />
                 </button>
               </div>
 
@@ -1295,7 +1415,12 @@ function PremiumSection({ data }: { data: typeof premiumWorkshops }) {
                   key={w.t}
                   className="relative overflow-hidden bg-gradient-to-l from-sand to-void backdrop-blur-xl border border-cream/5 border-r-4 border-r-gold rounded-l-2xl p-2.5 md:p-3 flex flex-col justify-between transition-all duration-300 hover:border-gold/40 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl hover:shadow-gold/20 group shadow-lg shadow-black/40"
                 >
-                  <AnimatedCardIcon Icon={Icon} size={72} className="left-10 md:left-14 top-1/2 -translate-y-1/2 z-0 group-hover:opacity-65 transition-opacity duration-500" strokeWidth={0.8} />
+                  <AnimatedCardIcon
+                    Icon={Icon}
+                    size={72}
+                    className="left-10 md:left-14 top-1/2 -translate-y-1/2 z-0 group-hover:opacity-65 transition-opacity duration-500"
+                    strokeWidth={0.8}
+                  />
 
                   <div className="relative z-10">
                     <div className="flex items-center justify-between gap-2 mb-1">
@@ -1372,7 +1497,6 @@ function PricingSection({
   const [openPolicy, setOpenPolicy] = useState(false);
   const { open } = useRegistrationModal();
 
-
   return (
     <section id="pricing" className="py-10 md:py-14">
       <div className="max-w-6xl mx-auto px-6">
@@ -1399,7 +1523,8 @@ function PricingSection({
             const priceRegular = livePricing[p.id]?.regularPrice ?? parsePriceIls(p.price);
             const cardClasses = cn(
               "group relative bg-sand/70 backdrop-blur-2xl border border-cream/10 rounded-lg p-7 flex flex-col text-right shadow-[0_10px_40px_-20px_rgba(0,0,0,0.6)] transition-all duration-300",
-              !isComingSoon && "hover:-translate-y-1 hover:border-gold/70 hover:shadow-[0_20px_50px_-15px_rgba(196,164,97,0.35)] cursor-pointer",
+              !isComingSoon &&
+                "hover:-translate-y-1 hover:border-gold/70 hover:shadow-[0_20px_50px_-15px_rgba(196,164,97,0.35)] cursor-pointer",
               isComingSoon && "opacity-60 cursor-not-allowed",
               p.featured && "border-gold/70",
             );
@@ -1439,7 +1564,12 @@ function PricingSection({
                       </div>
                     )}
                     <div className="flex items-baseline gap-2 mb-3">
-                      <span className={cn("font-serif text-4xl ltr-inline font-medium", isComingSoon ? "text-cream/60" : "text-cream")}>
+                      <span
+                        className={cn(
+                          "font-serif text-4xl ltr-inline font-medium",
+                          isComingSoon ? "text-cream/60" : "text-cream",
+                        )}
+                      >
                         ₪ {priceNow.toLocaleString()}
                       </span>
                       {!risen && (
@@ -1456,7 +1586,12 @@ function PricingSection({
                   </>
                 )}
 
-                <p className={cn("text-xs leading-relaxed font-medium flex-1", isComingSoon ? "text-muted-brown/60" : "text-muted-brown")}>
+                <p
+                  className={cn(
+                    "text-xs leading-relaxed font-medium flex-1",
+                    isComingSoon ? "text-muted-brown/60" : "text-muted-brown",
+                  )}
+                >
                   {p.note}
                 </p>
 
@@ -1475,7 +1610,9 @@ function PricingSection({
               </>
             );
             return isComingSoon ? (
-              <div key={p.id} className={cardClasses}>{cardContent}</div>
+              <div key={p.id} className={cardClasses}>
+                {cardContent}
+              </div>
             ) : (
               <button
                 type="button"
@@ -1489,15 +1626,15 @@ function PricingSection({
           })}
         </div>
 
-
         {/* what's included */}
         <div className="mt-12 bg-sand/70 backdrop-blur-2xl border border-cream/10 rounded-lg p-8 shadow-[0_10px_40px_-20px_rgba(0,0,0,0.6)]">
-          <h3 className="font-serif text-2xl text-gold mb-6 text-center">
-            מה כלול בכל רכישה
-          </h3>
+          <h3 className="font-serif text-2xl text-gold mb-6 text-center">מה כלול בכל רכישה</h3>
           <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-4 max-w-3xl mx-auto">
             {includedItems.map((it) => (
-              <li key={it} className="flex items-start gap-3 text-muted-brown text-[15px] leading-relaxed">
+              <li
+                key={it}
+                className="flex items-start gap-3 text-muted-brown text-[15px] leading-relaxed"
+              >
                 <span className="mt-1 flex-shrink-0 w-5 h-5 rounded-full border border-gold/60 flex items-center justify-center text-gold">
                   <Check size={12} strokeWidth={3} />
                 </span>
@@ -1560,7 +1697,10 @@ function PricingSection({
           {openPolicy && (
             <ul className="px-7 pb-7 pt-5 border-t border-cream/10 space-y-3">
               {cancellationPolicy.map((line) => (
-                <li key={line} className="flex items-start gap-3 text-muted-brown text-sm leading-relaxed">
+                <li
+                  key={line}
+                  className="flex items-start gap-3 text-muted-brown text-sm leading-relaxed"
+                >
                   <span className="mt-2 w-1.5 h-1.5 rounded-full bg-gold flex-shrink-0" />
                   <span>{line}</span>
                 </li>
@@ -1577,8 +1717,6 @@ function PricingSection({
   );
 }
 
-
-
 /* -------------------------- registration -------------------------- */
 
 // מזהי החבילות הפרימיום שמוצגות בטופס הבחירה.
@@ -1589,7 +1727,6 @@ const _PREMIUM_IDS = [
   "premium_ai",
   "premium_bundle",
 ] as const;
-
 
 // תשתית לינקים חיצוניים לסליקה. יש להחליף בקישורים אמיתיים כשיהיו מוכנים.
 const PAYMENT_LINKS: Record<string, string> = {
@@ -1723,7 +1860,15 @@ function RegistrationSection({
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setServerError(null);
-    const parsed = InlineRegSchema.safeParse({ first_name, last_name, email, phone, firm_name, bar_license, id_number });
+    const parsed = InlineRegSchema.safeParse({
+      first_name,
+      last_name,
+      email,
+      phone,
+      firm_name,
+      bar_license,
+      id_number,
+    });
     if (!parsed.success) {
       const errs: Record<string, string> = {};
       parsed.error.issues.forEach((i) => (errs[i.path.join(".")] = i.message));
@@ -1771,7 +1916,15 @@ function RegistrationSection({
 
   async function performSubmit() {
     setConfirmOpen(false);
-    const parsed = InlineRegSchema.safeParse({ first_name, last_name, email, phone, firm_name, bar_license, id_number });
+    const parsed = InlineRegSchema.safeParse({
+      first_name,
+      last_name,
+      email,
+      phone,
+      firm_name,
+      bar_license,
+      id_number,
+    });
     if (!parsed.success) return;
     setSubmitting(true);
 
@@ -2220,11 +2373,13 @@ function Footer() {
             IBDA · Law Firm
           </span>
         </div>
-        <div className="text-xs text-muted-brown text-center md:text-right">
-          © {new Date().getFullYear()} משרד עו״ד יפעת בן דוד עמית. כל הזכויות שמורות.
+        <div className="flex items-center gap-4 text-xs text-muted-brown text-center md:text-right">
+          <span>© {new Date().getFullYear()} משרד עו״ד יפעת בן דוד עמית. כל הזכויות שמורות.</span>
+          <Link to="/accessibility" className="hover:text-gold transition-colors underline">
+            הצהרת נגישות
+          </Link>
         </div>
       </div>
     </footer>
   );
 }
-

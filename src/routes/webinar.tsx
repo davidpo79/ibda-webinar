@@ -49,7 +49,8 @@ const RegSchema = z.object({
 
 function WebinarPage() {
   const { openSession } = Route.useLoaderData();
-  const dateLabel = (openSession && formatSessionDate(openSession.starts_at)) || OPEN_WEBINAR.dateLabel;
+  const dateLabel =
+    (openSession && formatSessionDate(openSession.starts_at)) || OPEN_WEBINAR.dateLabel;
   return (
     <div className="min-h-screen bg-ink text-cream font-sans" dir="rtl">
       <header className="border-b border-border/60">
@@ -84,7 +85,10 @@ function WebinarPage() {
             <h2 className="font-serif text-xl text-gold mb-4">מה נלמד במפגש</h2>
             <ul className="space-y-3">
               {OPEN_WEBINAR.topics.map((topic, i) => (
-                <li key={i} className="flex items-start gap-3 text-[15px] text-muted-brown leading-[1.7]">
+                <li
+                  key={i}
+                  className="flex items-start gap-3 text-[15px] text-muted-brown leading-[1.7]"
+                >
                   <span className="mt-2.5 w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
                   <span>{topic}</span>
                 </li>
@@ -103,7 +107,9 @@ function WebinarPage() {
             />
           </div>
           <div className="text-right">
-            <div className="text-xs tracking-[0.2em] uppercase text-gold ltr-inline">Instructor</div>
+            <div className="text-xs tracking-[0.2em] uppercase text-gold ltr-inline">
+              Instructor
+            </div>
             <div className="font-serif text-lg text-cream">עו״ד יפעת בן דוד עמית</div>
             <div className="text-sm text-muted-brown">מייסדת משרד IBDA</div>
           </div>
@@ -127,8 +133,11 @@ function WebinarPage() {
       </main>
 
       <footer className="py-8 border-t border-border">
-        <div className="max-w-3xl mx-auto px-6 text-center text-xs text-muted-brown">
-          © {new Date().getFullYear()} משרד עו״ד יפעת בן דוד עמית. כל הזכויות שמורות.
+        <div className="max-w-3xl mx-auto px-6 flex items-center justify-center gap-4 text-xs text-muted-brown">
+          <span>© {new Date().getFullYear()} משרד עו״ד יפעת בן דוד עמית. כל הזכויות שמורות.</span>
+          <Link to="/accessibility" className="hover:text-gold transition-colors underline">
+            הצהרת נגישות
+          </Link>
         </div>
       </footer>
     </div>
@@ -154,7 +163,14 @@ function RegistrationForm({ sessionId }: { sessionId?: string }) {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setServerError(null);
-    const parsed = RegSchema.safeParse({ first_name, last_name, email, phone, firm_name, bar_license });
+    const parsed = RegSchema.safeParse({
+      first_name,
+      last_name,
+      email,
+      phone,
+      firm_name,
+      bar_license,
+    });
     if (!parsed.success) {
       const errs: Record<string, string> = {};
       parsed.error.issues.forEach((i) => (errs[i.path.join(".")] = i.message));
@@ -188,12 +204,45 @@ function RegistrationForm({ sessionId }: { sessionId?: string }) {
   return (
     <form onSubmit={onSubmit} className="glass-gold rounded-2xl p-6 md:p-8 fade-rise">
       <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <RegField label="שם פרטי" required value={first_name} onChange={setFirstName} error={errors.first_name} />
-        <RegField label="שם משפחה" required value={last_name} onChange={setLastName} error={errors.last_name} />
-        <RegField label="אימייל" type="email" required value={email} onChange={setEmail} error={errors.email} dir="ltr" />
-        <RegField label="טלפון נייד" type="tel" required value={phone} onChange={setPhone} error={errors.phone} dir="ltr" />
+        <RegField
+          label="שם פרטי"
+          required
+          value={first_name}
+          onChange={setFirstName}
+          error={errors.first_name}
+        />
+        <RegField
+          label="שם משפחה"
+          required
+          value={last_name}
+          onChange={setLastName}
+          error={errors.last_name}
+        />
+        <RegField
+          label="אימייל"
+          type="email"
+          required
+          value={email}
+          onChange={setEmail}
+          error={errors.email}
+          dir="ltr"
+        />
+        <RegField
+          label="טלפון נייד"
+          type="tel"
+          required
+          value={phone}
+          onChange={setPhone}
+          error={errors.phone}
+          dir="ltr"
+        />
         <RegField label="שם המשרד או חברה" value={firm_name} onChange={setFirmName} />
-        <RegField label="מספר רישיון עריכת דין" value={bar_license} onChange={setBarLicense} dir="ltr" />
+        <RegField
+          label="מספר רישיון עריכת דין"
+          value={bar_license}
+          onChange={setBarLicense}
+          dir="ltr"
+        />
       </fieldset>
 
       {serverError && (
