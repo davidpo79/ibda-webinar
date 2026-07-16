@@ -10,13 +10,18 @@ import {
   recordLoginFailure,
   recordLoginSuccess,
 } from "./admin-auth.server";
-import { listRegistrations, updateRegistrationContact } from "./registrations.server";
+import {
+  listRegistrations,
+  updateRegistrationContact,
+  deleteRegistration,
+} from "./registrations.server";
 import type { RegistrationRow } from "./registrations.server";
 import {
   listOrders,
   markOrderStatus,
   getOrderPackages,
   isTransactionReusedElsewhere,
+  deleteOrder,
 } from "./orders.server";
 import type { OrderRow } from "./orders.server";
 import { verifySumitTransactionWithRetry } from "./sumit.server";
@@ -139,6 +144,20 @@ export const updateRegistrationAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     assertAdminSession();
     await updateRegistrationContact(data.id, data);
+    return { ok: true };
+  });
+
+const DeleteRegistrationSchema = z.object({ id: z.string().min(1) });
+
+// Removes a lead and its scheduled reminder emails — used to clean up
+// test/duplicate submissions from the dashboard. Doesn't touch orders
+// (a separate table, correlated only by email) — use deleteOrderAction
+// for those.
+export const deleteRegistrationAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => DeleteRegistrationSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    await deleteRegistration(data.id);
     return { ok: true };
   });
 
@@ -393,6 +412,21 @@ export const verifyOrderPaymentAction = createServerFn({ method: "POST" })
       return { outcome: "failed" as const };
     }
     return { outcome: "unresolved" as const };
+  });
+
+const DeleteOrderSchema = z.object({
+  orderReference: z.string().min(1),
+});
+
+// Removes every line item of an order (a multi-package/multi-lesson
+// purchase can be several rows sharing an order_reference) — used to clean
+// up test/duplicate orders from the dashboard.
+export const deleteOrderAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => DeleteOrderSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    await deleteOrder(data.orderReference);
+    return { ok: true };
   });
 
 const ForceMarkOrderPaidSchema = z.object({

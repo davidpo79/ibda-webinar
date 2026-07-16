@@ -86,6 +86,16 @@ export async function updateRegistrationContact(
   `;
 }
 
+// Removes a lead and its scheduled "day-before" reminder rows (see
+// registration_reminders in schema.sql) — used from the admin dashboard to
+// clear out test/duplicate submissions. Does not touch orders (a separate
+// table, correlated only by email, not a foreign key) or the Resend
+// contact — those are cleaned up independently where relevant.
+export async function deleteRegistration(id: string): Promise<void> {
+  await sql()`DELETE FROM registration_reminders WHERE registration_id = ${id}`;
+  await sql()`DELETE FROM registrations WHERE id = ${id}`;
+}
+
 // Every submission is its own row — a lead who registers twice (e.g. for a
 // later cohort) shows up as two separate entries, not merged by email.
 export async function listRegistrations(): Promise<RegistrationRow[]> {

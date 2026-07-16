@@ -166,6 +166,14 @@ export function buildOrderLineItems(rawRows: RawOrderRow[], sessions: Session[])
   return order.flatMap((ref) => groups.get(ref)!);
 }
 
+// Removes every line item sharing an order_reference (a multi-package or
+// multi-lesson purchase can be several rows) — used from the admin
+// dashboard to clear out test/duplicate orders. Does not touch coupons or
+// the Resend contact.
+export async function deleteOrder(orderReference: string): Promise<void> {
+  await sql()`DELETE FROM orders WHERE order_reference = ${orderReference}`;
+}
+
 export async function listOrders(): Promise<OrderRow[]> {
   const [rawRows, sessions] = await Promise.all([
     sql()<RawOrderRow[]>`

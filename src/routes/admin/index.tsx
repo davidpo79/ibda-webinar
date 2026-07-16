@@ -8,6 +8,8 @@ import {
   sendCouponToLeadAction,
   verifyOrderPaymentAction,
   forceMarkOrderPaidAction,
+  deleteRegistrationAction,
+  deleteOrderAction,
 } from "@/lib/admin.functions";
 import type { RegistrationRow } from "@/lib/registrations.server";
 import type { OrderWithContact } from "@/lib/admin.functions";
@@ -122,6 +124,8 @@ function AdminDashboard() {
   const [orderSearch, setOrderSearch] = useState("");
   const [verifyingOrders, setVerifyingOrders] = useState<Set<string>>(new Set());
   const [forcingOrders, setForcingOrders] = useState<Set<string>>(new Set());
+  const [deletingRegistrations, setDeletingRegistrations] = useState<Set<string>>(new Set());
+  const [deletingOrders, setDeletingOrders] = useState<Set<string>>(new Set());
 
   const leadSearchNorm = leadSearch.trim().toLowerCase();
   const filteredRegistrations = registrations.filter((r) => {
@@ -219,6 +223,54 @@ function AdminDashboard() {
       toast.error("השמירה נכשלה. נסו שוב.");
     } finally {
       setForcingOrders((s) => {
+        const n = new Set(s);
+        n.delete(orderReference);
+        return n;
+      });
+    }
+  }
+
+  async function onDeleteRegistration(id: string, name: string) {
+    if (
+      !window.confirm(
+        `למחוק את הליד "${name}" לצמיתות?\n\nהפעולה תמחק גם את התזכורות המתוזמנות שלו ואינה ניתנת לביטול.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingRegistrations((s) => new Set(s).add(id));
+    try {
+      await deleteRegistrationAction({ data: { id } });
+      toast.success("הליד נמחק");
+      await router.invalidate();
+    } catch (err) {
+      console.error("[admin] delete registration error", err);
+      toast.error("המחיקה נכשלה. נסו שוב.");
+    } finally {
+      setDeletingRegistrations((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
+    }
+  }
+
+  async function onDeleteOrder(orderReference: string) {
+    if (
+      !window.confirm(`למחוק את ההזמנה ${orderReference} לצמיתות?\n\nהפעולה אינה ניתנת לביטול.`)
+    ) {
+      return;
+    }
+    setDeletingOrders((s) => new Set(s).add(orderReference));
+    try {
+      await deleteOrderAction({ data: { orderReference } });
+      toast.success("ההזמנה נמחקה");
+      await router.invalidate();
+    } catch (err) {
+      console.error("[admin] delete order error", err);
+      toast.error("המחיקה נכשלה. נסו שוב.");
+    } finally {
+      setDeletingOrders((s) => {
         const n = new Set(s);
         n.delete(orderReference);
         return n;
@@ -331,6 +383,8 @@ function AdminDashboard() {
                 isOpen={expanded.has(r.id)}
                 onToggle={() => toggle(r.id)}
                 onSaved={() => router.invalidate()}
+                onDelete={() => onDeleteRegistration(r.id, `${r.first_name} ${r.last_name}`)}
+                deleting={deletingRegistrations.has(r.id)}
               />
             ))}
             {filteredRegistrations.length === 0 && (
@@ -350,6 +404,7 @@ function AdminDashboard() {
                 <col className="w-[110px]" />
                 <col />
                 <col className="w-[130px]" />
+                <col className="w-[90px]" />
               </colgroup>
               <thead className="bg-sand/70 text-right">
                 <tr>
@@ -359,6 +414,7 @@ function AdminDashboard() {
                   <th className="px-4 py-3 font-semibold">טלפון</th>
                   <th className="px-4 py-3 font-semibold">מסלולים</th>
                   <th className="px-4 py-3 font-semibold">מועד הרשמה</th>
+                  <th className="px-4 py-3 font-semibold"></th>
                 </tr>
               </thead>
               <tbody>
@@ -391,11 +447,23 @@ function AdminDashboard() {
                         <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
                           {formatSessionDate(r.created_at)}
                         </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onDeleteRegistration(r.id, `${r.first_name} ${r.last_name}`)
+                            }
+                            disabled={deletingRegistrations.has(r.id)}
+                            className="text-destructive text-xs hover:underline disabled:opacity-50"
+                          >
+                            {deletingRegistrations.has(r.id) ? "מוחק..." : "מחיקה"}
+                          </button>
+                        </td>
                       </tr>
                       {isOpen && (
                         <tr className="border-t border-cream/10 bg-ink/40">
                           <td />
-                          <td colSpan={5} className="px-4 py-4">
+                          <td colSpan={6} className="px-4 py-4">
                             <LeadDetailPanel registration={r} onSaved={() => router.invalidate()} />
                           </td>
                         </tr>
@@ -450,6 +518,8 @@ function AdminDashboard() {
             expandedOrders={expandedOrders}
             toggleOrder={toggleOrder}
             emptyMessage="אין עדיין רוכשים"
+            deletingOrders={deletingOrders}
+            onDeleteOrder={onDeleteOrder}
           />
 
           <h3 className="font-serif text-lg text-gold mb-4 mt-10">
@@ -471,6 +541,8 @@ function AdminDashboard() {
             onVerifyOrder={onVerifyOrder}
             forcingOrders={forcingOrders}
             onForceMarkPaid={onForceMarkPaid}
+            deletingOrders={deletingOrders}
+            onDeleteOrder={onDeleteOrder}
           />
         </section>
       </main>
@@ -486,11 +558,15 @@ function LeadCard({
   isOpen,
   onToggle,
   onSaved,
+  onDelete,
+  deleting,
 }: {
   registration: RegistrationRow;
   isOpen: boolean;
   onToggle: () => void;
   onSaved: () => void;
+  onDelete: () => void;
+  deleting: boolean;
 }) {
   return (
     <div className="border border-cream/10 rounded-lg p-4 bg-ink/20">
@@ -514,9 +590,19 @@ function LeadCard({
           {isOpen ? "–" : "+"}
         </button>
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-brown">
-        <span className="break-words">{packagesLabel(r.selected_packages)}</span>
-        <span className="whitespace-nowrap">{formatSessionDate(r.created_at)}</span>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-brown">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="break-words">{packagesLabel(r.selected_packages)}</span>
+          <span className="whitespace-nowrap">{formatSessionDate(r.created_at)}</span>
+        </div>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={deleting}
+          className="text-destructive hover:underline disabled:opacity-50"
+        >
+          {deleting ? "מוחק..." : "מחיקה"}
+        </button>
       </div>
       {isOpen && (
         <div className="mt-4 pt-4 border-t border-cream/10">
@@ -541,6 +627,8 @@ function OrderGroupsTable({
   onVerifyOrder,
   forcingOrders,
   onForceMarkPaid,
+  deletingOrders,
+  onDeleteOrder,
 }: {
   groups: { order_reference: string; items: OrderWithContact[] }[];
   expandedOrders: Set<string>;
@@ -551,6 +639,8 @@ function OrderGroupsTable({
   onVerifyOrder?: (orderReference: string, transactionId: string) => void;
   forcingOrders?: Set<string>;
   onForceMarkPaid?: (orderReference: string) => void;
+  deletingOrders?: Set<string>;
+  onDeleteOrder?: (orderReference: string) => void;
 }) {
   return (
     <>
@@ -566,6 +656,8 @@ function OrderGroupsTable({
               verifying={verifyingOrders?.has(o.order_reference) ?? false}
               onForceMarkPaid={showVerify ? onForceMarkPaid : undefined}
               forcing={forcingOrders?.has(o.order_reference) ?? false}
+              onDelete={onDeleteOrder}
+              deleting={deletingOrders?.has(o.order_reference) ?? false}
             />
           ))}
         {groups.length === 0 && (
@@ -581,7 +673,7 @@ function OrderGroupsTable({
         <table
           className={cn(
             "w-full text-sm table-fixed",
-            showVerify ? "min-w-[1620px]" : "min-w-[1320px]",
+            showVerify ? "min-w-[1710px]" : "min-w-[1410px]",
           )}
         >
           <colgroup>
@@ -596,6 +688,7 @@ function OrderGroupsTable({
             <col className="w-[130px]" />
             <col className="w-[130px]" />
             {showVerify && <col className="w-[300px]" />}
+            <col className="w-[90px]" />
           </colgroup>
           <thead className="bg-sand/70 text-right">
             <tr>
@@ -610,6 +703,7 @@ function OrderGroupsTable({
               <th className="px-4 py-3 font-semibold">מועד המפגש הבא</th>
               <th className="px-4 py-3 font-semibold">בוצע בתאריך</th>
               {showVerify && <th className="px-4 py-3 font-semibold">פעולות</th>}
+              <th className="px-4 py-3 font-semibold"></th>
             </tr>
           </thead>
           <tbody>
@@ -685,6 +779,16 @@ function OrderGroupsTable({
                         </div>
                       </td>
                     )}
+                    <td className="px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() => onDeleteOrder?.(group.order_reference)}
+                        disabled={deletingOrders?.has(group.order_reference) ?? false}
+                        className="text-destructive text-xs hover:underline disabled:opacity-50"
+                      >
+                        {deletingOrders?.has(group.order_reference) ? "מוחק..." : "מחיקה"}
+                      </button>
+                    </td>
                   </tr>
                   {isOpen &&
                     group.items.map((item) => (
@@ -704,6 +808,7 @@ function OrderGroupsTable({
                         </td>
                         <td />
                         {showVerify && <td />}
+                        <td />
                       </tr>
                     ))}
                 </Fragment>
@@ -712,7 +817,7 @@ function OrderGroupsTable({
             {groups.length === 0 && (
               <tr>
                 <td
-                  colSpan={showVerify ? 11 : 10}
+                  colSpan={showVerify ? 12 : 11}
                   className="px-4 py-8 text-center text-muted-brown"
                 >
                   {emptyMessage}
@@ -749,12 +854,16 @@ function OrderCard({
   verifying,
   onForceMarkPaid,
   forcing,
+  onDelete,
+  deleting,
 }: {
   order: OrderWithContact;
   onVerify?: (orderReference: string, transactionId: string) => void;
   verifying?: boolean;
   onForceMarkPaid?: (orderReference: string) => void;
   forcing?: boolean;
+  onDelete?: (orderReference: string) => void;
+  deleting?: boolean;
 }) {
   return (
     <div className="border border-cream/10 rounded-lg p-4 bg-ink/20">
@@ -805,6 +914,16 @@ function OrderCard({
             </button>
           )}
         </div>
+      )}
+      {onDelete && (
+        <button
+          type="button"
+          onClick={() => onDelete(o.order_reference)}
+          disabled={deleting}
+          className="mt-3 text-destructive text-xs hover:underline disabled:opacity-50"
+        >
+          {deleting ? "מוחק..." : "מחיקה"}
+        </button>
       )}
     </div>
   );
