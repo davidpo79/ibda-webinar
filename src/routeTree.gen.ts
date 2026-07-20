@@ -22,6 +22,7 @@ import { Route as AdminPricingRouteImport } from './routes/admin/pricing'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminEmailsRouteImport } from './routes/admin/emails'
 import { Route as AdminCouponsRouteImport } from './routes/admin/coupons'
+import { Route as AdminBroadcastRouteImport } from './routes/admin/broadcast'
 import { Route as ApiPublicUnsubscribeRouteImport } from './routes/api/public/unsubscribe'
 import { Route as ApiPublicSumitWebhookRouteImport } from './routes/api/public/sumit-webhook'
 import { Route as ApiPublicSumitReturnRouteImport } from './routes/api/public/sumit-return'
@@ -92,6 +93,11 @@ const AdminCouponsRoute = AdminCouponsRouteImport.update({
   path: '/admin/coupons',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminBroadcastRoute = AdminBroadcastRouteImport.update({
+  id: '/admin/broadcast',
+  path: '/admin/broadcast',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicUnsubscribeRoute = ApiPublicUnsubscribeRouteImport.update({
   id: '/api/public/unsubscribe',
   path: '/api/public/unsubscribe',
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/accessibility': typeof AccessibilityRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/broadcast': typeof AdminBroadcastRoute
   '/admin/coupons': typeof AdminCouponsRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/login': typeof AdminLoginRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/accessibility': typeof AccessibilityRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/broadcast': typeof AdminBroadcastRoute
   '/admin/coupons': typeof AdminCouponsRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/login': typeof AdminLoginRoute
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/accessibility': typeof AccessibilityRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/broadcast': typeof AdminBroadcastRoute
   '/admin/coupons': typeof AdminCouponsRoute
   '/admin/emails': typeof AdminEmailsRoute
   '/admin/login': typeof AdminLoginRoute
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/thank-you'
     | '/webinar'
+    | '/admin/broadcast'
     | '/admin/coupons'
     | '/admin/emails'
     | '/admin/login'
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/thank-you'
     | '/webinar'
+    | '/admin/broadcast'
     | '/admin/coupons'
     | '/admin/emails'
     | '/admin/login'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/thank-you'
     | '/webinar'
+    | '/admin/broadcast'
     | '/admin/coupons'
     | '/admin/emails'
     | '/admin/login'
@@ -237,6 +249,7 @@ export interface RootRouteChildren {
   AccessibilityRoute: typeof AccessibilityRoute
   ThankYouRoute: typeof ThankYouRoute
   WebinarRoute: typeof WebinarRoute
+  AdminBroadcastRoute: typeof AdminBroadcastRoute
   AdminCouponsRoute: typeof AdminCouponsRoute
   AdminEmailsRoute: typeof AdminEmailsRoute
   AdminLoginRoute: typeof AdminLoginRoute
@@ -345,6 +358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCouponsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/broadcast': {
+      id: '/admin/broadcast'
+      path: '/admin/broadcast'
+      fullPath: '/admin/broadcast'
+      preLoaderRoute: typeof AdminBroadcastRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/unsubscribe': {
       id: '/api/public/unsubscribe'
       path: '/api/public/unsubscribe'
@@ -381,6 +401,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccessibilityRoute: AccessibilityRoute,
   ThankYouRoute: ThankYouRoute,
   WebinarRoute: WebinarRoute,
+  AdminBroadcastRoute: AdminBroadcastRoute,
   AdminCouponsRoute: AdminCouponsRoute,
   AdminEmailsRoute: AdminEmailsRoute,
   AdminLoginRoute: AdminLoginRoute,

@@ -318,6 +318,12 @@ function AdminDashboard() {
           <Link to="/admin/emails" className="text-muted-brown hover:text-gold transition-colors">
             עריכת מיילים
           </Link>
+          <Link
+            to="/admin/broadcast"
+            className="text-muted-brown hover:text-gold transition-colors"
+          >
+            שליחת מייל
+          </Link>
           <Link to="/admin/settings" className="text-muted-brown hover:text-gold transition-colors">
             הגדרות מייל
           </Link>

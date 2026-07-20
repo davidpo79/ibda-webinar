@@ -63,6 +63,13 @@ import { PAYMENT_STATUS_PAID_DEFAULT, PAYMENT_STATUS_FAILED_DEFAULT } from "./re
 import { buildAllEmailPreviews } from "./email-preview.server";
 import { listRecentWebhookLogs } from "./sumit-webhook-log.server";
 import { runSumitWebhookReconcileSweep } from "./sumit-reconcile.server";
+import {
+  BROADCAST_PACKAGE_LABELS,
+  resolveBroadcastAudience,
+  sendBroadcastTest,
+  sendBroadcastEmail,
+} from "./broadcast.server";
+import type { BroadcastAudienceSource } from "./broadcast.server";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
@@ -469,3 +476,86 @@ export const runSumitReconcileNowAction = createServerFn({ method: "POST" }).han
   assertAdminSession();
   return await runSumitWebhookReconcileSweep();
 });
+
+export const getAdminBroadcastPackageOptions = createServerFn({ method: "GET" }).handler(
+  async () => {
+    assertAdminSession();
+    return {
+      packages: Object.entries(BROADCAST_PACKAGE_LABELS).map(([value, label]) => ({
+        value,
+        label,
+      })),
+    };
+  },
+);
+
+const BroadcastAudienceSchema = z.object({
+  source: z.enum(["leads", "buyers", "all"]),
+  packageIds: z.array(z.string()),
+});
+
+export const previewBroadcastAudienceAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => BroadcastAudienceSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    const audience = await resolveBroadcastAudience(
+      data.source as BroadcastAudienceSource,
+      data.packageIds,
+    );
+    return { count: audience.length, sample: audience.slice(0, 5).map((r) => r.email) };
+  });
+
+// Combined base64 attachment payload cap — Resend allows up to 40MB per
+// email, but this is a server function payload (not a streamed upload), so
+// keep it well under that to stay fast and avoid the request itself
+// becoming the bottleneck.
+const MAX_ATTACHMENTS_BASE64_LENGTH = 15 * 1024 * 1024;
+
+const BroadcastAttachmentSchema = z.object({
+  filename: z.string().trim().min(1).max(255),
+  contentBase64: z.string().min(1),
+});
+
+const BroadcastComposeSchema = z.object({
+  subject: z.string().trim().min(1).max(300),
+  bodyHtml: z.string().min(1),
+  ctaText: z.string().trim().max(100).optional().default(""),
+  ctaUrl: z.string().trim().max(2000).optional().default(""),
+  attachments: z.array(BroadcastAttachmentSchema).max(10).optional().default([]),
+});
+
+function assertAttachmentsSize(attachments: { contentBase64: string }[]) {
+  const total = attachments.reduce((sum, a) => sum + a.contentBase64.length, 0);
+  if (total > MAX_ATTACHMENTS_BASE64_LENGTH) {
+    throw new Error("הקבצים המצורפים גדולים מדי (מעל המגבלה המשולבת)");
+  }
+}
+
+const SendBroadcastTestSchema = BroadcastComposeSchema.extend({
+  testEmail: z.string().trim().email(),
+});
+
+export const sendBroadcastTestAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => SendBroadcastTestSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    assertAttachmentsSize(data.attachments);
+    await sendBroadcastTest(data);
+    return { ok: true };
+  });
+
+const SendBroadcastEmailSchema = BroadcastComposeSchema.extend({
+  source: z.enum(["leads", "buyers", "all"]),
+  packageIds: z.array(z.string()),
+});
+
+export const sendBroadcastEmailAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => SendBroadcastEmailSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    assertAttachmentsSize(data.attachments);
+    return await sendBroadcastEmail({
+      ...data,
+      source: data.source as BroadcastAudienceSource,
+    });
+  });
