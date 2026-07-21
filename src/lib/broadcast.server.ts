@@ -2,6 +2,12 @@ import { Resend } from "resend";
 import { sql } from "./db.server";
 import { signUnsubscribeToken } from "./unsubscribe.server";
 import { escapeHtml } from "./escape-html";
+import ibdaLogo from "@/assets/ibda-logo.png";
+
+function absoluteLogoUrl(): string {
+  const origin = (process.env.PUBLIC_SITE_URL || "").replace(/\/$/, "");
+  return origin ? `${origin}${ibdaLogo}` : ibdaLogo;
+}
 
 export const BROADCAST_PACKAGE_LABELS: Record<string, string> = {
   open: "וובינר פתוח",
@@ -141,8 +147,8 @@ export function wrapBroadcastHtml(
     <tr><td dir="rtl" align="center">
       <table role="presentation" dir="rtl" width="100%" style="max-width:560px;background-color:#211E16;border:1px solid #3A342A;border-radius:12px;overflow:hidden;">
         <tr><td dir="rtl" style="padding:28px 32px 12px;text-align:center;border-bottom:1px solid #3A342A;">
-          <span dir="rtl" style="color:#C4A461;font-size:22px;letter-spacing:1px;">IBDA</span>
-          <div dir="rtl" style="color:#D9D0BB;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:4px;">Law Firm · Webinars</div>
+          <img src="${absoluteLogoUrl()}" alt="IBDA" width="140" style="display:block;margin:0 auto;" />
+          <div dir="rtl" style="color:#D9D0BB;font-size:11px;letter-spacing:2px;text-transform:uppercase;margin-top:8px;">Law Firm · Webinars</div>
         </td></tr>
         <tr><td dir="rtl" style="padding:28px 32px;color:#FFFDF7;font-size:15px;line-height:1.8;text-align:right;">
           ${personalized}

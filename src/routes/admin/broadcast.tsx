@@ -33,7 +33,7 @@ const SOURCE_OPTIONS: { value: Source; label: string }[] = [
 
 type Attachment = { filename: string; contentBase64: string; size: number };
 
-const MAX_ATTACHMENTS_BYTES = 10 * 1024 * 1024;
+const MAX_ATTACHMENTS_BYTES = 35 * 1024 * 1024;
 
 function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

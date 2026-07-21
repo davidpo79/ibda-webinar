@@ -506,10 +506,11 @@ export const previewBroadcastAudienceAction = createServerFn({ method: "POST" })
   });
 
 // Combined base64 attachment payload cap — Resend allows up to 40MB per
-// email, but this is a server function payload (not a streamed upload), so
-// keep it well under that to stay fast and avoid the request itself
-// becoming the bottleneck.
-const MAX_ATTACHMENTS_BASE64_LENGTH = 15 * 1024 * 1024;
+// email — base64 encoding inflates raw file size by ~33%, so a 35MB raw
+// attachment cap (see MAX_ATTACHMENTS_BYTES in admin/broadcast.tsx) needs
+// ~47MB of base64 headroom here; 50MB leaves a small margin while still
+// keeping some distance from Resend's actual 40MB-per-email ceiling.
+const MAX_ATTACHMENTS_BASE64_LENGTH = 50 * 1024 * 1024;
 
 const BroadcastAttachmentSchema = z.object({
   filename: z.string().trim().min(1).max(255),
