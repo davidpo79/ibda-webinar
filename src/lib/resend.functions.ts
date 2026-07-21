@@ -19,7 +19,7 @@ const SubscribeSchema = z.object({
   bar_license: z.string().trim().max(50, "ארוך מדי").optional(),
   selected_packages: z.array(z.string()),
   core_single_lesson: z.string().trim().max(200).optional(),
-  core_single_lesson_indexes: z.array(z.number().int().min(1).max(9)).optional(),
+  core_single_lesson_indexes: z.array(z.number().int().min(1).max(8)).optional(),
   session_id: z.string().trim().optional(),
 });
 

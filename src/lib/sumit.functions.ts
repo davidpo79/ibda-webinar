@@ -23,7 +23,7 @@ const CreatePaymentSchema = z.object({
   phone: phoneSchema,
   order_reference: z.string().min(1).max(100),
   id_number: idNumberSchema,
-  core_single_lesson_indexes: z.array(z.number().int().min(1).max(9)).optional(),
+  core_single_lesson_indexes: z.array(z.number().int().min(1).max(8)).optional(),
   coupon_code: z.string().trim().max(40).optional(),
 });
 

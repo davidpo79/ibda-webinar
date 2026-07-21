@@ -23,7 +23,6 @@ import {
   FileSearch,
   Scale,
   ShieldAlert,
-  FileCheck,
   Banknote,
   ClipboardCheck,
   Home,
@@ -188,21 +187,14 @@ const coreSeries: {
     ],
   },
   {
-    t: "לב העסקה - חלק א'",
-    d: "התמודדות בניסוח סעיפים מגבילים",
+    t: "לב העסקה",
+    d: "הסכם מכר דירה יד שנייה: סעיפי הליבה וניסוח סעיפים מגבילים",
     icon: ShieldAlert,
     date: "28.7 · 10:00",
     topics: [
-      "מתן פתרון לניסוח סעיפים למחיקת הערות, עיקולים ומניעות רישום.",
-      "מיפוי המניעות ומתן דרכי התמודדות.",
+      "מתן פתרון לניסוח סעיפים למחיקת הערות, עיקולים ומניעות רישום ומיפוי דרכי התמודדות.",
+      'כלל "ייזהר המוכר" ו"ייזהר הקונה" ודרכי התמודדות.',
     ],
-  },
-  {
-    t: "לב העסקה - חלק ב'",
-    d: "הסכם מכר דירה יד שנייה: סעיפי הליבה",
-    icon: FileCheck,
-    date: "30.7 · 10:00",
-    topics: ['כלל "ייזהר המוכר" ודרכי התמודדות.', 'כלל "ייזהר הקונה" ודרכי התמודדות.'],
   },
   {
     t: "המשכנתא",
@@ -330,10 +322,10 @@ const pricing: {
   },
   {
     id: "core_full",
-    t: "הסדרה המלאה · 9 מפגשים",
+    t: "הסדרה המלאה · 8 מפגשים",
     price: "₪ 2,520",
     early: "₪ 1,620",
-    duration: "9 מפגשים · 90 דקות למפגש",
+    duration: "8 מפגשים · 90 דקות למפגש",
     note: "מחיר מוקדם ל 72 שעות מסיום הוובינר הפתוח.",
     featured: true,
     cta: "רכישת הסדרה המלאה",
@@ -1169,7 +1161,7 @@ function CoreSeriesSection({ data }: { data: typeof coreSeries }) {
           <h2 className="font-serif text-4xl md:text-5xl text-gold mb-5">שלב ב׳ · סדרת הליבה</h2>
           <div className="relative flex flex-col md:block items-center gap-4">
             <p className="text-muted-brown text-[15px] sm:text-[17px] text-center px-4">
-              מקוון · 9 מפגשים של 90 דקות · לפי שלבי העסקה, מהתחלה ועד רישום
+              מקוון · 8 מפגשים של 90 דקות · לפי שלבי העסקה, מהתחלה ועד רישום
             </p>
             <button
               type="button"

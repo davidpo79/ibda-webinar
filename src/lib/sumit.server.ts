@@ -7,7 +7,7 @@ const SUMIT_BASE_URL = process.env.SUMIT_BASE_URL || "https://api.sumit.co.il";
 
 const PACKAGE_NAMES: Record<string, string> = {
   core_single: "וובינר בודד מסדרת הליבה",
-  core_full: "הסדרה המלאה - 9 מפגשים",
+  core_full: "הסדרה המלאה - 8 מפגשים",
   premium_litigation: "סדנת ליטיגציה בנדל״ן",
   premium_registration: "סדנת רישום בית משותף",
   premium_partnership: "סדנת שיתוף במקרקעין",
@@ -126,7 +126,7 @@ export async function createSumitPaymentPage(data: CreatePaymentInput) {
   const prices = await getCurrentPrices();
   const discount = data.discount_percent ?? 0;
   const requestedLessons = data.core_single_lesson_indexes ?? [];
-  // Lesson 8 ("פינוי מושכר") is free — never a Sumit line item, regardless
+  // Lesson 7 ("פינוי מושכר") is free — never a Sumit line item, regardless
   // of what the caller passed. This is the actual charging boundary, so it
   // enforces that independent of the client-side selection UI.
   const lessons = requestedLessons.filter((idx) => !isFreeCoreLesson(idx));

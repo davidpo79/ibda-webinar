@@ -123,19 +123,101 @@ SELECT v.type, v.key, v.title, v.starts_at::timestamptz, v.sort_order
 FROM (VALUES
   ('core', 'core_1', 'המפה המשפטית', '2026-07-26T10:00:00+03:00', 1),
   ('core', 'core_2', 'דגשים בבדיקות מקדמיות', '2026-07-27T10:00:00+03:00', 2),
-  ('core', 'core_3', 'לב העסקה - חלק א''', '2026-07-28T10:00:00+03:00', 3),
-  ('core', 'core_4', 'לב העסקה - חלק ב''', '2026-07-30T10:00:00+03:00', 4),
-  ('core', 'core_5', 'המשכנתא', '2026-08-03T10:00:00+03:00', 5),
-  ('core', 'core_6', 'מעמד החתימה ורישום הזכויות', '2026-08-04T10:00:00+03:00', 6),
-  ('core', 'core_7', 'הסכם השכירות', '2026-08-09T10:00:00+03:00', 7),
-  ('core', 'core_8', 'פינוי מושכר', '2026-08-11T10:00:00+03:00', 8),
-  ('core', 'core_9', 'העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים', '2026-08-12T10:00:00+03:00', 9),
+  ('core', 'core_3', 'לב העסקה', '2026-07-28T10:00:00+03:00', 3),
+  ('core', 'core_4', 'המשכנתא', '2026-08-03T10:00:00+03:00', 4),
+  ('core', 'core_5', 'מעמד החתימה ורישום הזכויות', '2026-08-04T10:00:00+03:00', 5),
+  ('core', 'core_6', 'הסכם השכירות', '2026-08-09T10:00:00+03:00', 6),
+  ('core', 'core_7', 'פינוי מושכר', '2026-08-11T10:00:00+03:00', 7),
+  ('core', 'core_8', 'העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים', '2026-08-12T10:00:00+03:00', 8),
   ('premium', 'premium_ai', 'AI ואוטומציות בעבודת עורך הדין', '2026-07-21T10:00:00+03:00', 1),
   ('premium', 'premium_registration', 'רישום בית משותף', '2026-08-13T09:00:00+03:00', 2),
   ('premium', 'premium_litigation', 'ליטיגציה בנדל״ן - סוגיות נבחרות', '2026-08-16T10:00:00+03:00', 3),
   ('premium', 'premium_partnership', 'שיתוף במקרקעין', '2026-08-17T10:00:00+03:00', 4)
 ) AS v(type, key, title, starts_at, sort_order)
 WHERE NOT EXISTS (SELECT 1 FROM sessions s WHERE s.key = v.key);
+
+-- One-time merge, for a production DB that already seeded the old 9-lesson
+-- layout: lesson 3 ("לב העסקה - חלק א'") + lesson 4 ("לב העסקה - חלק ב'")
+-- become a single lesson 3 ("לב העסקה"); lessons 5-9 shift down to fill the
+-- gap (5→4, 6→5, 7→6, 8→7, 9→8), landing on the same 8-lesson layout the
+-- seed above already produces for a fresh install. Guarded on core_9 still
+-- existing, so this only ever runs once — after it succeeds there's no
+-- core_9 left to match, making every later boot's block a no-op.
+DO $$
+DECLARE
+  v_old_core4_id uuid;
+  v_core3_id uuid;
+BEGIN
+  IF EXISTS (SELECT 1 FROM sessions WHERE key = 'core_9') THEN
+    -- Shift 5..9 down to 4..8, bottom-up so each step's target key has
+    -- already been vacated by the row that used to occupy it.
+    UPDATE sessions SET key = 'core_4', sort_order = 4 WHERE key = 'core_5';
+    UPDATE sessions SET key = 'core_5', sort_order = 5 WHERE key = 'core_6';
+    UPDATE sessions SET key = 'core_6', sort_order = 6 WHERE key = 'core_7';
+    UPDATE sessions SET key = 'core_7', sort_order = 7 WHERE key = 'core_8';
+    UPDATE sessions SET key = 'core_8', sort_order = 8 WHERE key = 'core_9';
+
+    -- core_3's row survives as the merged lesson (keeps its own date and
+    -- Zoom link); core_4's original row is retired below, identified by its
+    -- original title since key='core_4' now also matches the just-renamed
+    -- old core_5 row ("המשכנתא").
+    UPDATE sessions SET title = 'לב העסקה' WHERE key = 'core_3';
+
+    SELECT id INTO v_old_core4_id FROM sessions
+      WHERE key = 'core_4' AND title = 'לב העסקה - חלק ב''' LIMIT 1;
+    SELECT id INTO v_core3_id FROM sessions WHERE key = 'core_3' LIMIT 1;
+
+    IF v_old_core4_id IS NOT NULL THEN
+      -- Repoint anything that already referenced core_4's session directly
+      -- (an order/reminder for that specific lesson) onto the merged core_3
+      -- row — dropping the core_4 side first wherever a core_3 counterpart
+      -- already exists, so the repoint never trips the unique constraint on
+      -- (registration_id, package_id, session_id) / (order_reference,
+      -- package_id, session_id).
+      DELETE FROM registration_reminders rr
+        WHERE rr.session_id = v_old_core4_id
+          AND EXISTS (
+            SELECT 1 FROM registration_reminders rr2
+            WHERE rr2.registration_id = rr.registration_id
+              AND rr2.package_id = rr.package_id
+              AND rr2.session_id = v_core3_id
+          );
+      UPDATE registration_reminders SET session_id = v_core3_id WHERE session_id = v_old_core4_id;
+
+      DELETE FROM orders o
+        WHERE o.session_id = v_old_core4_id
+          AND EXISTS (
+            SELECT 1 FROM orders o2
+            WHERE o2.order_reference = o.order_reference
+              AND o2.package_id = o.package_id
+              AND o2.session_id = v_core3_id
+          );
+      UPDATE orders SET session_id = v_core3_id WHERE session_id = v_old_core4_id;
+
+      UPDATE registrations SET session_id = v_core3_id WHERE session_id = v_old_core4_id;
+
+      DELETE FROM sessions WHERE id = v_old_core4_id;
+    END IF;
+
+    -- A registration that had already picked specific lesson numbers needs
+    -- the same shift applied to its stored indexes, or it would resolve to
+    -- the wrong (or a now-nonexistent) lesson. Lesson 4 folds into 3 (the
+    -- merge); 5-9 shift down to 4-8, same as the session rows above.
+    UPDATE registrations SET core_single_lesson_indexes = (
+      SELECT array_agg(DISTINCT mapped ORDER BY mapped)
+      FROM (
+        SELECT CASE WHEN orig = 4 THEN 3 WHEN orig >= 5 THEN orig - 1 ELSE orig END AS mapped
+        FROM unnest(core_single_lesson_indexes) AS orig
+      ) t
+    ) WHERE core_single_lesson_indexes IS NOT NULL;
+
+    UPDATE registrations SET core_single_lesson_index =
+      CASE WHEN core_single_lesson_index = 4 THEN 3
+           WHEN core_single_lesson_index >= 5 THEN core_single_lesson_index - 1
+           ELSE core_single_lesson_index END
+      WHERE core_single_lesson_index IS NOT NULL;
+  END IF;
+END $$;
 
 -- The 'open' seed row has no key, so it needs its own existence guard —
 -- separate from the core/premium block above, so re-running this file
@@ -151,15 +233,21 @@ WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE type = 'open');
 -- existed in production before this column was added. core_6's link has a
 -- visual O/0 ambiguity in the original source font — kept as documented,
 -- flagged for the admin to double check against the Zoom dashboard.
+--
+-- Remapped to the post-merge 8-lesson keys: each link stays with the same
+-- *topic* it always belonged to, which after the lesson-3/4 merge above now
+-- sits one key earlier for what used to be lessons 5-9. The original lesson
+-- 4 ("לב העסקה - חלק ב'") link (EppiZmpHQCOKYr48_au_-A) is intentionally
+-- dropped here — that Zoom meeting is no longer used by any session; cancel
+-- or repurpose it directly in Zoom.
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/sE3qcdizSGChPtZFva7aWg' WHERE key = 'core_1';
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/uvh25IaQSfiTRCCWURnRGQ' WHERE key = 'core_2';
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/gPM53MZFRRaLAvYvA3Q1Kg' WHERE key = 'core_3';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/EppiZmpHQCOKYr48_au_-A' WHERE key = 'core_4';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/kT436qzIRzORIPIJw2zm8A' WHERE key = 'core_5';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/lU441LmsT8eO0dex7yrrfA' WHERE key = 'core_6';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/ErIK1OPaS7GZmtQHrb2gQw' WHERE key = 'core_7';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/_-3TtbAmQgmtTBJxZwf9OA' WHERE key = 'core_8';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/vYsiofPBTJKymO0X2zFb2A' WHERE key = 'core_9';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/kT436qzIRzORIPIJw2zm8A' WHERE key = 'core_4';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/lU441LmsT8eO0dex7yrrfA' WHERE key = 'core_5';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/ErIK1OPaS7GZmtQHrb2gQw' WHERE key = 'core_6';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/_-3TtbAmQgmtTBJxZwf9OA' WHERE key = 'core_7';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/vYsiofPBTJKymO0X2zFb2A' WHERE key = 'core_8';
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/JdBxDoxjQR-boHysGROp_A' WHERE key = 'premium_ai';
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/x3vXG_stS1CeH-Wzt_lLFg' WHERE key = 'premium_registration';
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/4b2oHZsWTfm8O-UPVVn7Bw' WHERE key = 'premium_litigation';

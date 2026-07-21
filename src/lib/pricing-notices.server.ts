@@ -13,7 +13,7 @@ export const PRICE_NOTICE_REMINDER_DEFAULT =
 
 const PACKAGE_TITLES: Record<string, string> = {
   core_single: "וובינר בודד מסדרת הליבה",
-  core_full: "הסדרה המלאה - 9 מפגשים",
+  core_full: "הסדרה המלאה - 8 מפגשים",
   premium_litigation: "סדנת ליטיגציה בנדל״ן",
   premium_registration: "סדנת רישום בית משותף",
   premium_partnership: "סדנת שיתוף במקרקעין",

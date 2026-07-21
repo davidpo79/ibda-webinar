@@ -29,7 +29,7 @@ export type RegistrationSubscription = {
 
 const PACKAGE_LABELS: Record<string, string> = {
   open: "וובינר פתוח",
-  core_full: "הסדרה המלאה · 9 מפגשים",
+  core_full: "הסדרה המלאה · 8 מפגשים",
   premium_litigation: 'סדנת ליטיגציה בנדל"ן',
   premium_registration: "סדנת רישום בית משותף",
   premium_partnership: "סדנת שיתוף במקרקעין",

@@ -106,7 +106,7 @@ function FilterSelect({
 }
 
 const PACKAGE_OPTIONS = Object.entries(PACKAGE_LABELS).map(([value, label]) => ({ value, label }));
-const LESSON_OPTIONS = Array.from({ length: 9 }, (_, i) => ({
+const LESSON_OPTIONS = Array.from({ length: 8 }, (_, i) => ({
   value: String(i + 1),
   label: `שיעור ${i + 1}`,
 }));
