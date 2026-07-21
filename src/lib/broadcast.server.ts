@@ -165,7 +165,19 @@ export function wrapBroadcastHtml(
 </body></html>`;
 }
 
-export type BroadcastAttachment = { filename: string; contentBase64: string };
+export type BroadcastAttachment = {
+  filename: string;
+  contentBase64: string;
+  contentId?: string;
+};
+
+function toResendAttachment(a: BroadcastAttachment) {
+  return {
+    filename: a.filename,
+    content: a.contentBase64,
+    ...(a.contentId ? { contentId: a.contentId } : {}),
+  };
+}
 
 export async function sendBroadcastTest(input: {
   testEmail: string;
@@ -182,7 +194,7 @@ export async function sendBroadcastTest(input: {
     replyTo: "webinar@ibda-law.com",
     subject: `[בדיקה] ${input.subject}`,
     html: wrapBroadcastHtml(input.bodyHtml, "", input.testEmail, input.ctaText, input.ctaUrl),
-    attachments: input.attachments.map((a) => ({ filename: a.filename, content: a.contentBase64 })),
+    attachments: input.attachments.map(toResendAttachment),
   });
   if (error) throw new Error(`Resend send failed: ${error.message}`);
 }
@@ -246,10 +258,7 @@ export async function sendBroadcastEmail(input: {
           replyTo: "webinar@ibda-law.com",
           subject: input.subject,
           html: wrapBroadcastHtml(input.bodyHtml, r.name, r.email, input.ctaText, input.ctaUrl),
-          attachments: input.attachments.map((a) => ({
-            filename: a.filename,
-            content: a.contentBase64,
-          })),
+          attachments: input.attachments.map(toResendAttachment),
         });
         if (error) {
           failed++;

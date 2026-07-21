@@ -515,6 +515,11 @@ const MAX_ATTACHMENTS_BASE64_LENGTH = 50 * 1024 * 1024;
 const BroadcastAttachmentSchema = z.object({
   filename: z.string().trim().min(1).max(255),
   contentBase64: z.string().min(1),
+  // Set only for images inserted into the body via the "upload from
+  // computer" toolbar button — Resend sends these as inline attachments and
+  // the body HTML references them as `cid:<contentId>` instead of listing
+  // them as a downloadable file.
+  contentId: z.string().trim().min(1).max(100).optional(),
 });
 
 const BroadcastComposeSchema = z.object({

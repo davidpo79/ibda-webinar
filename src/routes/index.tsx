@@ -955,7 +955,7 @@ function ModelSection() {
       stage: "שלב ב׳",
       tag: "סדרת הליבה",
       title: "זרימת העסקה",
-      lines: ["9 וובינרים מקצועיים", "90 דקות למפגש"],
+      lines: ["8 וובינרים מקצועיים", "90 דקות למפגש"],
       featured: true,
       href: "#stage-core",
       icon: BookOpen,

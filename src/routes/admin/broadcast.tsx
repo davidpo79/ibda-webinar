@@ -32,6 +32,7 @@ const SOURCE_OPTIONS: { value: Source; label: string }[] = [
 ];
 
 type Attachment = { filename: string; contentBase64: string; size: number };
+type InlineImage = { contentId: string; filename: string; contentBase64: string; size: number };
 
 const MAX_ATTACHMENTS_BYTES = 35 * 1024 * 1024;
 
@@ -66,6 +67,8 @@ function AdminBroadcastPage() {
   const [ctaText, setCtaText] = useState("");
   const [ctaUrl, setCtaUrl] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [inlineImages, setInlineImages] = useState<InlineImage[]>([]);
+  const inlineImageInputRef = useRef<HTMLInputElement>(null);
   const [testEmail, setTestEmail] = useState("");
 
   const [preview, setPreview] = useState<{ count: number; sample: string[] } | null>(null);
@@ -80,7 +83,9 @@ function AdminBroadcastPage() {
   } | null>(null);
 
   const packageIds = useMemo(() => Array.from(selectedPackages), [selectedPackages]);
-  const attachmentsSize = attachments.reduce((sum, a) => sum + a.size, 0);
+  const attachmentsSize =
+    attachments.reduce((sum, a) => sum + a.size, 0) +
+    inlineImages.reduce((sum, a) => sum + a.size, 0);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +142,36 @@ function AdminBroadcastPage() {
     );
   }
 
+  async function onInsertImageFile(fileList: FileList | null) {
+    const file = fileList?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("יש לבחור קובץ תמונה");
+      return;
+    }
+    if (attachmentsSize + file.size > MAX_ATTACHMENTS_BYTES) {
+      toast.error(`סך כל הקבצים המצורפים חייב להיות מתחת ל-${formatBytes(MAX_ATTACHMENTS_BYTES)}`);
+      return;
+    }
+    try {
+      const contentBase64 = await readFileAsBase64(file);
+      const contentId = `img-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setInlineImages((prev) => [
+        ...prev,
+        { contentId, filename: file.name || "image", contentBase64, size: file.size },
+      ]);
+      editorRef.current?.focus();
+      document.execCommand(
+        "insertHTML",
+        false,
+        `<div dir="rtl" style="text-align:center;margin:14px 0;"><img src="cid:${contentId}" style="display:block;margin:0 auto;width:100%;max-width:520px;height:auto;" alt="" /></div><p></p>`,
+      );
+    } catch (err) {
+      console.error("[admin/broadcast] inline image read failed", err);
+      toast.error("קריאת התמונה נכשלה");
+    }
+  }
+
   async function onAddFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
     const files = Array.from(fileList);
@@ -166,15 +201,26 @@ function AdminBroadcastPage() {
   }
 
   function currentComposeData() {
+    const bodyHtml = editorRef.current?.innerHTML ?? "";
+    // Only send inline images the editor body still actually references —
+    // if the admin deleted the image node after inserting it, its bytes
+    // shouldn't ride along in the payload.
+    const referencedInline = inlineImages.filter((img) =>
+      bodyHtml.includes(`cid:${img.contentId}`),
+    );
     return {
       subject: subject.trim(),
-      bodyHtml: editorRef.current?.innerHTML ?? "",
+      bodyHtml,
       ctaText: ctaText.trim(),
       ctaUrl: ctaUrl.trim(),
-      attachments: attachments.map((a) => ({
-        filename: a.filename,
-        contentBase64: a.contentBase64,
-      })),
+      attachments: [
+        ...attachments.map((a) => ({ filename: a.filename, contentBase64: a.contentBase64 })),
+        ...referencedInline.map((a) => ({
+          filename: a.filename,
+          contentBase64: a.contentBase64,
+          contentId: a.contentId,
+        })),
+      ],
     };
   }
 
@@ -339,6 +385,20 @@ function AdminBroadcastPage() {
               <ToolbarButton label="קישור" onClick={insertLink} />
               <ToolbarButton label="רשימה" onClick={() => exec("insertUnorderedList")} />
               <ToolbarButton label="תמונה מ-URL" onClick={insertImageByUrl} />
+              <ToolbarButton
+                label="תמונה מהמחשב"
+                onClick={() => inlineImageInputRef.current?.click()}
+              />
+              <input
+                ref={inlineImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  onInsertImageFile(e.target.files);
+                  e.target.value = "";
+                }}
+              />
             </div>
             <div
               ref={editorRef}
