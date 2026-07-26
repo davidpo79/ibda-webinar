@@ -25,6 +25,7 @@ import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
 import { buildPricingDateLabels } from "@/lib/pricing-dates";
 import { isFreeCoreLesson } from "@/lib/core-lessons";
+import { phoneSchema } from "@/lib/validators";
 import {
   saveContact,
   loadContact,
@@ -682,7 +683,7 @@ const RegSchema = z.object({
   first_name: z.string().trim().min(1, "יש להזין שם פרטי").max(100),
   last_name: z.string().trim().min(1, "יש להזין שם משפחה").max(100),
   email: z.string().trim().email("כתובת אימייל לא תקינה").max(255),
-  phone: z.string().trim().min(6, "מספר טלפון קצר מדי").max(20),
+  phone: phoneSchema,
   firm_name: z.string().trim().max(120).optional().or(z.literal("")),
   bar_license: z.string().trim().max(20).optional().or(z.literal("")),
   id_number: z.string().trim().max(20).optional().or(z.literal("")),
@@ -738,8 +739,8 @@ function RegistrationForm({
       toast.error("יש לתקן את השדות המסומנים");
       return;
     }
-    if (requiresIdNumber && (parsed.data.id_number || "").trim().length < 5) {
-      setErrors({ id_number: "מספר ת.ז / ח.פ הכרחי לצורך הפקת חשבונית" });
+    if (requiresIdNumber && !/^\d{5,9}$/.test((parsed.data.id_number || "").trim())) {
+      setErrors({ id_number: "מספר ת.ז / ח.פ לא תקין — יש להזין ספרות בלבד" });
       toast.error("יש להזין מספר ת.ז או ח.פ תקין");
       return;
     }

@@ -9,6 +9,7 @@ import yifatPhoto from "@/assets/yifat.jpg";
 import { subscribeRegistration } from "@/lib/resend.functions";
 import { createSumitPayment } from "@/lib/sumit.functions";
 import { saveContact, loadContact } from "@/lib/checkout-client";
+import { idNumberSchema, phoneSchema } from "@/lib/validators";
 
 export type PackageLandingConfig = {
   eyebrow: string;
@@ -139,10 +140,10 @@ const RegSchema = z.object({
   first_name: z.string().trim().min(1, "יש להזין שם פרטי").max(100),
   last_name: z.string().trim().min(1, "יש להזין שם משפחה").max(100),
   email: z.string().trim().email("כתובת אימייל לא תקינה").max(255),
-  phone: z.string().trim().min(6, "מספר טלפון קצר מדי").max(20),
+  phone: phoneSchema,
   firm_name: z.string().trim().max(120).optional().or(z.literal("")),
   bar_license: z.string().trim().max(20).optional().or(z.literal("")),
-  id_number: z.string().trim().min(5, "מספר ת.ז / ח.פ הכרחי לצורך הפקת חשבונית").max(20),
+  id_number: idNumberSchema,
 });
 
 function PurchaseForm({ config, priceNow }: { config: PackageLandingConfig; priceNow: number }) {
