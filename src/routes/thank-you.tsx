@@ -62,10 +62,20 @@ const CORE_SERIES: {
   free?: boolean;
 }[] = [
   {
+    t: "הסכם השכירות",
+    d: "בדיקת הצדדים להסכם וניסוח הסכם השכירות",
+    icon: Home,
+    date: "30.7 · 10:00",
+    topics: [
+      "מבדיקת השוכרים והבטוחות ועד לניסוח מותאם של סעיפי ההסכם.",
+      "סעיפי ליבה בהשכרת דירה חדשה מקבלן ומשמעויות.",
+    ],
+  },
+  {
     t: "המפה המשפטית",
     d: "נסח הטאבו כמפת סיכונים",
     icon: FileSearch,
-    date: "26.7 · 10:00",
+    date: "בקרוב!",
     topics: [
       "הקריאה הנכונה של נסח היא ההבדל בין בדיקת נאותות לבין ניחוש. 90 דקות על כל מה שמסתתר בין השורות.",
     ],
@@ -74,7 +84,7 @@ const CORE_SERIES: {
     t: "דגשים בבדיקות מקדמיות",
     d: "עסקאות נוגדות",
     icon: Scale,
-    date: "27.7 · 10:00",
+    date: "בקרוב!",
     topics: [
       "סעיף 9 לחוק המקרקעין הוא זירת הקרב של תחרות הזכויות. איך מגינים על הלקוח ואיך תוקפים רישום מתחרה.",
     ],
@@ -83,7 +93,7 @@ const CORE_SERIES: {
     t: "לב העסקה",
     d: "הסכם מכר דירה יד שנייה: סעיפי הליבה וניסוח סעיפים מגבילים",
     icon: ShieldAlert,
-    date: "28.7 · 10:00",
+    date: "בקרוב!",
     topics: [
       "מתן פתרון לניסוח סעיפים למחיקת הערות, עיקולים ומניעות רישום ומיפוי דרכי התמודדות.",
       'כלל "ייזהר המוכר" ו"ייזהר הקונה" ודרכי התמודדות.',
@@ -93,7 +103,7 @@ const CORE_SERIES: {
     t: "המשכנתא",
     d: "מימון העסקה, בטוחות ומנגנוני תשלום בעסקת מכר",
     icon: Banknote,
-    date: "3.8 · 10:00",
+    date: "בקרוב!",
     topics: [
       "התמורה בגין העסקה למול חוות הדעת השמאית והמשמעות.",
       "בניית לוח התשלומים לרבות פיקדונות מסים – מדריך מעשי.",
@@ -103,24 +113,14 @@ const CORE_SERIES: {
     t: "מעמד החתימה ורישום הזכויות",
     d: "צ'ק ליסט מעשי למעמד חתימת העיסקה",
     icon: ClipboardCheck,
-    date: "4.8 · 10:00",
+    date: "בקרוב!",
     topics: ["המסמכים הנלווים", "חשיבות סיום העיסקה ברישום"],
-  },
-  {
-    t: "הסכם השכירות",
-    d: "בדיקת הצדדים להסכם וניסוח הסכם השכירות",
-    icon: Home,
-    date: "9.8 · 10:00",
-    topics: [
-      "מבדיקת השוכרים והבטוחות ועד לניסוח מותאם של סעיפי ההסכם.",
-      "סעיפי ליבה בהשכרת דירה חדשה מקבלן ומשמעויות.",
-    ],
   },
   {
     t: "פינוי מושכר",
     d: "הליך הפינוי בהבדל מהסעד הכספי",
     icon: DoorOpen,
-    date: "11.8 · 10:00",
+    date: "בקרוב!",
     free: true,
     topics: ["סדר הדין בתביעה לפינוי מושכר", "הליך הפינוי בהבדל מהסעד הכספי"],
   },
@@ -128,7 +128,7 @@ const CORE_SERIES: {
     t: "העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים",
     d: "מה קורה במקרה של הפרה, מהי הפרה יסודית ודרכי ההתמודדות",
     icon: Gavel,
-    date: "12.8 · 10:00",
+    date: "בקרוב!",
     topics: ["אכיפת התחייבות למול ביטול ההסכם", "ההליכים המשפטיים שניתן לבצע"],
   },
 ];
@@ -273,15 +273,19 @@ function ThankYouPage() {
   };
   const coreSeriesResolved = CORE_SERIES.map((s, i) => ({
     ...s,
-    date: formatSessionDate(coreSessions[i]?.starts_at) || s.date,
+    date: coreSessions[i]?.date_tbd
+      ? "בקרוב!"
+      : formatSessionDate(coreSessions[i]?.starts_at) || s.date,
   }));
+  // 1-based, aligned with CORE_SERIES/coreSingleLessons indexing.
+  const coreLessonTbd = CORE_SERIES.map((_, i) => coreSessions[i]?.date_tbd ?? false);
   const pricingDateLabels = buildPricingDateLabels(coreSessions, premiumSessions);
 
   function currentPrice(id: string): number {
     return pricing[id]?.currentPrice ?? PRICE_LOOKUP[id] ?? 0;
   }
 
-  // Lesson 8 ("פינוי מושכר") is free even when picked under the otherwise-
+  // Lesson 7 ("פינוי מושכר") is free even when picked under the otherwise-
   // paid core_single package — don't count it toward the item count/total.
   const paidLessonCount = Array.from(coreSingleLessons).filter(
     (idx) => !isFreeCoreLesson(idx),
@@ -312,6 +316,7 @@ function ThankYouPage() {
   }
 
   function toggleLesson(idx: number) {
+    if (coreLessonTbd[idx - 1]) return;
     setCoreSingleLessons((s) => {
       const n = new Set(s);
       if (n.has(idx)) n.delete(idx);
@@ -454,29 +459,42 @@ function ThankYouPage() {
                         const idx = i + 1;
                         const lessonChecked = coreSingleLessons.has(idx);
                         const lessonFree = isFreeCoreLesson(idx);
+                        const lessonTbd = coreLessonTbd[i] ?? false;
                         return (
                           <label
                             key={idx}
                             className={cn(
-                              "flex items-center gap-2 rounded-md border px-3 py-2 text-[13px] cursor-pointer transition-colors",
-                              lessonChecked
+                              "flex items-center gap-2 rounded-md border px-3 py-2 text-[13px] transition-colors",
+                              lessonTbd
+                                ? "border-cream/10 bg-ink/10 text-muted-brown/50 cursor-not-allowed"
+                                : "cursor-pointer",
+                              !lessonTbd && lessonChecked
                                 ? "border-gold/60 bg-gold/5 text-cream"
-                                : "border-cream/10 bg-ink/20 text-muted-brown hover:border-gold/30",
+                                : !lessonTbd
+                                  ? "border-cream/10 bg-ink/20 text-muted-brown hover:border-gold/30"
+                                  : "",
                             )}
                           >
                             <input
                               type="checkbox"
                               className="accent-gold"
                               checked={lessonChecked}
+                              disabled={lessonTbd}
                               onChange={() => toggleLesson(idx)}
                             />
                             <span className="truncate flex-1 min-w-0">
                               {idx}. {s.t} · {s.date}
                             </span>
-                            {lessonFree && (
-                              <span className="shrink-0 text-[10px] font-semibold tracking-[0.15em] uppercase px-1.5 py-0.5 rounded border border-gold/60 bg-gold/10 text-gold">
-                                בחינם
+                            {lessonTbd ? (
+                              <span className="shrink-0 text-[10px] font-semibold tracking-[0.15em] uppercase px-1.5 py-0.5 rounded border border-gold/30 bg-gold/5 text-gold/70">
+                                בקרוב
                               </span>
+                            ) : (
+                              lessonFree && (
+                                <span className="shrink-0 text-[10px] font-semibold tracking-[0.15em] uppercase px-1.5 py-0.5 rounded border border-gold/60 bg-gold/10 text-gold">
+                                  בחינם
+                                </span>
+                              )
                             )}
                           </label>
                         );
@@ -540,7 +558,7 @@ function ThankYouPage() {
           )}
         </section>
 
-        <CollapsiblePanel title="9 מפגשי סדרת הליבה בפירוט">
+        <CollapsiblePanel title="8 מפגשי סדרת הליבה בפירוט">
           <ul className="space-y-3">
             {coreSeriesResolved.map((s, i) => (
               <li

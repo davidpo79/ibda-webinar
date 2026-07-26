@@ -169,10 +169,20 @@ const coreSeries: {
   free?: boolean;
 }[] = [
   {
+    t: "הסכם השכירות",
+    d: "בדיקת הצדדים להסכם וניסוח הסכם השכירות",
+    icon: Home,
+    date: "30.7 · 10:00",
+    topics: [
+      "מבדיקת השוכרים והבטוחות ועד לניסוח מותאם של סעיפי ההסכם.",
+      "סעיפי ליבה בהשכרת דירה חדשה מקבלן ומשמעויות.",
+    ],
+  },
+  {
     t: "המפה המשפטית",
     d: "נסח הטאבו כמפת סיכונים",
     icon: FileSearch,
-    date: "26.7 · 10:00",
+    date: "בקרוב!",
     topics: [
       "הקריאה הנכונה של נסח היא ההבדל בין בדיקת נאותות לבין ניחוש. 90 דקות על כל מה שמסתתר בין השורות.",
     ],
@@ -181,7 +191,7 @@ const coreSeries: {
     t: "דגשים בבדיקות מקדמיות ",
     d: "עסקאות נוגדות",
     icon: Scale,
-    date: "27.7 · 10:00",
+    date: "בקרוב!",
     topics: [
       "סעיף 9 לחוק המקרקעין הוא זירת הקרב של תחרות הזכויות. איך מגינים על הלקוח ואיך תוקפים רישום מתחרה.",
     ],
@@ -190,7 +200,7 @@ const coreSeries: {
     t: "לב העסקה",
     d: "הסכם מכר דירה יד שנייה: סעיפי הליבה וניסוח סעיפים מגבילים",
     icon: ShieldAlert,
-    date: "28.7 · 10:00",
+    date: "בקרוב!",
     topics: [
       "מתן פתרון לניסוח סעיפים למחיקת הערות, עיקולים ומניעות רישום ומיפוי דרכי התמודדות.",
       'כלל "ייזהר המוכר" ו"ייזהר הקונה" ודרכי התמודדות.',
@@ -200,7 +210,7 @@ const coreSeries: {
     t: "המשכנתא",
     d: "מימון העסקה, בטוחות ומנגנוני תשלום בעסקת מכר",
     icon: Banknote,
-    date: "3.8 · 10:00",
+    date: "בקרוב!",
     topics: [
       "התמורה בגין העסקה למול חוות הדעת השמאית והמשמעות.",
       "בניית לוח התשלומים לרבות פיקדונות מסים – מדריך מעשי.",
@@ -210,32 +220,22 @@ const coreSeries: {
     t: "מעמד החתימה ורישום הזכויות",
     d: "צ'ק ליסט מעשי למעמד חתימת העיסקה",
     icon: ClipboardCheck,
-    date: "4.8 · 10:00",
+    date: "בקרוב!",
     topics: ["המסמכים הנלווים", "חשיבות סיום העיסקה ברישום"],
-  },
-  {
-    t: "הסכם השכירות",
-    d: "בדיקת הצדדים להסכם וניסוח הסכם השכירות",
-    icon: Home,
-    date: "9.8 · 10:00",
-    topics: [
-      "מבדיקת השוכרים והבטוחות ועד לניסוח מותאם של סעיפי ההסכם.",
-      "סעיפי ליבה בהשכרת דירה חדשה מקבלן ומשמעויות.",
-    ],
   },
   {
     t: "פינוי מושכר",
     d: "הליך הפינוי בהבדל מהסעד הכספי",
     icon: DoorOpen,
-    date: "11.8 · 10:00",
+    date: "בקרוב!",
     free: true,
-    topics: ["סדר הדין בתביעה לפינוי מושכר", "הליך הפינוי בהבדל מהסעד הכספי\u00A0"],
+    topics: ["סדר הדין בתביעה לפינוי מושכר", "הליך הפינוי בהבדל מהסעד הכספי "],
   },
   {
     t: "העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים",
     d: "מה קורה במקרה של הפרה, מהי הפרה יסודית ודרכי ההתמודדות",
     icon: Gavel,
-    date: "12.8 · 10:00",
+    date: "בקרוב!",
     topics: ["אכיפת התחייבות למול ביטול ההסכם", "ההליכים המשפטיים שניתן לבצע"],
   },
 ];
@@ -253,7 +253,7 @@ const premiumWorkshops: { t: string; meta: string; d: string; date: string; topi
   {
     t: "ליטיגציה בנדל״ן - סוגיות נבחרות",
     meta: "שעתיים",
-    date: "16.8 · 10:00",
+    date: "16.9 · 10:00",
     d: "כשעסקאות משתבשות: ניהול סכסוכים, ביטול ואכיפת הסכמים.",
     topics: [
       "ההליך המשפטי: עילות ביטול (טעות, הטעיה, אי התאמה), הפרות ופיצויים מוסכמים",
@@ -265,7 +265,7 @@ const premiumWorkshops: { t: string; meta: string; d: string; date: string; topi
   {
     t: "רישום בית משותף",
     meta: "4 שעות",
-    date: "13.8 · 09:00",
+    date: "17.8 · 09:00",
     d: "ניהול ההליך השלם לרישום והסדרת זכויות בבתים משותפים.",
     topics: [
       "צו רישום: תנאי סף, הכנה, אישור ותיקון",
@@ -277,7 +277,7 @@ const premiumWorkshops: { t: string; meta: string; d: string; date: string; topi
   {
     t: "שיתוף במקרקעין",
     meta: "שעתיים",
-    date: "17.8 · 10:00",
+    date: "9.9 · 10:00",
     d: "הסדרת זכויות במקרקעין מורכבים ובלתי רשומים.",
     topics: [
       "הסכמי שיתוף: מבנה נכון, הליכי רישום וההשלכות של אי רישום",
@@ -289,7 +289,7 @@ const premiumWorkshops: { t: string; meta: string; d: string; date: string; topi
   {
     t: "העתיד כבר כאן! AI ואוטומציות בעבודת עורך הדין",
     meta: "שעתיים",
-    date: "21.7 · 10:00",
+    date: "13.8 · 10:00",
     d: "וובינר ייחודי שמכניס את עורך הדין לעולם הטכנולוגיה המשפטית.",
     topics: [
       "מבוא לבינה מלאכותית למשפטנים",
@@ -463,7 +463,9 @@ function Landing() {
   }));
   const coreSeriesResolved = coreSeries.map((s, i) => ({
     ...s,
-    date: formatSessionDate(coreSessions[i]?.starts_at) || s.date,
+    date: coreSessions[i]?.date_tbd
+      ? "בקרוב!"
+      : formatSessionDate(coreSessions[i]?.starts_at) || s.date,
   }));
   const premiumWorkshopsResolved = premiumWorkshops.map((w, i) => {
     const session = premiumSessions.find((p) => p.key === PREMIUM_WORKSHOP_IDS[i]);
@@ -482,15 +484,22 @@ function Landing() {
     });
   }, []);
 
-  const toggleLesson = useCallback((idx: number) => {
-    setCoreSingleLessons((s) => {
-      const n = new Set(s);
-      if (n.has(idx)) n.delete(idx);
-      else n.add(idx);
-      saveLessonSelection("index", n);
-      return n;
-    });
-  }, []);
+  // 1-based, aligned with coreSeries/coreSingleLessons indexing.
+  const coreLessonTbd = coreSeries.map((_, i) => coreSessions[i]?.date_tbd ?? false);
+
+  const toggleLesson = useCallback(
+    (idx: number) => {
+      if (coreLessonTbd[idx - 1]) return;
+      setCoreSingleLessons((s) => {
+        const n = new Set(s);
+        if (n.has(idx)) n.delete(idx);
+        else n.add(idx);
+        saveLessonSelection("index", n);
+        return n;
+      });
+    },
+    [coreLessonTbd],
+  );
 
   const open = useCallback((packageId?: string, coreLessonTitle?: string) => {
     if (coreLessonTitle) {
@@ -516,7 +525,7 @@ function Landing() {
 
   return (
     <RegistrationModalContext.Provider
-      value={{ open, selected, toggle, coreLesson, coreSingleLessons, toggleLesson }}
+      value={{ open, selected, toggle, coreLesson, coreSingleLessons, toggleLesson, coreLessonTbd }}
     >
       <div className="min-h-screen bg-ink text-cream font-sans">
         <AnnouncementBar dateISO={openWebinarsResolved[0].dateISO} />
@@ -590,9 +599,15 @@ type ScheduleItem = {
 // Built from the live sessions data (not hardcoded) so the "לו״ז המפגשים"
 // dialog always matches whatever dates are currently set in the admin
 // schedule editor.
+// A date_tbd session's starts_at is a placeholder — sorting by it directly
+// could interleave "coming soon" lessons among ones with a real confirmed
+// date. Pinning them to a far-future sortKey keeps the list's front section
+// strictly chronological and pushes every TBD lesson to the end instead.
+const TBD_SORT_KEY = "9999-01-01T00:00:00Z";
+
 function buildScheduleItems(
   openSession: { starts_at: string } | null,
-  coreSessions: { starts_at: string }[],
+  coreSessions: { starts_at: string; date_tbd?: boolean }[],
   premiumSessions: { key: string | null; starts_at: string }[],
 ): ScheduleItem[] {
   const items: ScheduleItem[] = [];
@@ -610,8 +625,8 @@ function buildScheduleItems(
     items.push({
       kind: "סדרת הליבה",
       title: `מפגש ${i + 1} · ${s.t}`,
-      date: formatSessionDate(session.starts_at) || s.date,
-      sortKey: session.starts_at,
+      date: session.date_tbd ? "בקרוב!" : formatSessionDate(session.starts_at) || s.date,
+      sortKey: session.date_tbd ? TBD_SORT_KEY : session.starts_at,
     });
   });
   premiumWorkshops.forEach((w, i) => {
@@ -1748,7 +1763,8 @@ function RegistrationSection({
   dateLabels: Record<string, string>;
   livePricing: LivePricing;
 }) {
-  const { selected, toggle, coreSingleLessons, toggleLesson } = useRegistrationModal();
+  const { selected, toggle, coreSingleLessons, toggleLesson, coreLessonTbd } =
+    useRegistrationModal();
   const savedContact = useRef(loadContact()).current;
   const [first_name, setFirstName] = useState(savedContact?.first_name ?? "");
   const [last_name, setLastName] = useState(savedContact?.last_name ?? "");
@@ -1780,7 +1796,7 @@ function RegistrationSection({
 
   const paidSelectedIds = Array.from(selected).filter((id) => id !== "open");
   const flatPricedIds = paidSelectedIds.filter((id) => id !== "core_single");
-  // Lesson 8 ("פינוי מושכר") is free even when picked under the otherwise-
+  // Lesson 7 ("פינוי מושכר") is free even when picked under the otherwise-
   // paid core_single package — don't count it toward the chargeable total.
   const paidLessonCount = Array.from(coreSingleLessons).filter(
     (idx) => !isFreeCoreLesson(idx),
@@ -2160,29 +2176,42 @@ function RegistrationSection({
                               const lessonIdx = idx + 1;
                               const lessonChecked = coreSingleLessons.has(lessonIdx);
                               const lessonFree = isFreeCoreLesson(lessonIdx);
+                              const lessonTbd = coreLessonTbd[idx] ?? false;
                               return (
                                 <label
                                   key={lessonIdx}
                                   className={cn(
-                                    "flex items-center gap-2 rounded-md border px-3 py-2 text-[13px] cursor-pointer transition-colors",
-                                    lessonChecked
+                                    "flex items-center gap-2 rounded-md border px-3 py-2 text-[13px] transition-colors",
+                                    lessonTbd
+                                      ? "border-cream/10 bg-ink/10 text-muted-brown/50 cursor-not-allowed"
+                                      : "cursor-pointer",
+                                    !lessonTbd && lessonChecked
                                       ? "border-gold/60 bg-gold/5 text-cream"
-                                      : "border-cream/10 bg-ink/20 text-muted-brown hover:border-gold/30",
+                                      : !lessonTbd
+                                        ? "border-cream/10 bg-ink/20 text-muted-brown hover:border-gold/30"
+                                        : "",
                                   )}
                                 >
                                   <input
                                     type="checkbox"
                                     className="accent-gold"
                                     checked={lessonChecked}
+                                    disabled={lessonTbd}
                                     onChange={() => toggleLesson(lessonIdx)}
                                   />
                                   <span className="truncate flex-1 min-w-0">
                                     {lessonIdx}. {lesson.t}
                                   </span>
-                                  {lessonFree && (
-                                    <span className="shrink-0 text-[10px] font-semibold tracking-[0.15em] uppercase px-1.5 py-0.5 rounded border border-gold/60 bg-gold/10 text-gold">
-                                      בחינם
+                                  {lessonTbd ? (
+                                    <span className="shrink-0 text-[10px] font-semibold tracking-[0.15em] uppercase px-1.5 py-0.5 rounded border border-gold/30 bg-gold/5 text-gold/70">
+                                      בקרוב
                                     </span>
+                                  ) : (
+                                    lessonFree && (
+                                      <span className="shrink-0 text-[10px] font-semibold tracking-[0.15em] uppercase px-1.5 py-0.5 rounded border border-gold/60 bg-gold/10 text-gold">
+                                        בחינם
+                                      </span>
+                                    )
                                   )}
                                 </label>
                               );

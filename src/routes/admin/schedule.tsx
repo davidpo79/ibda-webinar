@@ -3,6 +3,7 @@ import { useState } from "react";
 import {
   getAdminScheduleData,
   updateSessionDateAction,
+  updateSessionDateTbdAction,
   createOpenSessionAction,
   createSessionCohortAction,
 } from "@/lib/admin.functions";
@@ -12,6 +13,7 @@ import {
   isoToIsraelDatetimeLocal,
   israelDatetimeLocalToISOString,
 } from "@/lib/format-date";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/admin/schedule")({
   head: () => ({
@@ -77,6 +79,20 @@ function AdminSchedulePage() {
     } catch (err) {
       console.error("[admin/schedule] update failed", err);
       setDateError({ id, message: "עדכון המועד נכשל. נסו שוב." });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  async function onTbdChange(id: string, dateTbd: boolean) {
+    setSavingId(id);
+    setDateError(null);
+    try {
+      await updateSessionDateTbdAction({ data: { id, dateTbd } });
+      await router.invalidate();
+    } catch (err) {
+      console.error("[admin/schedule] TBD toggle failed", err);
+      setDateError({ id, message: "העדכון נכשל. נסו שוב." });
     } finally {
       setSavingId(null);
     }
@@ -183,6 +199,7 @@ function AdminSchedulePage() {
             savingId={savingId}
             dateError={dateError}
             onDateChange={onDateChange}
+            onTbdChange={onTbdChange}
           />
         </section>
 
@@ -238,11 +255,13 @@ function GroupedScheduleList({
   savingId,
   dateError,
   onDateChange,
+  onTbdChange,
 }: {
   groups: SessionGroup[];
   savingId: string | null;
   dateError: { id: string; message: string } | null;
   onDateChange: (id: string, value: string) => void;
+  onTbdChange?: (id: string, dateTbd: boolean) => void;
 }) {
   const router = useRouter();
 
@@ -268,7 +287,26 @@ function GroupedScheduleList({
                   error={dateError}
                   onDateChange={onDateChange}
                 />
-                <span className="text-muted-brown text-xs">{formatSessionDate(s.starts_at)}</span>
+                <span
+                  className={cn(
+                    "text-xs",
+                    s.date_tbd ? "text-gold/70 line-through" : "text-muted-brown",
+                  )}
+                >
+                  {formatSessionDate(s.starts_at)}
+                </span>
+                {onTbdChange && (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-brown cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="accent-gold"
+                      checked={s.date_tbd}
+                      disabled={savingId === s.id}
+                      onChange={(e) => onTbdChange(s.id, e.target.checked)}
+                    />
+                    בקרוב! (תאריך טרם נקבע)
+                  </label>
+                )}
               </div>
             ))}
           </div>

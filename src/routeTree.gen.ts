@@ -15,6 +15,11 @@ import { Route as AccessibilityRouteImport } from './routes/accessibility'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
+import { Route as LandingRegistrationRouteImport } from './routes/landing/registration'
+import { Route as LandingPartnershipRouteImport } from './routes/landing/partnership'
+import { Route as LandingLitigationRouteImport } from './routes/landing/litigation'
+import { Route as LandingLeaseAgreementRouteImport } from './routes/landing/lease-agreement'
+import { Route as LandingAiRouteImport } from './routes/landing/ai'
 import { Route as AdminWebhookLogRouteImport } from './routes/admin/webhook-log'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminScheduleRouteImport } from './routes/admin/schedule'
@@ -56,6 +61,31 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
   id: '/payment/success',
   path: '/payment/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LandingRegistrationRoute = LandingRegistrationRouteImport.update({
+  id: '/landing/registration',
+  path: '/landing/registration',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LandingPartnershipRoute = LandingPartnershipRouteImport.update({
+  id: '/landing/partnership',
+  path: '/landing/partnership',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LandingLitigationRoute = LandingLitigationRouteImport.update({
+  id: '/landing/litigation',
+  path: '/landing/litigation',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LandingLeaseAgreementRoute = LandingLeaseAgreementRouteImport.update({
+  id: '/landing/lease-agreement',
+  path: '/landing/lease-agreement',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LandingAiRoute = LandingAiRouteImport.update({
+  id: '/landing/ai',
+  path: '/landing/ai',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminWebhookLogRoute = AdminWebhookLogRouteImport.update({
@@ -133,6 +163,11 @@ export interface FileRoutesByFullPath {
   '/admin/schedule': typeof AdminScheduleRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/webhook-log': typeof AdminWebhookLogRoute
+  '/landing/ai': typeof LandingAiRoute
+  '/landing/lease-agreement': typeof LandingLeaseAgreementRoute
+  '/landing/litigation': typeof LandingLitigationRoute
+  '/landing/partnership': typeof LandingPartnershipRoute
+  '/landing/registration': typeof LandingRegistrationRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
   '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
@@ -153,6 +188,11 @@ export interface FileRoutesByTo {
   '/admin/schedule': typeof AdminScheduleRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/webhook-log': typeof AdminWebhookLogRoute
+  '/landing/ai': typeof LandingAiRoute
+  '/landing/lease-agreement': typeof LandingLeaseAgreementRoute
+  '/landing/litigation': typeof LandingLitigationRoute
+  '/landing/partnership': typeof LandingPartnershipRoute
+  '/landing/registration': typeof LandingRegistrationRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin': typeof AdminIndexRoute
   '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
@@ -174,6 +214,11 @@ export interface FileRoutesById {
   '/admin/schedule': typeof AdminScheduleRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/webhook-log': typeof AdminWebhookLogRoute
+  '/landing/ai': typeof LandingAiRoute
+  '/landing/lease-agreement': typeof LandingLeaseAgreementRoute
+  '/landing/litigation': typeof LandingLitigationRoute
+  '/landing/partnership': typeof LandingPartnershipRoute
+  '/landing/registration': typeof LandingRegistrationRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
   '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
@@ -196,6 +241,11 @@ export interface FileRouteTypes {
     | '/admin/schedule'
     | '/admin/settings'
     | '/admin/webhook-log'
+    | '/landing/ai'
+    | '/landing/lease-agreement'
+    | '/landing/litigation'
+    | '/landing/partnership'
+    | '/landing/registration'
     | '/payment/success'
     | '/admin/'
     | '/api/admin/verify-transaction'
@@ -216,6 +266,11 @@ export interface FileRouteTypes {
     | '/admin/schedule'
     | '/admin/settings'
     | '/admin/webhook-log'
+    | '/landing/ai'
+    | '/landing/lease-agreement'
+    | '/landing/litigation'
+    | '/landing/partnership'
+    | '/landing/registration'
     | '/payment/success'
     | '/admin'
     | '/api/admin/verify-transaction'
@@ -236,6 +291,11 @@ export interface FileRouteTypes {
     | '/admin/schedule'
     | '/admin/settings'
     | '/admin/webhook-log'
+    | '/landing/ai'
+    | '/landing/lease-agreement'
+    | '/landing/litigation'
+    | '/landing/partnership'
+    | '/landing/registration'
     | '/payment/success'
     | '/admin/'
     | '/api/admin/verify-transaction'
@@ -257,6 +317,11 @@ export interface RootRouteChildren {
   AdminScheduleRoute: typeof AdminScheduleRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminWebhookLogRoute: typeof AdminWebhookLogRoute
+  LandingAiRoute: typeof LandingAiRoute
+  LandingLeaseAgreementRoute: typeof LandingLeaseAgreementRoute
+  LandingLitigationRoute: typeof LandingLitigationRoute
+  LandingPartnershipRoute: typeof LandingPartnershipRoute
+  LandingRegistrationRoute: typeof LandingRegistrationRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiAdminVerifyTransactionRoute: typeof ApiAdminVerifyTransactionRoute
@@ -307,6 +372,41 @@ declare module '@tanstack/react-router' {
       path: '/payment/success'
       fullPath: '/payment/success'
       preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/landing/registration': {
+      id: '/landing/registration'
+      path: '/landing/registration'
+      fullPath: '/landing/registration'
+      preLoaderRoute: typeof LandingRegistrationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/landing/partnership': {
+      id: '/landing/partnership'
+      path: '/landing/partnership'
+      fullPath: '/landing/partnership'
+      preLoaderRoute: typeof LandingPartnershipRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/landing/litigation': {
+      id: '/landing/litigation'
+      path: '/landing/litigation'
+      fullPath: '/landing/litigation'
+      preLoaderRoute: typeof LandingLitigationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/landing/lease-agreement': {
+      id: '/landing/lease-agreement'
+      path: '/landing/lease-agreement'
+      fullPath: '/landing/lease-agreement'
+      preLoaderRoute: typeof LandingLeaseAgreementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/landing/ai': {
+      id: '/landing/ai'
+      path: '/landing/ai'
+      fullPath: '/landing/ai'
+      preLoaderRoute: typeof LandingAiRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/webhook-log': {
@@ -409,6 +509,11 @@ const rootRouteChildren: RootRouteChildren = {
   AdminScheduleRoute: AdminScheduleRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminWebhookLogRoute: AdminWebhookLogRoute,
+  LandingAiRoute: LandingAiRoute,
+  LandingLeaseAgreementRoute: LandingLeaseAgreementRoute,
+  LandingLitigationRoute: LandingLitigationRoute,
+  LandingPartnershipRoute: LandingPartnershipRoute,
+  LandingRegistrationRoute: LandingRegistrationRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiAdminVerifyTransactionRoute: ApiAdminVerifyTransactionRoute,

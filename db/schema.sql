@@ -19,6 +19,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- re-run (IF NOT EXISTS guards it).
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS zoom_url text;
 
+-- true = the public site shows "בקרוב!" instead of a date/time for this
+-- session, and core_single purchases can't select it (see
+-- src/lib/schedule.server.ts / src/routes/index.tsx). Used for core lessons
+-- whose real date hasn't been scheduled yet — starts_at still holds a
+-- placeholder value (never displayed while this is true) since the column
+-- itself is NOT NULL.
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS date_tbd boolean NOT NULL DEFAULT false;
+
 -- 'core'/'premium' sessions used to be fixed single slots (one row per key),
 -- but the admin can now schedule a new future cohort for any lesson or
 -- workshop without losing the old one (mirrors how 'open' cohorts already
@@ -118,22 +126,27 @@ CREATE UNIQUE INDEX IF NOT EXISTS registration_reminders_unique
 -- deploy — only the source of the dates moves into the database. Guarded by
 -- key existence (not a unique constraint, now that a key can have several
 -- cohort rows) so this never re-seeds a key the admin has already touched.
-INSERT INTO sessions (type, key, title, starts_at, sort_order)
-SELECT v.type, v.key, v.title, v.starts_at::timestamptz, v.sort_order
+-- Core order below reflects the 26.7.26 reschedule: "הסכם השכירות" (the next
+-- confirmed session) leads the series; the rest keep their previous relative
+-- order shifted one slot later. Only lesson 1 has a real confirmed date —
+-- the other 7 are seeded with a placeholder starts_at and date_tbd=true
+-- (below), since a real date isn't set yet for them.
+INSERT INTO sessions (type, key, title, starts_at, sort_order, date_tbd)
+SELECT v.type, v.key, v.title, v.starts_at::timestamptz, v.sort_order, v.date_tbd
 FROM (VALUES
-  ('core', 'core_1', 'המפה המשפטית', '2026-07-26T10:00:00+03:00', 1),
-  ('core', 'core_2', 'דגשים בבדיקות מקדמיות', '2026-07-27T10:00:00+03:00', 2),
-  ('core', 'core_3', 'לב העסקה', '2026-07-28T10:00:00+03:00', 3),
-  ('core', 'core_4', 'המשכנתא', '2026-08-03T10:00:00+03:00', 4),
-  ('core', 'core_5', 'מעמד החתימה ורישום הזכויות', '2026-08-04T10:00:00+03:00', 5),
-  ('core', 'core_6', 'הסכם השכירות', '2026-08-09T10:00:00+03:00', 6),
-  ('core', 'core_7', 'פינוי מושכר', '2026-08-11T10:00:00+03:00', 7),
-  ('core', 'core_8', 'העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים', '2026-08-12T10:00:00+03:00', 8),
-  ('premium', 'premium_ai', 'AI ואוטומציות בעבודת עורך הדין', '2026-07-21T10:00:00+03:00', 1),
-  ('premium', 'premium_registration', 'רישום בית משותף', '2026-08-13T09:00:00+03:00', 2),
-  ('premium', 'premium_litigation', 'ליטיגציה בנדל״ן - סוגיות נבחרות', '2026-08-16T10:00:00+03:00', 3),
-  ('premium', 'premium_partnership', 'שיתוף במקרקעין', '2026-08-17T10:00:00+03:00', 4)
-) AS v(type, key, title, starts_at, sort_order)
+  ('core', 'core_1', 'הסכם השכירות', '2026-07-30T10:00:00+03:00', 1, false),
+  ('core', 'core_2', 'המפה המשפטית', '2026-07-26T10:00:00+03:00', 2, true),
+  ('core', 'core_3', 'דגשים בבדיקות מקדמיות', '2026-07-27T10:00:00+03:00', 3, true),
+  ('core', 'core_4', 'לב העסקה', '2026-07-28T10:00:00+03:00', 4, true),
+  ('core', 'core_5', 'המשכנתא', '2026-08-03T10:00:00+03:00', 5, true),
+  ('core', 'core_6', 'מעמד החתימה ורישום הזכויות', '2026-08-04T10:00:00+03:00', 6, true),
+  ('core', 'core_7', 'פינוי מושכר', '2026-08-11T10:00:00+03:00', 7, true),
+  ('core', 'core_8', 'העסקה שהשתבשה: ביטול, אכיפה וסעדים זמניים', '2026-08-12T10:00:00+03:00', 8, true),
+  ('premium', 'premium_ai', 'AI ואוטומציות בעבודת עורך הדין', '2026-08-13T10:00:00+03:00', 1, false),
+  ('premium', 'premium_registration', 'רישום בית משותף', '2026-08-17T09:00:00+03:00', 2, false),
+  ('premium', 'premium_litigation', 'ליטיגציה בנדל״ן - סוגיות נבחרות', '2026-09-16T10:00:00+03:00', 3, false),
+  ('premium', 'premium_partnership', 'שיתוף במקרקעין', '2026-09-09T10:00:00+03:00', 4, false)
+) AS v(type, key, title, starts_at, sort_order, date_tbd)
 WHERE NOT EXISTS (SELECT 1 FROM sessions s WHERE s.key = v.key);
 
 -- One-time merge, for a production DB that already seeded the old 9-lesson
@@ -219,6 +232,87 @@ BEGIN
   END IF;
 END $$;
 
+-- 26.7.26 reschedule, for a production DB that already has the post-merge
+-- 8-lesson layout: "הסכם השכירות" (previously core_6) becomes core_1; the
+-- lessons that used to be core_1..core_5 shift one slot later (core_2..
+-- core_6); core_7/core_8 keep their position. Every affected row is captured
+-- by id first and updated by id (never by key) — this is a 6-way cyclic
+-- permutation (1→2→3→4→5→6→1), so any key-based UPDATE order would
+-- eventually re-match a row already moved earlier in the same statement
+-- batch, since key isn't a unique column. Only lesson 1 gets a real
+-- confirmed date; every other core lesson (2-8) is flagged date_tbd so the
+-- site shows "בקרוב!" and blocks core_single purchases of it until the admin
+-- sets a real date. Guarded on core_6 still holding its pre-reorder title,
+-- so this only ever runs once.
+DO $$
+DECLARE
+  v_c1 uuid;
+  v_c2 uuid;
+  v_c3 uuid;
+  v_c4 uuid;
+  v_c5 uuid;
+  v_c6 uuid;
+BEGIN
+  IF EXISTS (SELECT 1 FROM sessions WHERE key = 'core_6' AND title = 'הסכם השכירות') THEN
+    SELECT id INTO v_c1 FROM sessions WHERE key = 'core_1' LIMIT 1;
+    SELECT id INTO v_c2 FROM sessions WHERE key = 'core_2' LIMIT 1;
+    SELECT id INTO v_c3 FROM sessions WHERE key = 'core_3' LIMIT 1;
+    SELECT id INTO v_c4 FROM sessions WHERE key = 'core_4' LIMIT 1;
+    SELECT id INTO v_c5 FROM sessions WHERE key = 'core_5' LIMIT 1;
+    SELECT id INTO v_c6 FROM sessions WHERE key = 'core_6' LIMIT 1;
+
+    UPDATE sessions SET key = 'core_1', sort_order = 1,
+      starts_at = '2026-07-30T10:00:00+03:00'::timestamptz, date_tbd = false
+      WHERE id = v_c6;
+    UPDATE sessions SET key = 'core_2', sort_order = 2, date_tbd = true WHERE id = v_c1;
+    UPDATE sessions SET key = 'core_3', sort_order = 3, date_tbd = true WHERE id = v_c2;
+    UPDATE sessions SET key = 'core_4', sort_order = 4, date_tbd = true WHERE id = v_c3;
+    UPDATE sessions SET key = 'core_5', sort_order = 5, date_tbd = true WHERE id = v_c4;
+    UPDATE sessions SET key = 'core_6', sort_order = 6, date_tbd = true WHERE id = v_c5;
+    UPDATE sessions SET date_tbd = true WHERE key IN ('core_7', 'core_8');
+
+    -- Stored lesson-index numbers get the same permutation applied, since
+    -- they're re-resolved against sessions.key at every read (see
+    -- resolvePackageSessions) — orders/registration_reminders reference
+    -- session_id directly (a stable row id) and need no change, since this
+    -- reorder relabels existing rows in place rather than deleting/
+    -- recreating them.
+    UPDATE registrations SET core_single_lesson_indexes = (
+      SELECT array_agg(DISTINCT mapped ORDER BY mapped)
+      FROM (
+        SELECT CASE orig
+          WHEN 1 THEN 2 WHEN 2 THEN 3 WHEN 3 THEN 4
+          WHEN 4 THEN 5 WHEN 5 THEN 6 WHEN 6 THEN 1
+          ELSE orig END AS mapped
+        FROM unnest(core_single_lesson_indexes) AS orig
+      ) t
+    ) WHERE core_single_lesson_indexes IS NOT NULL;
+
+    UPDATE registrations SET core_single_lesson_index =
+      CASE core_single_lesson_index
+        WHEN 1 THEN 2 WHEN 2 THEN 3 WHEN 3 THEN 4
+        WHEN 4 THEN 5 WHEN 5 THEN 6 WHEN 6 THEN 1
+        ELSE core_single_lesson_index END
+      WHERE core_single_lesson_index IS NOT NULL;
+  END IF;
+END $$;
+
+-- Premium workshop dates from the same 26.7.26 update. Guarded on
+-- premium_ai still holding its pre-update date, so an admin-edited date
+-- (via /admin/schedule, before or after this deploy) is never clobbered on
+-- a later boot.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM sessions WHERE key = 'premium_ai' AND starts_at = '2026-07-21T10:00:00+03:00'::timestamptz
+  ) THEN
+    UPDATE sessions SET starts_at = '2026-08-13T10:00:00+03:00' WHERE key = 'premium_ai';
+    UPDATE sessions SET starts_at = '2026-08-17T09:00:00+03:00' WHERE key = 'premium_registration';
+    UPDATE sessions SET starts_at = '2026-09-16T10:00:00+03:00' WHERE key = 'premium_litigation';
+    UPDATE sessions SET starts_at = '2026-09-09T10:00:00+03:00' WHERE key = 'premium_partnership';
+  END IF;
+END $$;
+
 -- The 'open' seed row has no key, so it needs its own existence guard —
 -- separate from the core/premium block above, so re-running this file
 -- doesn't insert duplicate cohorts.
@@ -234,18 +328,19 @@ WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE type = 'open');
 -- visual O/0 ambiguity in the original source font — kept as documented,
 -- flagged for the admin to double check against the Zoom dashboard.
 --
--- Remapped to the post-merge 8-lesson keys: each link stays with the same
--- *topic* it always belonged to, which after the lesson-3/4 merge above now
--- sits one key earlier for what used to be lessons 5-9. The original lesson
--- 4 ("לב העסקה - חלק ב'") link (EppiZmpHQCOKYr48_au_-A) is intentionally
--- dropped here — that Zoom meeting is no longer used by any session; cancel
--- or repurpose it directly in Zoom.
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/sE3qcdizSGChPtZFva7aWg' WHERE key = 'core_1';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/uvh25IaQSfiTRCCWURnRGQ' WHERE key = 'core_2';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/gPM53MZFRRaLAvYvA3Q1Kg' WHERE key = 'core_3';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/kT436qzIRzORIPIJw2zm8A' WHERE key = 'core_4';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/lU441LmsT8eO0dex7yrrfA' WHERE key = 'core_5';
-UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/ErIK1OPaS7GZmtQHrb2gQw' WHERE key = 'core_6';
+-- Remapped to the post-reorder 8-lesson keys (26.7.26 update): each link
+-- stays with the same *topic* it always belonged to, which after the
+-- reorder above now sits one key later for what used to be lessons 1-5, and
+-- one key earlier for what used to be "הסכם השכירות" (lesson 6, now 1).
+-- Lessons 7-8 are unmoved. The original lesson 4 ("לב העסקה - חלק ב'") link
+-- (EppiZmpHQCOKYr48_au_-A) stays intentionally dropped — that Zoom meeting
+-- was retired in the earlier 9→8 merge.
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/ErIK1OPaS7GZmtQHrb2gQw' WHERE key = 'core_1';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/sE3qcdizSGChPtZFva7aWg' WHERE key = 'core_2';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/uvh25IaQSfiTRCCWURnRGQ' WHERE key = 'core_3';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/gPM53MZFRRaLAvYvA3Q1Kg' WHERE key = 'core_4';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/kT436qzIRzORIPIJw2zm8A' WHERE key = 'core_5';
+UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/lU441LmsT8eO0dex7yrrfA' WHERE key = 'core_6';
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/_-3TtbAmQgmtTBJxZwf9OA' WHERE key = 'core_7';
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/vYsiofPBTJKymO0X2zFb2A' WHERE key = 'core_8';
 UPDATE sessions SET zoom_url = 'https://us02web.zoom.us/meeting/register/JdBxDoxjQR-boHysGROp_A' WHERE key = 'premium_ai';

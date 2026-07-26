@@ -30,6 +30,7 @@ import { markCouponUsed } from "./coupons.server";
 import {
   getAllSessions,
   updateSessionDate,
+  updateSessionDateTbd,
   createOpenSession,
   createSessionCohort,
 } from "./schedule.server";
@@ -183,6 +184,23 @@ export const updateSessionDateAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     assertAdminSession();
     await updateSessionDate(data.id, data.startsAt);
+    return { ok: true };
+  });
+
+const UpdateSessionDateTbdSchema = z.object({
+  id: z.string().min(1),
+  dateTbd: z.boolean(),
+});
+
+// Lets the admin mark a core lesson "coming soon" (no confirmed date yet) or
+// clear that flag once a real date is set — separate from
+// updateSessionDateAction since a lesson can be flagged TBD without touching
+// its placeholder starts_at value.
+export const updateSessionDateTbdAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => UpdateSessionDateTbdSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    await updateSessionDateTbd(data.id, data.dateTbd);
     return { ok: true };
   });
 

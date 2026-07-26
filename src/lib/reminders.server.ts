@@ -60,8 +60,13 @@ type DueReminderRow = {
   session_key: string | null;
   session_sort_order: number;
   session_zoom_url: string | null;
+  session_date_tbd: boolean;
 };
 
+// s.date_tbd = false excludes sessions with no confirmed date yet — their
+// starts_at is a meaningless placeholder (see db/schema.sql) that could
+// otherwise be imminent/in-the-past by coincidence, which would fire a "your
+// session is tomorrow" reminder for a lesson that isn't actually scheduled.
 async function fetchPendingReminders(): Promise<DueReminderRow[]> {
   return sql()<DueReminderRow[]>`
     SELECT
@@ -69,11 +74,11 @@ async function fetchPendingReminders(): Promise<DueReminderRow[]> {
       r.first_name, r.email,
       s.id AS session_id, s.starts_at AS session_starts_at, s.title AS session_title,
       s.type AS session_type, s.key AS session_key, s.sort_order AS session_sort_order,
-      s.zoom_url AS session_zoom_url
+      s.zoom_url AS session_zoom_url, s.date_tbd AS session_date_tbd
     FROM registration_reminders rr
     JOIN registrations r ON r.id = rr.registration_id
     JOIN sessions s ON s.id = rr.session_id
-    WHERE rr.sent_at IS NULL AND s.starts_at > now()
+    WHERE rr.sent_at IS NULL AND s.starts_at > now() AND s.date_tbd = false
   `;
 }
 
@@ -107,6 +112,7 @@ export async function runReminderSweep(): Promise<{ checked: number; sent: numbe
       starts_at: row.session_starts_at,
       sort_order: row.session_sort_order,
       zoom_url: row.session_zoom_url,
+      date_tbd: row.session_date_tbd,
     };
 
     try {

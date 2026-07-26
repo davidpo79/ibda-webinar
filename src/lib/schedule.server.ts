@@ -10,11 +10,12 @@ export type Session = {
   starts_at: string;
   sort_order: number;
   zoom_url: string | null;
+  date_tbd: boolean;
 };
 
 export async function getNextOpenSession(): Promise<Session | null> {
   const rows = await sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url, date_tbd FROM sessions
     WHERE type = 'open' AND starts_at > now()
     ORDER BY starts_at ASC
     LIMIT 1
@@ -23,7 +24,7 @@ export async function getNextOpenSession(): Promise<Session | null> {
   // Fallback: no future cohort scheduled yet — show the most recent one
   // rather than nothing, so the site never renders with a missing date.
   const fallback = await sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url, date_tbd FROM sessions
     WHERE type = 'open'
     ORDER BY starts_at DESC
     LIMIT 1
@@ -94,14 +95,14 @@ export { pickCurrent };
 
 export async function getSessionByKey(key: string): Promise<Session | null> {
   const rows = await sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions WHERE key = ${key}
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url, date_tbd FROM sessions WHERE key = ${key}
   `;
   return pickBestPerKey(rows)[0] ?? null;
 }
 
 export async function getSessionsByType(type: SessionType): Promise<Session[]> {
   const rows = await sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url, date_tbd FROM sessions
     WHERE type = ${type}
     ORDER BY sort_order ASC, starts_at ASC
   `;
@@ -110,14 +111,22 @@ export async function getSessionsByType(type: SessionType): Promise<Session[]> {
 
 export async function getAllSessions(): Promise<Session[]> {
   return sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url, date_tbd FROM sessions
     ORDER BY type ASC, sort_order ASC, starts_at ASC
   `;
 }
 
+// Setting a real date always clears date_tbd — an admin picking a specific
+// date/time is by definition no longer "coming soon".
 export async function updateSessionDate(id: string, startsAt: string): Promise<void> {
   await sql()`
-    UPDATE sessions SET starts_at = ${startsAt}, updated_at = now() WHERE id = ${id}
+    UPDATE sessions SET starts_at = ${startsAt}, date_tbd = false, updated_at = now() WHERE id = ${id}
+  `;
+}
+
+export async function updateSessionDateTbd(id: string, dateTbd: boolean): Promise<void> {
+  await sql()`
+    UPDATE sessions SET date_tbd = ${dateTbd}, updated_at = now() WHERE id = ${id}
   `;
 }
 
@@ -131,7 +140,7 @@ export async function createOpenSession(title: string, startsAt: string): Promis
   const rows = await sql()<Session[]>`
     INSERT INTO sessions (type, key, title, starts_at, sort_order, zoom_url)
     VALUES ('open', NULL, ${title}, ${startsAt}, 0, ${zoomUrl})
-    RETURNING id, type, key, title, starts_at, sort_order, zoom_url
+    RETURNING id, type, key, title, starts_at, sort_order, zoom_url, date_tbd
   `;
   return rows[0];
 }
@@ -139,9 +148,11 @@ export async function createOpenSession(title: string, startsAt: string): Promis
 // Schedules a new future cohort for an existing core lesson or premium
 // workshop, inheriting its type/title/sort_order/zoom_url from the most
 // recent existing row with that key — the admin only picks the new date.
+// date_tbd is always false for a new cohort: providing a specific date is
+// what "no longer coming soon" means, regardless of the template row's flag.
 export async function createSessionCohort(key: string, startsAt: string): Promise<Session> {
   const template = await sql()<Session[]>`
-    SELECT id, type, key, title, starts_at, sort_order, zoom_url FROM sessions
+    SELECT id, type, key, title, starts_at, sort_order, zoom_url, date_tbd FROM sessions
     WHERE key = ${key}
     ORDER BY starts_at DESC
     LIMIT 1
@@ -149,9 +160,9 @@ export async function createSessionCohort(key: string, startsAt: string): Promis
   if (!template[0]) throw new Error(`Unknown session key: ${key}`);
   const { type, title, sort_order, zoom_url } = template[0];
   const rows = await sql()<Session[]>`
-    INSERT INTO sessions (type, key, title, starts_at, sort_order, zoom_url)
-    VALUES (${type}, ${key}, ${title}, ${startsAt}, ${sort_order}, ${zoom_url})
-    RETURNING id, type, key, title, starts_at, sort_order, zoom_url
+    INSERT INTO sessions (type, key, title, starts_at, sort_order, zoom_url, date_tbd)
+    VALUES (${type}, ${key}, ${title}, ${startsAt}, ${sort_order}, ${zoom_url}, false)
+    RETURNING id, type, key, title, starts_at, sort_order, zoom_url, date_tbd
   `;
   return rows[0];
 }
