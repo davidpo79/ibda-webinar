@@ -45,6 +45,7 @@ function AiWorkshopLanding() {
         earlyPrice: p?.earlyPrice ?? 360,
         regularPrice: p?.regularPrice ?? 480,
         risen: p?.risen ?? false,
+        durationLabel: "שעתיים",
       }}
     />
   );

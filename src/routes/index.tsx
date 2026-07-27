@@ -175,8 +175,12 @@ const coreSeries: {
     icon: Home,
     date: "30.7 · 10:00",
     topics: [
-      "מבדיקת השוכרים והבטוחות ועד לניסוח מותאם של סעיפי ההסכם.",
-      "סעיפי ליבה בהשכרת דירה חדשה מקבלן ומשמעויות.",
+      "מבנה הסכם השכירות",
+      "סעיפי מפתח",
+      "בדיקת הצדדים להסכם",
+      "מנעד הבטוחות בהסכם השכירות",
+      "עריכת נספח לחידוש הסכם השכירות",
+      "עריכת נספח המחאת זכויות בין מוכר כמשכיר, שוכר, רוכש",
     ],
   },
   {
@@ -257,10 +261,10 @@ const premiumWorkshops: { t: string; meta: string; d: string; date: string; topi
     date: "16.9 · 10:00",
     d: "כשעסקאות משתבשות: ניהול סכסוכים, ביטול ואכיפת הסכמים.",
     topics: [
-      "ההליך המשפטי: עילות ביטול (טעות, הטעיה, אי התאמה), הפרות ופיצויים מוסכמים",
-      "סעדים ואכיפה: סעדים זמניים, עסקאות נוגדות ואכיפת הסכם מכר",
-      "הליכים מיוחדים: תביעות נגד קבלנים, חריגות בבית משותף ופירוק שיתוף בירושה",
-      "תרגול מעשי: כתיבת כתב תביעה, בקשה לסעד זמני וניתוח תיקים באמצעות בינה מלאכותית",
+      "אכיפה, ביטול, הפרה יסודית - ומה שביניהם",
+      "סעדים זמניים",
+      "דגשים מהפסיקה",
+      "תרגול מעשי - ניסוח דוגמת כתב תביעה ובקשה לסעד זמני",
     ],
   },
   {
@@ -269,22 +273,22 @@ const premiumWorkshops: { t: string; meta: string; d: string; date: string; topi
     date: "17.8 · 09:00",
     d: "ניהול ההליך השלם לרישום והסדרת זכויות בבתים משותפים.",
     topics: [
-      "צו רישום: תנאי סף, הכנה, אישור ותיקון",
-      "תקנון והצמדות: הסדרת רכוש משותף, מה ניתן ומה לא ניתן להצמיד",
-      "התנהלות מוסדית: תשריט מודד, עבודה מול לשכת הרישום והמפקח, והכשרת מבנים ללא היתר",
-      "תרגול מעשי: ניתוח צו רישום אמיתי, ניסוח תקנון מוסכם ל 4 יחידות והכנת בקשה לתיקון",
+      "מסמכי הבית המשותף - מבוא",
+      "ניסוח התקנון, תקנון מצוי למול תקנון מוסכם ומשמעויות",
+      "הבקשה לרישום בית משותף",
+      "תיקון הרישום",
     ],
   },
   {
     t: "שיתוף במקרקעין",
     meta: "שעתיים",
     date: "9.9 · 10:00",
-    d: "הסדרת זכויות במקרקעין מורכבים ובלתי רשומים.",
+    d: "הסדרת זכויות משותפות במקרקעין.",
     topics: [
-      "הסכמי שיתוף: מבנה נכון, הליכי רישום וההשלכות של אי רישום",
-      "זכויות מורכבות: פרצלציה, קרקעות מנהל לא מוסדרות וזכויות חכירה",
-      "התיישנות: ביסוס זכויות מכוח שימוש והסדרתן",
-      "תרגול מעשי: ניסוח הסכם שיתוף מלא וכתיבת חוות דעת משפטית ללקוח",
+      "בין בית משותף להסכם שיתוף",
+      "ניסוח הסכם השיתוף",
+      "דיווח למיסוי - איך ומתי",
+      "פירוק השיתוף - דגשים",
     ],
   },
   {
@@ -360,7 +364,7 @@ const pricing: {
   },
   {
     id: "premium_ai",
-    t: "AI ואוטומציות בעבודת עורך הדין",
+    t: "העתיד כבר כאן! AI ואוטומציות בעבודת עורך הדין",
     price: "₪ 480",
     early: "₪ 360",
     duration: "שעתיים",
@@ -474,6 +478,7 @@ function Landing() {
   });
   const pricingDateLabels = buildPricingDateLabels(coreSessions, premiumSessions);
   const scheduleItemsResolved = buildScheduleItems(openSession, coreSessions, premiumSessions);
+  const nextHighlight = resolveNextHighlightSession(openSession, coreSessions, premiumSessions);
 
   const toggle = useCallback((id: string) => {
     setSelected((s) => {
@@ -529,7 +534,7 @@ function Landing() {
       value={{ open, selected, toggle, coreLesson, coreSingleLessons, toggleLesson, coreLessonTbd }}
     >
       <div className="min-h-screen bg-ink text-cream font-sans">
-        <AnnouncementBar dateISO={openWebinarsResolved[0].dateISO} />
+        <AnnouncementBar target={nextHighlight} />
         <TopBar scheduleItems={scheduleItemsResolved} />
         <Hero />
         <ModelSection />
@@ -640,6 +645,46 @@ function buildScheduleItems(
     });
   });
   return items.sort((a, b) => new Date(a.sortKey).getTime() - new Date(b.sortKey).getTime());
+}
+
+export type HighlightSession = {
+  title: string;
+  dateISO: string;
+  kind: "open" | "core" | "premium";
+};
+
+// The countdown banner always tracks whichever real session is genuinely
+// coming up next — across the open webinar, core lessons (skipping any
+// still flagged "coming soon", since their date is a placeholder), and
+// premium workshops — rather than being pinned to the open webinar
+// specifically, which goes stale the moment that cohort's date passes.
+// Falls back to the open webinar (even if already past, letting
+// AnnouncementBar's own expired-state handling take over) only in the
+// unlikely case nothing at all is upcoming.
+function resolveNextHighlightSession(
+  openSession: { starts_at: string } | null,
+  coreSessions: { title: string; starts_at: string; date_tbd?: boolean }[],
+  premiumSessions: { title: string; starts_at: string }[],
+): HighlightSession | null {
+  const now = Date.now();
+  const candidates: HighlightSession[] = [];
+  if (openSession) {
+    candidates.push({ title: openWebinars[0].title, dateISO: openSession.starts_at, kind: "open" });
+  }
+  for (const s of coreSessions) {
+    if (s.date_tbd) continue;
+    candidates.push({ title: s.title, dateISO: s.starts_at, kind: "core" });
+  }
+  for (const s of premiumSessions) {
+    candidates.push({ title: s.title, dateISO: s.starts_at, kind: "premium" });
+  }
+  const upcoming = candidates
+    .filter((c) => new Date(c.dateISO).getTime() > now)
+    .sort((a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime());
+  if (upcoming[0]) return upcoming[0];
+  return openSession
+    ? { title: openWebinars[0].title, dateISO: openSession.starts_at, kind: "open" }
+    : null;
 }
 
 function ScheduleDialog({
@@ -761,10 +806,11 @@ function ScheduleButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function AnnouncementBar({ dateISO }: { dateISO: string }) {
-  const target = new Date(dateISO);
+function AnnouncementBar({ target }: { target: HighlightSession | null }) {
+  const targetTime = target ? new Date(target.dateISO) : null;
   const compute = () => {
-    const diff = target.getTime() - Date.now();
+    if (!targetTime) return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
+    const diff = targetTime.getTime() - Date.now();
     if (diff <= 0) return { expired: true, days: 0, hours: 0, minutes: 0, seconds: 0 };
     return {
       expired: false,
@@ -783,7 +829,18 @@ function AnnouncementBar({ dateISO }: { dateISO: string }) {
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [target?.dateISO]);
+
+  if (!target) return null;
+
+  const countingCopy =
+    target.kind === "open"
+      ? "הירשמו עכשיו! הוובינר הפתוח יוצא לדרך בעוד:"
+      : `המפגש הקרוב, ${target.title}, מתחיל בעוד:`;
+  const expiredCopy =
+    target.kind === "open"
+      ? "הוובינר החל! נתראה במפגש הבא"
+      : `${target.title} החל! נתראה במפגש הבא`;
 
   if (!hydrated) {
     return (
@@ -795,9 +852,7 @@ function AnnouncementBar({ dateISO }: { dateISO: string }) {
     return (
       <div className="bg-gold/10 border-b border-gold/30 py-3 px-4">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-3">
-          <p className="text-sm sm:text-base text-cream font-medium text-center">
-            הוובינר החל! נתראה במפגש הבא
-          </p>
+          <p className="text-sm sm:text-base text-cream font-medium text-center">{expiredCopy}</p>
         </div>
       </div>
     );
@@ -806,9 +861,7 @@ function AnnouncementBar({ dateISO }: { dateISO: string }) {
   return (
     <div className="bg-sand/60 backdrop-blur-xl border-b border-gold/20 py-3 px-4">
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
-        <p className="text-sm sm:text-base text-cream font-medium text-center">
-          הירשמו עכשיו! הוובינר הפתוח יוצא לדרך בעוד:
-        </p>
+        <p className="text-sm sm:text-base text-cream font-medium text-center">{countingCopy}</p>
         <div className="flex items-center gap-1 sm:gap-2" dir="ltr">
           <TimeUnit value={state.days} label="ימים" />
           <span className="text-cream/40 text-xl sm:text-3xl font-light leading-none">:</span>

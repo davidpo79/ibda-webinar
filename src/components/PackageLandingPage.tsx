@@ -21,6 +21,7 @@ export type PackageLandingConfig = {
   earlyPrice: number;
   regularPrice: number;
   risen: boolean;
+  durationLabel: string;
 };
 
 export function PackageLandingPage({
@@ -59,6 +60,8 @@ export function PackageLandingPage({
             <div className="inline-flex items-center gap-2 text-sm font-semibold text-cream bg-gold/10 border border-gold/40 px-4 py-2 rounded-md">
               <Calendar size={16} className="text-gold" />
               <span>{dateLabel}</span>
+              <span className="text-gold/50">·</span>
+              <span>{config.durationLabel}</span>
             </div>
             <div className="inline-flex items-center gap-2 text-sm font-semibold text-gold bg-gold/10 border border-gold/40 px-4 py-2 rounded-md">
               {!config.risen && (
@@ -75,13 +78,13 @@ export function PackageLandingPage({
         <section className="mb-12">
           <div className="bg-sand/70 backdrop-blur-2xl border border-cream/10 rounded-lg p-6 md:p-8">
             <h2 className="font-serif text-xl text-gold mb-4">מה נלמד במפגש</h2>
-            <ul className="space-y-3">
+            <ul className="space-y-4">
               {config.topics.map((topic, i) => (
                 <li
                   key={i}
-                  className="flex items-start gap-3 text-[15px] text-muted-brown leading-[1.7]"
+                  className="flex items-start gap-3 text-[18px] text-muted-brown leading-[1.75]"
                 >
-                  <span className="mt-2.5 w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
+                  <span className="mt-3 w-1.5 h-1.5 rounded-full bg-gold shrink-0" />
                   <span>{topic}</span>
                 </li>
               ))}
@@ -89,8 +92,8 @@ export function PackageLandingPage({
           </div>
         </section>
 
-        <section className="mb-8 flex items-center gap-4 justify-center">
-          <div className="relative w-24 h-28 shrink-0">
+        <section className="mb-8 flex items-center gap-6 justify-center">
+          <div className="relative w-36 h-44 shrink-0">
             <div className="absolute inset-0 bg-sand rounded-sm ring-1 ring-gold/20" />
             <img
               src={yifatPhoto}
@@ -102,8 +105,8 @@ export function PackageLandingPage({
             <div className="text-xs tracking-[0.2em] uppercase text-gold ltr-inline">
               Instructor
             </div>
-            <div className="font-serif text-lg text-cream">עו״ד יפעת בן דוד עמית</div>
-            <div className="text-sm text-muted-brown">מייסדת משרד IBDA</div>
+            <div className="font-serif text-2xl text-cream">עו״ד יפעת בן דוד עמית</div>
+            <div className="text-base text-muted-brown">מייסדת משרד IBDA</div>
           </div>
         </section>
 
@@ -117,6 +120,11 @@ export function PackageLandingPage({
             שאלות? webinar@ibda-law.com
           </a>
           <div className="mt-4">
+            <Link to="/" className="text-base font-semibold text-gold hover:underline">
+              רוצים ללמוד מאיתנו עוד? 😊
+            </Link>
+          </div>
+          <div className="mt-3">
             <Link to="/thank-you" className="text-sm text-gold hover:underline">
               לצפייה בכל התוכניות ובתמחור המלא
             </Link>
