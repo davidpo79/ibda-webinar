@@ -10,6 +10,9 @@ import { subscribeRegistration } from "@/lib/resend.functions";
 import { createSumitPayment } from "@/lib/sumit.functions";
 import { saveContact, loadContact } from "@/lib/checkout-client";
 import { idNumberSchema, phoneSchema } from "@/lib/validators";
+import { VideoEmbed } from "@/components/VideoEmbed";
+
+const RECORDING_VIDEO_ID = "QY_Mz_m4vhA";
 
 export type PackageLandingConfig = {
   eyebrow: string;
@@ -73,6 +76,13 @@ export function PackageLandingPage({
             </div>
           </div>
           <p className="mt-4 text-[13px] text-gold/80 font-semibold">מספר המקומות מוגבל</p>
+        </section>
+
+        <section className="mb-12">
+          <div className="bg-sand/70 backdrop-blur-2xl border border-cream/10 rounded-lg p-6 md:p-8">
+            <h2 className="font-serif text-xl text-gold mb-4">צפו בהקלטה מהמפגש הפתוח</h2>
+            <VideoEmbed videoId={RECORDING_VIDEO_ID} title="הקלטת המפגש הפתוח - IBDA" />
+          </div>
         </section>
 
         <section className="mb-12">

@@ -50,6 +50,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { VideoEmbed } from "@/components/VideoEmbed";
 import ibdaLogo from "@/assets/ibda-logo.png";
 import yifatPhoto from "@/assets/yifat.jpg";
 import { RegistrationModalContext, useRegistrationModal } from "@/lib/registration-modal-context";
@@ -537,6 +538,7 @@ function Landing() {
         <AnnouncementBar target={nextHighlight} />
         <TopBar scheduleItems={scheduleItemsResolved} />
         <Hero />
+        <RecordingSection />
         <ModelSection />
         <OpenWebinarsSection data={openWebinarsResolved} />
         <CoreSeriesSection data={coreSeriesResolved} />
@@ -1005,6 +1007,27 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
       </span>
       <span className="w-8 h-px bg-gold" />
     </div>
+  );
+}
+
+/* -------------------------- recording -------------------------- */
+
+const RECORDING_VIDEO_ID = "QY_Mz_m4vhA";
+
+function RecordingSection() {
+  return (
+    <section id="recording" className="py-10 md:py-14">
+      <div className="max-w-3xl mx-auto px-6">
+        <div className="text-center mb-8">
+          <SectionLabel>Watch</SectionLabel>
+          <h2 className="font-serif text-4xl md:text-5xl text-gold">צפו בהקלטה מהמפגש הפתוח</h2>
+          <p className="mt-5 text-muted-brown max-w-2xl mx-auto text-[17px]">
+            טעימה מהמפגש הפתוח שהתקיים, כדי שתכירו את הסגנון ואת התוכן לפני שאתם נרשמים.
+          </p>
+        </div>
+        <VideoEmbed videoId={RECORDING_VIDEO_ID} title="הקלטת המפגש הפתוח - IBDA" />
+      </div>
+    </section>
   );
 }
 
