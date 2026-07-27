@@ -131,7 +131,7 @@ function AdminSettingsPage() {
             {blockedWeekdays.has(6) && (
               <label className="block mt-4 max-w-xs">
                 <span className="text-[12px] text-muted-brown mb-1 block">
-                  שבת מסתיימת בשעה (ואז מיילים חוזרים להישלח, גם אם המפגש הבא הוא ביום ראשון) —
+                  שבת מסתיימת בשעה (ואז מיילים חוזרים להישלח, גם אם המפגש הבא הוא ביום ראשון).
                   השאירו ריק כדי לחסום את כל השבת
                 </span>
                 <input

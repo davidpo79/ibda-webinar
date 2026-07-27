@@ -206,7 +206,7 @@ const PRICING: {
     price: "₪ 360",
     early: "₪ 180",
     duration: "90 דקות",
-    note: "בחרו כמה שיעורים לרכוש — כל שיעור נחשב בנפרד.",
+    note: "בחרו כמה שיעורים לרכוש - כל שיעור נחשב בנפרד.",
     cta: "רכישת וובינר בודד",
   },
 ];
@@ -531,7 +531,7 @@ function ThankYouPage() {
               </div>
               {couponApplied && (
                 <div className="text-[13px] text-green-400">
-                  קוד {couponApplied.code} הופעל — הנחה של {couponApplied.discountPercent}%
+                  קוד {couponApplied.code} הופעל - הנחה של {couponApplied.discountPercent}%
                 </div>
               )}
               {couponError && <div className="text-[13px] text-destructive">{couponError}</div>}
@@ -740,7 +740,7 @@ function RegistrationForm({
       return;
     }
     if (requiresIdNumber && !/^\d{5,9}$/.test((parsed.data.id_number || "").trim())) {
-      setErrors({ id_number: "מספר ת.ז / ח.פ לא תקין — יש להזין ספרות בלבד" });
+      setErrors({ id_number: "מספר ת.ז / ח.פ לא תקין - יש להזין ספרות בלבד" });
       toast.error("יש להזין מספר ת.ז או ח.פ תקין");
       return;
     }

@@ -20,4 +20,4 @@ export const phoneSchema = z
 export const idNumberSchema = z
   .string()
   .trim()
-  .regex(/^\d{5,9}$/, "מספר ת.ז / ח.פ לא תקין — יש להזין ספרות בלבד");
+  .regex(/^\d{5,9}$/, "מספר ת.ז / ח.פ לא תקין - יש להזין ספרות בלבד");

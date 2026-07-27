@@ -22,7 +22,7 @@ export const Route = createFileRoute("/admin/webhook-log")({
 const OUTCOME_LABELS: Record<string, { label: string; className: string }> = {
   paid: { label: "שולם", className: "bg-green-500/15 border-green-500/40 text-green-400" },
   failed: { label: "נכשל", className: "bg-destructive/15 border-destructive/40 text-destructive" },
-  ambiguous: { label: "לא ברור — ינוסה שוב", className: "bg-gold/15 border-gold/40 text-gold" },
+  ambiguous: { label: "לא ברור - ינוסה שוב", className: "bg-gold/15 border-gold/40 text-gold" },
   transaction_reused: {
     label: "עסקה בשימוש כפול",
     className: "bg-destructive/15 border-destructive/40 text-destructive",
@@ -89,7 +89,7 @@ function AdminWebhookLogPage() {
 
       <main className="max-w-5xl mx-auto px-6 py-10 space-y-6">
         <p className="text-muted-brown text-sm leading-relaxed">
-          כל קריאת וובהוק מסאמיט שעברה את בדיקת החתימה נרשמת כאן — גם אם לא ניתן היה לפענח ממנה
+          כל קריאת וובהוק מסאמיט שעברה את בדיקת החתימה נרשמת כאן, גם אם לא ניתן היה לפענח ממנה
           הזמנה. רשומות שלא נפתרו (&quot;לא ברור&quot;) נבדקות שוב אוטומטית מול סאמיט בכל סבב
           אוטומציה (כל 10 דקות), עד תקרה של כמה ניסיונות.
         </p>
@@ -124,11 +124,11 @@ function AdminWebhookLogPage() {
                   <Fragment key={row.id}>
                     <tr className="border-t border-cream/10">
                       <td className="px-4 py-3 whitespace-nowrap text-muted-brown">
-                        {formatSessionDate(row.received_at) || "—"}
+                        {formatSessionDate(row.received_at) || "-"}
                       </td>
-                      <td className="px-4 py-3 ltr-inline">{row.transaction_id || "—"}</td>
+                      <td className="px-4 py-3 ltr-inline">{row.transaction_id || "-"}</td>
                       <td className="px-4 py-3 ltr-inline break-all">
-                        {row.order_reference || "—"}
+                        {row.order_reference || "-"}
                       </td>
                       <td className="px-4 py-3">
                         <OutcomeBadge outcome={row.outcome} />

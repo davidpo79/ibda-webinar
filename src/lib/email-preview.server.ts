@@ -31,7 +31,7 @@ export async function buildAllEmailPreviews(): Promise<EmailPreview[]> {
     if (welcome) {
       previews.push({
         key: `welcome:${pkg.id}`,
-        label: `ברוכים הבאים — ${pkg.label}`,
+        label: `ברוכים הבאים - ${pkg.label}`,
         subject: welcome.subject,
         html: welcome.html,
       });
@@ -48,7 +48,7 @@ export async function buildAllEmailPreviews(): Promise<EmailPreview[]> {
       );
       previews.push({
         key: `reminder:${pkg.id}`,
-        label: `תזכורת — ${pkg.label}`,
+        label: `תזכורת - ${pkg.label}`,
         subject: reminder.subject,
         html: reminder.html,
       });

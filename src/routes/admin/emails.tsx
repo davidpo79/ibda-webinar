@@ -229,7 +229,7 @@ function AdminEmailsPage() {
 
           <details className="glass-gold rounded-xl p-5" open>
             <summary className="cursor-pointer text-sm font-semibold text-gold">
-              תוכן משותף — מייל ברוכים הבאים (כל התוכניות)
+              תוכן משותף - מייל ברוכים הבאים (כל התוכניות)
             </summary>
             <div className="space-y-4 mt-4">
               <Field
@@ -332,7 +332,7 @@ function AdminEmailsPage() {
 
           <details className="glass-gold rounded-xl p-5">
             <summary className="cursor-pointer text-sm font-semibold text-gold">
-              תוכן משותף — מייל תזכורת (כל התוכניות)
+              תוכן משותף - מייל תזכורת (כל התוכניות)
             </summary>
             <div className="space-y-4 mt-4">
               <Field
@@ -438,56 +438,56 @@ function AdminEmailsPage() {
             </summary>
             <div className="space-y-4 mt-4">
               <p className="text-xs text-muted-brown">
-                נשלח רק כגיבוי, כשלא נמצאה הרשמה תואמת לחיוב — ברוב המקרים נשלח במקום זאת מייל
-                ברוכים הבאים הספציפי לתוכנית שנרכשה.
+                נשלח רק כגיבוי, כשלא נמצאה הרשמה תואמת לחיוב. ברוב המקרים נשלח במקום זאת מייל ברוכים
+                הבאים הספציפי לתוכנית שנרכשה.
               </p>
               <Field
                 fieldKey="payment_status.paid.title"
-                label="כותרת — תשלום הצליח"
+                label="כותרת - תשלום הצליח"
                 value={values["payment_status.paid.title"] ?? ""}
                 dirty={dirtyKeys.includes("payment_status.paid.title")}
                 saving={savingKeys.has("payment_status.paid.title")}
                 saved={savedKeys.has("payment_status.paid.title")}
                 error={errorByKey["payment_status.paid.title"]}
                 onChange={(v) => setField("payment_status.paid.title", v)}
-                onSave={() => saveField("payment_status.paid.title", "כותרת — תשלום הצליח")}
+                onSave={() => saveField("payment_status.paid.title", "כותרת - תשלום הצליח")}
                 onPreview={() => setPreviewKey("payment_status_paid")}
               />
               <Field
                 fieldKey="payment_status.paid.body"
-                label="גוף — תשלום הצליח"
+                label="גוף - תשלום הצליח"
                 value={values["payment_status.paid.body"] ?? ""}
                 dirty={dirtyKeys.includes("payment_status.paid.body")}
                 saving={savingKeys.has("payment_status.paid.body")}
                 saved={savedKeys.has("payment_status.paid.body")}
                 error={errorByKey["payment_status.paid.body"]}
                 onChange={(v) => setField("payment_status.paid.body", v)}
-                onSave={() => saveField("payment_status.paid.body", "גוף — תשלום הצליח")}
+                onSave={() => saveField("payment_status.paid.body", "גוף - תשלום הצליח")}
                 onPreview={() => setPreviewKey("payment_status_paid")}
                 multiline
               />
               <Field
                 fieldKey="payment_status.failed.title"
-                label="כותרת — תשלום נכשל"
+                label="כותרת - תשלום נכשל"
                 value={values["payment_status.failed.title"] ?? ""}
                 dirty={dirtyKeys.includes("payment_status.failed.title")}
                 saving={savingKeys.has("payment_status.failed.title")}
                 saved={savedKeys.has("payment_status.failed.title")}
                 error={errorByKey["payment_status.failed.title"]}
                 onChange={(v) => setField("payment_status.failed.title", v)}
-                onSave={() => saveField("payment_status.failed.title", "כותרת — תשלום נכשל")}
+                onSave={() => saveField("payment_status.failed.title", "כותרת - תשלום נכשל")}
                 onPreview={() => setPreviewKey("payment_status_failed")}
               />
               <Field
                 fieldKey="payment_status.failed.body"
-                label="גוף — תשלום נכשל"
+                label="גוף - תשלום נכשל"
                 value={values["payment_status.failed.body"] ?? ""}
                 dirty={dirtyKeys.includes("payment_status.failed.body")}
                 saving={savingKeys.has("payment_status.failed.body")}
                 saved={savedKeys.has("payment_status.failed.body")}
                 error={errorByKey["payment_status.failed.body"]}
                 onChange={(v) => setField("payment_status.failed.body", v)}
-                onSave={() => saveField("payment_status.failed.body", "גוף — תשלום נכשל")}
+                onSave={() => saveField("payment_status.failed.body", "גוף - תשלום נכשל")}
                 onPreview={() => setPreviewKey("payment_status_failed")}
                 multiline
               />

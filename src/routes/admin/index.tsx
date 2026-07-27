@@ -42,7 +42,7 @@ const PACKAGE_LABELS: Record<string, string> = {
 };
 
 function packagesLabel(ids: string[]): string {
-  return ids.map((id) => PACKAGE_LABELS[id] || id).join(", ") || "—";
+  return ids.map((id) => PACKAGE_LABELS[id] || id).join(", ") || "-";
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -176,10 +176,10 @@ function AdminDashboard() {
     try {
       const result = await verifyOrderPaymentAction({ data: { orderReference, transactionId } });
       if (result.outcome === "paid") {
-        toast.success("התשלום אומת מול הסליקה — ההזמנה סומנה כשולם והמייל נשלח ללקוח");
+        toast.success("התשלום אומת מול הסליקה - ההזמנה סומנה כשולם והמייל נשלח ללקוח");
         await router.invalidate();
       } else if (result.outcome === "failed") {
-        toast.error("מול הסליקה, התשלום הזה לא אושר — ההזמנה סומנה כנכשלה");
+        toast.error("מול הסליקה, התשלום הזה לא אושר - ההזמנה סומנה כנכשלה");
         await router.invalidate();
       } else if (result.outcome === "not_found") {
         toast.error("ההזמנה לא נמצאה");
@@ -204,7 +204,7 @@ function AdminDashboard() {
   async function onForceMarkPaid(orderReference: string) {
     if (
       !window.confirm(
-        'לאשר ידנית שההזמנה שולמה?\n\nהפעולה תסמן את ההזמנה כ"שולם" ותשלח ללקוח את מייל הוובינר — ללא בדיקה מול חברת הסליקה. יש להשתמש בזה רק אם וידאתם בעצמכם שהתשלום התקבל בפועל.',
+        'לאשר ידנית שההזמנה שולמה?\n\nהפעולה תסמן את ההזמנה כ"שולם" ותשלח ללקוח את מייל הוובינר, ללא בדיקה מול חברת הסליקה. יש להשתמש בזה רק אם וידאתם בעצמכם שהתשלום התקבל בפועל.',
       )
     ) {
       return;
@@ -735,10 +735,10 @@ function OrderGroupsTable({
                     <td className="px-4 py-3 text-muted-brown">
                       <span className="ltr-inline break-all">{group.order_reference}</span>
                     </td>
-                    <td className="px-4 py-3 font-medium break-words">{head.buyer_name || "—"}</td>
+                    <td className="px-4 py-3 font-medium break-words">{head.buyer_name || "-"}</td>
                     <td className="px-4 py-3 text-muted-brown">
                       <span className="ltr-inline whitespace-nowrap">
-                        {head.buyer_phone || "—"}
+                        {head.buyer_phone || "-"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted-brown">
@@ -748,16 +748,16 @@ function OrderGroupsTable({
                       {packagesLabel(group.items.map((item) => item.package_id))}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      {totalAmount ? `₪${totalAmount}` : "—"}
+                      {totalAmount ? `₪${totalAmount}` : "-"}
                     </td>
                     <td className="px-4 py-3">
                       <OrderStatusBadge status={head.status} />
                     </td>
                     <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
-                      {isMulti ? "—" : formatSessionDate(head.session_starts_at) || "—"}
+                      {isMulti ? "-" : formatSessionDate(head.session_starts_at) || "-"}
                     </td>
                     <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
-                      {formatSessionDate(head.created_at) || "—"}
+                      {formatSessionDate(head.created_at) || "-"}
                     </td>
                     {showVerify && (
                       <td className="px-4 py-3">
@@ -804,13 +804,13 @@ function OrderGroupsTable({
                           {PACKAGE_LABELS[item.package_id] || item.package_id}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-muted-brown">
-                          {item.amount ? `₪${item.amount}` : "—"}
+                          {item.amount ? `₪${item.amount}` : "-"}
                         </td>
                         <td className="px-4 py-3">
                           <OrderStatusBadge status={item.status} />
                         </td>
                         <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
-                          {formatSessionDate(item.session_starts_at) || "—"}
+                          {formatSessionDate(item.session_starts_at) || "-"}
                         </td>
                         <td />
                         {showVerify && <td />}
@@ -878,24 +878,24 @@ function OrderCard({
           <div className="font-medium text-cream break-words">
             {PACKAGE_LABELS[o.package_id] || o.package_id}
           </div>
-          <div className="text-muted-brown text-sm break-words mt-1">{o.buyer_name || "—"}</div>
+          <div className="text-muted-brown text-sm break-words mt-1">{o.buyer_name || "-"}</div>
           <div className="text-muted-brown text-sm mt-0.5">
             <span className="ltr-inline break-all">{o.email}</span>
           </div>
-          <div className="text-muted-brown text-sm ltr-inline mt-0.5">{o.buyer_phone || "—"}</div>
+          <div className="text-muted-brown text-sm ltr-inline mt-0.5">{o.buyer_phone || "-"}</div>
         </div>
         <div className="shrink-0">
           <OrderStatusBadge status={o.status} />
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-brown">
-        <span className="whitespace-nowrap">{o.amount ? `₪${o.amount}` : "—"}</span>
-        <span className="whitespace-nowrap">{formatSessionDate(o.session_starts_at) || "—"}</span>
+        <span className="whitespace-nowrap">{o.amount ? `₪${o.amount}` : "-"}</span>
+        <span className="whitespace-nowrap">{formatSessionDate(o.session_starts_at) || "-"}</span>
         <span className="ltr-inline break-all">{o.order_reference}</span>
       </div>
       <div className="mt-1 text-xs text-muted-brown">
         בוצע בתאריך:{" "}
-        <span className="whitespace-nowrap">{formatSessionDate(o.created_at) || "—"}</span>
+        <span className="whitespace-nowrap">{formatSessionDate(o.created_at) || "-"}</span>
       </div>
       {onVerify && (
         <div className="mt-3 space-y-2">
@@ -1050,11 +1050,11 @@ function LeadDetailPanel({
         </div>
         <div>
           <dt className="text-muted-brown">שם משרד/חברה</dt>
-          <dd>{r.firm_name || "—"}</dd>
+          <dd>{r.firm_name || "-"}</dd>
         </div>
         <div>
           <dt className="text-muted-brown">מספר רישיון עו״ד</dt>
-          <dd className="ltr-inline">{r.bar_license || "—"}</dd>
+          <dd className="ltr-inline">{r.bar_license || "-"}</dd>
         </div>
         <div>
           <dt className="text-muted-brown">מסלולים</dt>
@@ -1062,11 +1062,11 @@ function LeadDetailPanel({
         </div>
         <div>
           <dt className="text-muted-brown">מפגש</dt>
-          <dd>{r.session_title || "—"}</dd>
+          <dd>{r.session_title || "-"}</dd>
         </div>
         <div>
           <dt className="text-muted-brown">מועד המפגש</dt>
-          <dd>{formatSessionDate(r.session_starts_at) || "—"}</dd>
+          <dd>{formatSessionDate(r.session_starts_at) || "-"}</dd>
         </div>
       </dl>
       <div className="flex items-center gap-4">

@@ -352,7 +352,7 @@ function AdminBroadcastPage() {
               : preview
                 ? `📬 ${preview.count} נמענים${
                     preview.sample.length
-                      ? ` — לדוגמה: ${preview.sample.slice(0, 3).join(", ")}`
+                      ? ` - לדוגמה: ${preview.sample.slice(0, 3).join(", ")}`
                       : ""
                   }`
                 : "לא ניתן לטעון ספירת נמענים"}
@@ -376,7 +376,7 @@ function AdminBroadcastPage() {
 
           <div>
             <span className="text-[12px] text-muted-brown mb-1 block">
-              גוף המייל — אפשר להשתמש ב-[שם] כדי להטמיע את שם הנמען אוטומטית
+              גוף המייל - אפשר להשתמש ב-[שם] כדי להטמיע את שם הנמען אוטומטית
             </span>
             <div className="flex flex-wrap gap-1 mb-2 border border-cream/15 rounded-t-md bg-ink/40 p-2">
               <ToolbarButton label="B" onClick={() => exec("bold")} />

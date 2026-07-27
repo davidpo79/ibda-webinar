@@ -54,7 +54,7 @@ function AdminCouponsPage() {
       await router.invalidate();
     } catch (err) {
       console.error("[admin/coupons] create failed", err);
-      setError("יצירת הקופון נכשלה — ייתכן שהקוד כבר קיים");
+      setError("יצירת הקופון נכשלה - ייתכן שהקוד כבר קיים");
     } finally {
       setCreating(false);
     }
@@ -80,7 +80,7 @@ function AdminCouponsPage() {
       await router.invalidate();
     } catch (err) {
       console.error("[admin/coupons] send personal coupon failed", err);
-      setPersonalError("שליחת הקוד נכשלה — ודאו שכתובת המייל תקינה");
+      setPersonalError("שליחת הקוד נכשלה - ודאו שכתובת המייל תקינה");
     } finally {
       setSendingPersonal(false);
     }
@@ -150,7 +150,7 @@ function AdminCouponsPage() {
             שליחת קוד אישי ללקוח שאינו ברשימת הלידים
           </h2>
           <p className="text-muted-brown text-sm mb-4">
-            למקרה שמישהו ביקש הנחה (למשל בטלפון או במייל) לפני שנרשם באתר — עדיין לא מופיע בטבלת
+            למקרה שמישהו ביקש הנחה (למשל בטלפון או במייל) לפני שנרשם באתר, ועדיין לא מופיע בטבלת
             הלידים במסך הראשי, כך שאי אפשר ליצור לו קוד משם. כאן ניתן לשלוח קוד אישי חד-פעמי ישירות
             לכתובת מייל, בלי תלות ברישום קודם.
           </p>
@@ -217,7 +217,7 @@ function AdminCouponsPage() {
           <h2 className="font-serif text-lg text-gold mb-4">קודים אישיים שנשלחו</h2>
           <p className="text-muted-brown text-sm mb-4">
             נוצרים מתוך עמוד הלידים הראשי (בכפתור &quot;שליחת קוד הנחה&quot; בפרטי הליד), או מהטופס
-            למעלה עבור מי שאינו ברשימת הלידים. חד-פעמיים — נסמנים כמנוצלים אוטומטית ברגע שהתשלום עם
+            למעלה עבור מי שאינו ברשימת הלידים. חד-פעמיים, נסמנים כמנוצלים אוטומטית ברגע שהתשלום עם
             הקוד מאושר.
           </p>
           <CouponTable coupons={personalCoupons} onToggleActive={onToggleActive} />
@@ -280,7 +280,7 @@ function CouponTable({
                   {c.recipient_email ? (
                     <span className="ltr-inline break-all">{c.recipient_email}</span>
                   ) : (
-                    "—"
+                    "-"
                   )}
                 </td>
                 <td className="px-4 py-3">{c.discount_percent}%</td>
@@ -288,7 +288,7 @@ function CouponTable({
                   {formatSessionDate(c.created_at)}
                 </td>
                 <td className="px-4 py-3 text-muted-brown whitespace-nowrap">
-                  {c.used_at ? formatSessionDate(c.used_at) : "—"}
+                  {c.used_at ? formatSessionDate(c.used_at) : "-"}
                 </td>
                 <td className="px-4 py-3">
                   <button
@@ -335,7 +335,7 @@ function CouponTable({
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-brown">
               <span className="whitespace-nowrap">נוצר: {formatSessionDate(c.created_at)}</span>
               <span className="whitespace-nowrap">
-                נוצל: {c.used_at ? formatSessionDate(c.used_at) : "—"}
+                נוצל: {c.used_at ? formatSessionDate(c.used_at) : "-"}
               </span>
             </div>
           </div>

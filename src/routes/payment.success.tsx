@@ -137,7 +137,7 @@ function PendingCard() {
       <h1 className="font-serif text-4xl md:text-5xl text-cream mb-4">מאשרים את התשלום</h1>
 
       <p className="text-muted-brown text-lg mb-8 leading-relaxed">
-        אנחנו מוודאים את התשלום מול חברת הסליקה — זה עשוי לקחת עד כמה דקות.
+        אנחנו מוודאים את התשלום מול חברת הסליקה, זה עשוי לקחת עד כמה דקות.
         <br />
         ברגע שהתשלום יאושר, יישלח אליך מייל עם כל פרטי הוובינר.
       </p>

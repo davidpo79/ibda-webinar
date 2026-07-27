@@ -383,7 +383,7 @@ const pricing: {
     price: "₪ 360",
     early: "₪ 180",
     duration: "90 דקות",
-    note: "בחרו כמה שיעורים לרכוש — כל שיעור נחשב בנפרד.",
+    note: "בחרו כמה שיעורים לרכוש - כל שיעור נחשב בנפרד.",
     cta: "רכישת וובינר בודד",
   },
 ];
@@ -1827,7 +1827,7 @@ function RegistrationSection({
         saveCouponCode(code);
         if (announce) {
           toast.success(
-            `קוד ההנחה ${code.toUpperCase()} הוזן אוטומטית מהמייל — הנחה של ${result.discount_percent}%`,
+            `קוד ההנחה ${code.toUpperCase()} הוזן אוטומטית מהמייל - הנחה של ${result.discount_percent}%`,
           );
         }
       } else {
@@ -1893,7 +1893,7 @@ function RegistrationSection({
       return;
     }
     if (hasPaid && !/^\d{5,9}$/.test((parsed.data.id_number || "").trim())) {
-      setErrors({ id_number: "מספר ת.ז / ח.פ לא תקין — יש להזין ספרות בלבד" });
+      setErrors({ id_number: "מספר ת.ז / ח.פ לא תקין - יש להזין ספרות בלבד" });
       toast.error("מספר ת.ז / ח.פ לא תקין", {
         description: "יש להזין מספר ת.ז או ח.פ (ספרות בלבד) בתחתית הטופס לפני שממשיכים לתשלום.",
         duration: 8000,
@@ -2257,7 +2257,7 @@ function RegistrationSection({
                   </div>
                   {couponApplied && (
                     <div className="text-[12px] text-green-400">
-                      קוד {couponApplied.code} הופעל — הנחה של {couponApplied.discountPercent}%
+                      קוד {couponApplied.code} הופעל - הנחה של {couponApplied.discountPercent}%
                     </div>
                   )}
                   {couponError && <div className="text-[12px] text-destructive">{couponError}</div>}
