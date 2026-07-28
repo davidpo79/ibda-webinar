@@ -130,6 +130,12 @@ export async function updateSessionDateTbd(id: string, dateTbd: boolean): Promis
   `;
 }
 
+export async function updateSessionZoomUrl(id: string, zoomUrl: string | null): Promise<void> {
+  await sql()`
+    UPDATE sessions SET zoom_url = ${zoomUrl}, updated_at = now() WHERE id = ${id}
+  `;
+}
+
 export async function createOpenSession(title: string, startsAt: string): Promise<Session> {
   // Inherit the fixed personal Zoom room from any prior open cohort — it's
   // a permanent meeting room reused every time, not a per-cohort link.

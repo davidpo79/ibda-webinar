@@ -4,6 +4,7 @@ import {
   getAdminScheduleData,
   updateSessionDateAction,
   updateSessionDateTbdAction,
+  updateSessionZoomUrlAction,
   createOpenSessionAction,
   createSessionCohortAction,
 } from "@/lib/admin.functions";
@@ -98,6 +99,20 @@ function AdminSchedulePage() {
     }
   }
 
+  async function onZoomChange(id: string, zoomUrl: string) {
+    setSavingId(id);
+    setDateError(null);
+    try {
+      await updateSessionZoomUrlAction({ data: { id, zoomUrl: zoomUrl || null } });
+      await router.invalidate();
+    } catch (err) {
+      console.error("[admin/schedule] zoom url update failed", err);
+      setDateError({ id, message: "עדכון קישור הזום נכשל. ודאו שהקישור מתחיל ב-https://" });
+    } finally {
+      setSavingId(null);
+    }
+  }
+
   async function onCreateOpenSession(e: React.FormEvent) {
     e.preventDefault();
     if (!newTitle.trim() || !newDate) return;
@@ -133,12 +148,13 @@ function AdminSchedulePage() {
         <section>
           <h2 className="font-serif text-lg text-gold mb-4">{TYPE_LABELS.open}</h2>
           <div className="hidden md:block border border-cream/10 rounded-lg overflow-x-auto">
-            <table className="w-full text-sm min-w-[520px]">
+            <table className="w-full text-sm min-w-[720px]">
               <thead className="bg-sand/70 text-right">
                 <tr>
                   <th className="px-4 py-3 font-semibold">כותרת</th>
                   <th className="px-4 py-3 font-semibold">מועד נוכחי</th>
                   <th className="px-4 py-3 font-semibold">שינוי מועד</th>
+                  <th className="px-4 py-3 font-semibold">קישור זום</th>
                 </tr>
               </thead>
               <tbody>
@@ -154,11 +170,19 @@ function AdminSchedulePage() {
                         onDateChange={onDateChange}
                       />
                     </td>
+                    <td className="px-4 py-3">
+                      <SessionZoomInput
+                        session={s}
+                        savingId={savingId}
+                        error={dateError}
+                        onZoomChange={onZoomChange}
+                      />
+                    </td>
                   </tr>
                 ))}
                 {openSessions.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="px-4 py-6 text-center text-muted-brown">
+                    <td colSpan={4} className="px-4 py-6 text-center text-muted-brown">
                       אין מפגשים
                     </td>
                   </tr>
@@ -182,6 +206,15 @@ function AdminSchedulePage() {
                     onDateChange={onDateChange}
                   />
                 </div>
+                <div className="mt-3">
+                  <span className="text-xs text-muted-brown mb-1 block">קישור זום</span>
+                  <SessionZoomInput
+                    session={s}
+                    savingId={savingId}
+                    error={dateError}
+                    onZoomChange={onZoomChange}
+                  />
+                </div>
               </div>
             ))}
             {openSessions.length === 0 && (
@@ -200,6 +233,7 @@ function AdminSchedulePage() {
             dateError={dateError}
             onDateChange={onDateChange}
             onTbdChange={onTbdChange}
+            onZoomChange={onZoomChange}
           />
         </section>
 
@@ -210,6 +244,7 @@ function AdminSchedulePage() {
             savingId={savingId}
             dateError={dateError}
             onDateChange={onDateChange}
+            onZoomChange={onZoomChange}
           />
         </section>
 
@@ -256,12 +291,14 @@ function GroupedScheduleList({
   dateError,
   onDateChange,
   onTbdChange,
+  onZoomChange,
 }: {
   groups: SessionGroup[];
   savingId: string | null;
   dateError: { id: string; message: string } | null;
   onDateChange: (id: string, value: string) => void;
   onTbdChange?: (id: string, dateTbd: boolean) => void;
+  onZoomChange: (id: string, zoomUrl: string) => void;
 }) {
   const router = useRouter();
 
@@ -278,35 +315,46 @@ function GroupedScheduleList({
       {groups.map((g) => (
         <div key={g.key} className="px-4 py-4">
           <div className="font-medium text-cream mb-3">{g.title}</div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {g.rows.map((s) => (
-              <div key={s.id} className="flex flex-wrap items-center gap-3">
-                <SessionDateInput
-                  session={s}
-                  savingId={savingId}
-                  error={dateError}
-                  onDateChange={onDateChange}
-                />
-                <span
-                  className={cn(
-                    "text-xs",
-                    s.date_tbd ? "text-gold/70 line-through" : "text-muted-brown",
+              <div key={s.id} className="space-y-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <SessionDateInput
+                    session={s}
+                    savingId={savingId}
+                    error={dateError}
+                    onDateChange={onDateChange}
+                  />
+                  <span
+                    className={cn(
+                      "text-xs",
+                      s.date_tbd ? "text-gold/70 line-through" : "text-muted-brown",
+                    )}
+                  >
+                    {formatSessionDate(s.starts_at)}
+                  </span>
+                  {onTbdChange && (
+                    <label className="flex items-center gap-1.5 text-xs text-muted-brown cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="accent-gold"
+                        checked={s.date_tbd}
+                        disabled={savingId === s.id}
+                        onChange={(e) => onTbdChange(s.id, e.target.checked)}
+                      />
+                      בקרוב! (תאריך טרם נקבע)
+                    </label>
                   )}
-                >
-                  {formatSessionDate(s.starts_at)}
-                </span>
-                {onTbdChange && (
-                  <label className="flex items-center gap-1.5 text-xs text-muted-brown cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="accent-gold"
-                      checked={s.date_tbd}
-                      disabled={savingId === s.id}
-                      onChange={(e) => onTbdChange(s.id, e.target.checked)}
-                    />
-                    בקרוב! (תאריך טרם נקבע)
-                  </label>
-                )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-brown shrink-0">קישור זום:</span>
+                  <SessionZoomInput
+                    session={s}
+                    savingId={savingId}
+                    error={dateError}
+                    onZoomChange={onZoomChange}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -346,6 +394,54 @@ function SessionDateInput({
         disabled={savingId === session.id}
         className="bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-sm text-cream focus:outline-none focus:border-gold disabled:opacity-60"
       />
+      {error?.id === session.id && <p className="text-destructive text-xs mt-1">{error.message}</p>}
+    </div>
+  );
+}
+
+// Shows the Zoom link currently saved for a session and lets the admin
+// paste a new one — same skip-if-unchanged / inline-error pattern as
+// SessionDateInput. A saved link also gets a quick "פתיחה" shortcut so the
+// admin can confirm it points to the right meeting without leaving the page.
+function SessionZoomInput({
+  session,
+  savingId,
+  error,
+  onZoomChange,
+}: {
+  session: Session;
+  savingId: string | null;
+  error: { id: string; message: string } | null;
+  onZoomChange: (id: string, zoomUrl: string) => void;
+}) {
+  const initial = session.zoom_url ?? "";
+  return (
+    <div className="flex-1 min-w-[220px] max-w-md">
+      <div className="flex items-center gap-2">
+        <input
+          type="url"
+          dir="ltr"
+          placeholder="https://zoom.us/j/..."
+          defaultValue={initial}
+          onBlur={(e) => {
+            if (e.target.value.trim() !== initial) {
+              onZoomChange(session.id, e.target.value.trim());
+            }
+          }}
+          disabled={savingId === session.id}
+          className="w-full bg-ink/40 border border-cream/15 rounded-md px-3 py-2 text-sm text-cream ltr-inline focus:outline-none focus:border-gold disabled:opacity-60"
+        />
+        {initial && (
+          <a
+            href={initial}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-gold hover:underline shrink-0"
+          >
+            פתיחה ↗
+          </a>
+        )}
+      </div>
       {error?.id === session.id && <p className="text-destructive text-xs mt-1">{error.message}</p>}
     </div>
   );

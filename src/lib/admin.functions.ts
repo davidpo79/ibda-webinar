@@ -31,6 +31,7 @@ import {
   getAllSessions,
   updateSessionDate,
   updateSessionDateTbd,
+  updateSessionZoomUrl,
   createOpenSession,
   createSessionCohort,
 } from "./schedule.server";
@@ -201,6 +202,23 @@ export const updateSessionDateTbdAction = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     assertAdminSession();
     await updateSessionDateTbd(data.id, data.dateTbd);
+    return { ok: true };
+  });
+
+const UpdateSessionZoomUrlSchema = z.object({
+  id: z.string().min(1),
+  zoomUrl: z.string().trim().max(500).nullable(),
+});
+
+export const updateSessionZoomUrlAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => UpdateSessionZoomUrlSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    const value = data.zoomUrl?.trim() || null;
+    if (value && !/^https?:\/\//i.test(value)) {
+      throw new Error("קישור הזום חייב להתחיל ב-https://");
+    }
+    await updateSessionZoomUrl(data.id, value);
     return { ok: true };
   });
 
