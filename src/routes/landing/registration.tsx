@@ -42,7 +42,7 @@ function RegistrationWorkshopLanding() {
       config={{
         eyebrow: "סדנת פרימיום · 4 שעות",
         title: TITLE,
-        desc: DESC,
+        desc: buildSessionOgDescription(session, TITLE, DESC),
         topics: [
           "מסמכי הבית המשותף - מבוא",
           "ניסוח התקנון, תקנון מצוי למול תקנון מוסכם ומשמעויות",

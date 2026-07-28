@@ -45,7 +45,7 @@ function LeaseAgreementLanding() {
       config={{
         eyebrow: "סדרת הליבה · מפגש 1",
         title: TITLE,
-        desc: DESC,
+        desc: buildSessionOgDescription(session, TITLE, DESC),
         topics: [
           "מבנה הסכם השכירות",
           "סעיפי מפתח",

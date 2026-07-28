@@ -42,7 +42,7 @@ function AiWorkshopLanding() {
       config={{
         eyebrow: "סדנת פרימיום",
         title: TITLE,
-        desc: DESC,
+        desc: buildSessionOgDescription(session, TITLE, DESC),
         topics: [
           "מבוא לבינה מלאכותית למשפטנים",
           "כלי AI לכתיבה משפטית",

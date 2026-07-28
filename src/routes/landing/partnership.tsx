@@ -42,7 +42,7 @@ function PartnershipWorkshopLanding() {
       config={{
         eyebrow: "סדנת פרימיום",
         title: TITLE,
-        desc: DESC,
+        desc: buildSessionOgDescription(session, TITLE, DESC),
         topics: [
           "בין בית משותף להסכם שיתוף",
           "ניסוח הסכם השיתוף",

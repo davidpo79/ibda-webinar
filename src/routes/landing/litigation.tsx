@@ -42,7 +42,7 @@ function LitigationWorkshopLanding() {
       config={{
         eyebrow: "סדנת פרימיום",
         title: TITLE,
-        desc: DESC,
+        desc: buildSessionOgDescription(session, TITLE, DESC),
         topics: [
           "אכיפה, ביטול, הפרה יסודית - ומה שביניהם",
           "סעדים זמניים",
