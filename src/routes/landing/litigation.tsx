@@ -1,23 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
+import { buildSessionOgDescription } from "@/lib/social-meta";
 import { PackageLandingPage } from "@/components/PackageLandingPage";
 
+const PACKAGE_ID = "premium_litigation";
+const TITLE = 'ליטיגציה בנדל"ן - סוגיות נבחרות';
+const DESC = "כשעסקאות משתבשות: ניהול סכסוכים, ביטול ואכיפת הסכמים.";
+const PAGE_TITLE = 'ליטיגציה בנדל"ן - סוגיות נבחרות · סדנת פרימיום · IBDA';
+
 export const Route = createFileRoute("/landing/litigation")({
-  head: () => ({
-    meta: [
-      { title: 'ליטיגציה בנדל"ן - סוגיות נבחרות · סדנת פרימיום · IBDA' },
-      {
-        name: "description",
-        content: "סדנת פרימיום: כשעסקאות משתבשות - ניהול סכסוכים, ביטול ואכיפת הסכמים.",
-      },
-    ],
-  }),
+  head: ({ loaderData }) => {
+    const session = loaderData?.premiumSessions?.find((s) => s.key === PACKAGE_ID);
+    const description = buildSessionOgDescription(session, TITLE, DESC);
+    return {
+      meta: [
+        { title: PAGE_TITLE },
+        { name: "description", content: description },
+        { property: "og:title", content: PAGE_TITLE },
+        { property: "og:description", content: description },
+        { name: "twitter:title", content: PAGE_TITLE },
+        { name: "twitter:description", content: description },
+      ],
+    };
+  },
   loader: async () => getScheduleData(),
   component: LitigationWorkshopLanding,
 });
-
-const PACKAGE_ID = "premium_litigation";
 
 function LitigationWorkshopLanding() {
   const { premiumSessions, pricing } = Route.useLoaderData();
@@ -32,8 +41,8 @@ function LitigationWorkshopLanding() {
       dateLabel={dateLabel}
       config={{
         eyebrow: "סדנת פרימיום",
-        title: 'ליטיגציה בנדל"ן - סוגיות נבחרות',
-        desc: "כשעסקאות משתבשות: ניהול סכסוכים, ביטול ואכיפת הסכמים.",
+        title: TITLE,
+        desc: DESC,
         topics: [
           "אכיפה, ביטול, הפרה יסודית - ומה שביניהם",
           "סעדים זמניים",

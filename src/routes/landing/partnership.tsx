@@ -1,23 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
+import { buildSessionOgDescription } from "@/lib/social-meta";
 import { PackageLandingPage } from "@/components/PackageLandingPage";
 
+const PACKAGE_ID = "premium_partnership";
+const TITLE = "שיתוף במקרקעין";
+const DESC = "הסדרת זכויות משותפות במקרקעין.";
+const PAGE_TITLE = "שיתוף במקרקעין · סדנת פרימיום · IBDA";
+
 export const Route = createFileRoute("/landing/partnership")({
-  head: () => ({
-    meta: [
-      { title: "שיתוף במקרקעין · סדנת פרימיום · IBDA" },
-      {
-        name: "description",
-        content: "סדנת פרימיום: הסדרת זכויות משותפות במקרקעין.",
-      },
-    ],
-  }),
+  head: ({ loaderData }) => {
+    const session = loaderData?.premiumSessions?.find((s) => s.key === PACKAGE_ID);
+    const description = buildSessionOgDescription(session, TITLE, DESC);
+    return {
+      meta: [
+        { title: PAGE_TITLE },
+        { name: "description", content: description },
+        { property: "og:title", content: PAGE_TITLE },
+        { property: "og:description", content: description },
+        { name: "twitter:title", content: PAGE_TITLE },
+        { name: "twitter:description", content: description },
+      ],
+    };
+  },
   loader: async () => getScheduleData(),
   component: PartnershipWorkshopLanding,
 });
-
-const PACKAGE_ID = "premium_partnership";
 
 function PartnershipWorkshopLanding() {
   const { premiumSessions, pricing } = Route.useLoaderData();
@@ -32,8 +41,8 @@ function PartnershipWorkshopLanding() {
       dateLabel={dateLabel}
       config={{
         eyebrow: "סדנת פרימיום",
-        title: "שיתוף במקרקעין",
-        desc: "הסדרת זכויות משותפות במקרקעין.",
+        title: TITLE,
+        desc: DESC,
         topics: [
           "בין בית משותף להסכם שיתוף",
           "ניסוח הסכם השיתוף",
