@@ -1,20 +1,25 @@
 import { formatSessionDate } from "@/lib/format-date";
 
-// Builds a link-preview description that leads with the concrete next
-// occurrence ("יום חמישי, 30.7 · 10:00 - הסכם השכירות") instead of the
-// generic site tagline, so a shared landing-page link creates urgency
-// instead of reading like a catalog blurb. Falls back to the plain
-// description when there's no confirmed date yet (session TBD).
+// "המפגש הקרוב: יום חמישי, 30.7 · 10:00 - הסכם השכירות. {desc}" — the
+// shared line format used both as the visible sub-headline and as the
+// og:description/meta description, so a shared link (or the page itself)
+// leads with the concrete next occurrence instead of a generic blurb.
+export function formatUpcomingLine(iso: string, title: string, desc: string): string {
+  const weekday = new Intl.DateTimeFormat("he-IL", {
+    weekday: "long",
+    timeZone: "Asia/Jerusalem",
+  }).format(new Date(iso));
+  const dateLabel = formatSessionDate(iso);
+  return `המפגש הקרוב: ${weekday}, ${dateLabel} - ${title}. ${desc}`;
+}
+
+// Falls back to the plain description when there's no confirmed date yet
+// (session TBD) — used by the single-package landing pages.
 export function buildSessionOgDescription(
   session: { starts_at: string; date_tbd?: boolean } | null | undefined,
   title: string,
   desc: string,
 ): string {
   if (!session || session.date_tbd) return desc;
-  const weekday = new Intl.DateTimeFormat("he-IL", {
-    weekday: "long",
-    timeZone: "Asia/Jerusalem",
-  }).format(new Date(session.starts_at));
-  const dateLabel = formatSessionDate(session.starts_at);
-  return `המפגש הקרוב: ${weekday}, ${dateLabel} - ${title}. ${desc}`;
+  return formatUpcomingLine(session.starts_at, title, desc);
 }

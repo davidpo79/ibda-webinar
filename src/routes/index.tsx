@@ -59,6 +59,7 @@ import { createSumitPayment } from "@/lib/sumit.functions";
 import { validateCoupon } from "@/lib/coupons.functions";
 import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
+import { formatUpcomingLine } from "@/lib/social-meta";
 import { buildPricingDateLabels } from "@/lib/pricing-dates";
 import { isFreeCoreLesson } from "@/lib/core-lessons";
 import { phoneSchema } from "@/lib/validators";
@@ -138,7 +139,37 @@ function AnimatedCardIcon({
   );
 }
 
+const HOME_PAGE_TITLE = 'IBDA | סדרת וובינרים בעסקאות נדל"ן וליטיגציה';
+const HOME_GENERIC_DESC =
+  "סדרת וובינרים מקצועית לעורכי דין בגישת Deal Flow, מהשיחה הראשונה עם הלקוח ועד השלמת רישום הזכויות, בשילוב כלי בינה מלאכותית ופרקטיקה יישומית.";
+
 export const Route = createFileRoute("/")({
+  // Overrides root's generic og:description/description with the actual
+  // next-upcoming session (across open/core/premium — same source as the
+  // countdown banner) so a shared homepage link leads with a concrete date
+  // and topic instead of the general tagline.
+  head: ({ loaderData }) => {
+    const highlight = loaderData
+      ? resolveNextHighlightSession(
+          loaderData.openSession,
+          loaderData.coreSessions,
+          loaderData.premiumSessions,
+        )
+      : null;
+    const description = highlight
+      ? formatUpcomingLine(highlight.dateISO, highlight.title, highlight.desc)
+      : HOME_GENERIC_DESC;
+    return {
+      meta: [
+        { title: HOME_PAGE_TITLE },
+        { name: "description", content: description },
+        { property: "og:title", content: HOME_PAGE_TITLE },
+        { property: "og:description", content: description },
+        { name: "twitter:title", content: HOME_PAGE_TITLE },
+        { name: "twitter:description", content: description },
+      ],
+    };
+  },
   loader: async () => getScheduleData(),
   component: Landing,
 });
@@ -653,6 +684,7 @@ export type HighlightSession = {
   title: string;
   dateISO: string;
   kind: "open" | "core" | "premium";
+  desc: string;
 };
 
 // The countdown banner always tracks whichever real session is genuinely
@@ -662,30 +694,53 @@ export type HighlightSession = {
 // specifically, which goes stale the moment that cohort's date passes.
 // Falls back to the open webinar (even if already past, letting
 // AnnouncementBar's own expired-state handling take over) only in the
-// unlikely case nothing at all is upcoming.
+// unlikely case nothing at all is upcoming. The same result also drives the
+// homepage's link-preview description (see the route's head()), so it
+// carries each candidate's short blurb (desc) alongside its title/date.
 function resolveNextHighlightSession(
   openSession: { starts_at: string } | null,
   coreSessions: { title: string; starts_at: string; date_tbd?: boolean }[],
-  premiumSessions: { title: string; starts_at: string }[],
+  premiumSessions: { key: string | null; title: string; starts_at: string }[],
 ): HighlightSession | null {
   const now = Date.now();
   const candidates: HighlightSession[] = [];
   if (openSession) {
-    candidates.push({ title: openWebinars[0].title, dateISO: openSession.starts_at, kind: "open" });
+    candidates.push({
+      title: openWebinars[0].title,
+      dateISO: openSession.starts_at,
+      kind: "open",
+      desc: openWebinars[0].desc,
+    });
   }
-  for (const s of coreSessions) {
-    if (s.date_tbd) continue;
-    candidates.push({ title: s.title, dateISO: s.starts_at, kind: "core" });
-  }
-  for (const s of premiumSessions) {
-    candidates.push({ title: s.title, dateISO: s.starts_at, kind: "premium" });
-  }
+  coreSessions.forEach((s, i) => {
+    if (s.date_tbd) return;
+    candidates.push({
+      title: s.title,
+      dateISO: s.starts_at,
+      kind: "core",
+      desc: coreSeries[i]?.d ?? "",
+    });
+  });
+  premiumSessions.forEach((s) => {
+    const idx = PREMIUM_WORKSHOP_IDS.indexOf(s.key ?? "");
+    candidates.push({
+      title: s.title,
+      dateISO: s.starts_at,
+      kind: "premium",
+      desc: premiumWorkshops[idx]?.d ?? "",
+    });
+  });
   const upcoming = candidates
     .filter((c) => new Date(c.dateISO).getTime() > now)
     .sort((a, b) => new Date(a.dateISO).getTime() - new Date(b.dateISO).getTime());
   if (upcoming[0]) return upcoming[0];
   return openSession
-    ? { title: openWebinars[0].title, dateISO: openSession.starts_at, kind: "open" }
+    ? {
+        title: openWebinars[0].title,
+        dateISO: openSession.starts_at,
+        kind: "open",
+        desc: openWebinars[0].desc,
+      }
     : null;
 }
 
