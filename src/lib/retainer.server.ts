@@ -161,6 +161,7 @@ export async function deletePayment(id: string): Promise<void> {
 export type MonthlyPace = { month: string; hours: number };
 
 export type RetainerSummary = {
+  startedOn: string | null;
   totalHours: number;
   totalAmount: number;
   hourlyRate: number;
@@ -180,8 +181,9 @@ export type RetainerSummary = {
 // journal list is capped for display, but these totals must always reflect
 // every row in the table.
 export async function getRetainerSummary(): Promise<RetainerSummary> {
-  const [config, totals, paid, monthly] = await Promise.all([
+  const [config, startedOn, totals, paid, monthly] = await Promise.all([
     getRetainerConfig(),
+    getRetainerStartDate(),
     sql()<{ hours: string | null; count: string; last: string | null }[]>`
       SELECT COALESCE(SUM(hours), 0) AS hours,
              COUNT(*) AS count,
@@ -207,6 +209,7 @@ export async function getRetainerSummary(): Promise<RetainerSummary> {
   const hourlyRate = totalHours > 0 ? totalAmount / totalHours : 0;
 
   return {
+    startedOn,
     totalHours,
     totalAmount,
     hourlyRate,

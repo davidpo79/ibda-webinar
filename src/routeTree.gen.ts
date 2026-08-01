@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PartnerIndexRouteImport } from './routes/partner/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
+import { Route as PartnerResetRouteImport } from './routes/partner/reset'
 import { Route as PartnerLoginRouteImport } from './routes/partner/login'
 import { Route as LandingRegistrationRouteImport } from './routes/landing/registration'
 import { Route as LandingPartnershipRouteImport } from './routes/landing/partnership'
@@ -69,6 +70,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
   id: '/payment/success',
   path: '/payment/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartnerResetRoute = PartnerResetRouteImport.update({
+  id: '/partner/reset',
+  path: '/partner/reset',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PartnerLoginRoute = PartnerLoginRouteImport.update({
@@ -187,6 +193,7 @@ export interface FileRoutesByFullPath {
   '/landing/partnership': typeof LandingPartnershipRoute
   '/landing/registration': typeof LandingRegistrationRoute
   '/partner/login': typeof PartnerLoginRoute
+  '/partner/reset': typeof PartnerResetRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
   '/partner/': typeof PartnerIndexRoute
@@ -215,6 +222,7 @@ export interface FileRoutesByTo {
   '/landing/partnership': typeof LandingPartnershipRoute
   '/landing/registration': typeof LandingRegistrationRoute
   '/partner/login': typeof PartnerLoginRoute
+  '/partner/reset': typeof PartnerResetRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin': typeof AdminIndexRoute
   '/partner': typeof PartnerIndexRoute
@@ -244,6 +252,7 @@ export interface FileRoutesById {
   '/landing/partnership': typeof LandingPartnershipRoute
   '/landing/registration': typeof LandingRegistrationRoute
   '/partner/login': typeof PartnerLoginRoute
+  '/partner/reset': typeof PartnerResetRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
   '/partner/': typeof PartnerIndexRoute
@@ -274,6 +283,7 @@ export interface FileRouteTypes {
     | '/landing/partnership'
     | '/landing/registration'
     | '/partner/login'
+    | '/partner/reset'
     | '/payment/success'
     | '/admin/'
     | '/partner/'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
     | '/landing/partnership'
     | '/landing/registration'
     | '/partner/login'
+    | '/partner/reset'
     | '/payment/success'
     | '/admin'
     | '/partner'
@@ -330,6 +341,7 @@ export interface FileRouteTypes {
     | '/landing/partnership'
     | '/landing/registration'
     | '/partner/login'
+    | '/partner/reset'
     | '/payment/success'
     | '/admin/'
     | '/partner/'
@@ -359,6 +371,7 @@ export interface RootRouteChildren {
   LandingPartnershipRoute: typeof LandingPartnershipRoute
   LandingRegistrationRoute: typeof LandingRegistrationRoute
   PartnerLoginRoute: typeof PartnerLoginRoute
+  PartnerResetRoute: typeof PartnerResetRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   AdminIndexRoute: typeof AdminIndexRoute
   PartnerIndexRoute: typeof PartnerIndexRoute
@@ -418,6 +431,13 @@ declare module '@tanstack/react-router' {
       path: '/payment/success'
       fullPath: '/payment/success'
       preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partner/reset': {
+      id: '/partner/reset'
+      path: '/partner/reset'
+      fullPath: '/partner/reset'
+      preLoaderRoute: typeof PartnerResetRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/partner/login': {
@@ -575,6 +595,7 @@ const rootRouteChildren: RootRouteChildren = {
   LandingPartnershipRoute: LandingPartnershipRoute,
   LandingRegistrationRoute: LandingRegistrationRoute,
   PartnerLoginRoute: PartnerLoginRoute,
+  PartnerResetRoute: PartnerResetRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   AdminIndexRoute: AdminIndexRoute,
   PartnerIndexRoute: PartnerIndexRoute,

@@ -533,3 +533,37 @@ CREATE TABLE IF NOT EXISTS retainer_payments (
 );
 CREATE INDEX IF NOT EXISTS retainer_payments_paid_on_idx
   ON retainer_payments (paid_on DESC);
+
+-- Partner users for the /partner page. Credentials started life as plain
+-- env vars; they live here so a password can actually be reset at runtime
+-- (an env var can't be rewritten by the running process). password_hash is
+-- NULL until the first reset, and partner-auth.server.ts falls back to the
+-- env var while it is — so existing logins keep working and nothing needs
+-- to be migrated by hand.
+CREATE TABLE IF NOT EXISTS partner_users (
+  username text PRIMARY KEY,
+  display_name text NOT NULL,
+  role text NOT NULL CHECK (role IN ('editor', 'viewer')),
+  email text NOT NULL,
+  password_hash text,
+  reset_token_hash text,
+  reset_expires_at timestamptz,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO partner_users (username, display_name, role, email) VALUES
+  ('david', 'דוד',  'editor', 'dudi79@gmail.com'),
+  ('yifat', 'יפעת', 'viewer', 'ifat@ibda-law.com')
+ON CONFLICT (username) DO NOTHING;
+
+-- One row per digest actually sent. Doubles as the idempotency guard (the
+-- scheduler ticks every 10 minutes, so "already sent today" is what stops
+-- a Sunday from producing six identical emails) and as the marker for
+-- "which work is new since the last digest".
+CREATE TABLE IF NOT EXISTS retainer_digest_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  sent_for_date date NOT NULL UNIQUE,
+  sent_at timestamptz NOT NULL DEFAULT now(),
+  recipient text NOT NULL,
+  hours_used numeric,
+  hours_remaining numeric
+);

@@ -10,6 +10,7 @@ import {
   createPaymentAction,
   deletePaymentAction,
   updateConfigAction,
+  sendDigestNowAction,
 } from "@/lib/retainer.functions";
 import type { RetainerEntryRow, RetainerPaymentRow } from "@/lib/retainer.server";
 import { cn } from "@/lib/utils";
@@ -158,12 +159,17 @@ function PartnerPage() {
           onChanged={refresh}
         />
         <Payments payments={payments} summary={summary} isEditor={isEditor} onChanged={refresh} />
-        {isEditor && config && (
-          <BankSettings
-            totalHours={Number(config.total_hours)}
-            totalAmount={Number(config.total_amount)}
-            onChanged={refresh}
-          />
+        {isEditor && (
+          <div className="flex flex-wrap items-center gap-4">
+            {config && (
+              <BankSettings
+                totalHours={Number(config.total_hours)}
+                totalAmount={Number(config.total_amount)}
+                onChanged={refresh}
+              />
+            )}
+            <SendDigestButton />
+          </div>
         )}
       </main>
     </div>
@@ -948,5 +954,37 @@ function BankSettings({
         </button>
       </form>
     </Panel>
+  );
+}
+
+/* -------------------------- digest -------------------------- */
+
+// The report goes out automatically on Sundays and Thursdays; this is the
+// escape hatch for sending an extra one, or for checking how it reads.
+function SendDigestButton() {
+  const [sending, setSending] = useState(false);
+
+  async function onSend() {
+    if (!confirm("לשלוח עדכון מצב ליפעת עכשיו?")) return;
+    setSending(true);
+    try {
+      await sendDigestNowAction({ data: undefined });
+      toast.success("העדכון נשלח");
+    } catch (err) {
+      console.error("[partner] digest send failed", err);
+      toast.error("שליחת העדכון נכשלה");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={onSend}
+      disabled={sending}
+      className="text-[12.5px] text-muted-brown hover:text-gold transition-colors disabled:opacity-60"
+    >
+      {sending ? "שולח..." : "שליחת עדכון מצב עכשיו"}
+    </button>
   );
 }

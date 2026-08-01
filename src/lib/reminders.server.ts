@@ -176,6 +176,19 @@ export function startAutomationScheduler(): void {
     } catch (err) {
       console.error("[sumit-reconcile] sweep failed", err);
     }
+    try {
+      // Imported lazily: this sweep is a no-op on most ticks, and keeping
+      // it out of the module graph avoids pulling the digest templates in
+      // for every other automation run.
+      const { runRetainerDigestSweep } = await import("./retainer-digest.server");
+      const { sent, reason } = await runRetainerDigestSweep();
+      if (sent) console.log("[retainer-digest] sent");
+      else if (reason && reason !== "not a send day" && reason !== "too early") {
+        console.log(`[retainer-digest] skipped: ${reason}`);
+      }
+    } catch (err) {
+      console.error("[retainer-digest] sweep failed", err);
+    }
   };
 
   tick();

@@ -6,6 +6,9 @@ import {
   createPartnerCookieValue,
   readPartnerSession,
   verifyPartnerCredentials,
+  createResetToken,
+  consumeResetToken,
+  isResetTokenValid,
 } from "./partner-auth.server";
 import type { PartnerUser } from "./partner-auth.server";
 // The admin panel's in-process brute-force guard is generic over its key —
@@ -27,12 +30,8 @@ import {
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7;
 
-function currentPartner(): PartnerUser | null {
-  return readPartnerSession(getCookie(PARTNER_COOKIE_NAME));
-}
-
-function assertPartnerSession(): PartnerUser {
-  const user = currentPartner();
+async function assertPartnerSession(): Promise<PartnerUser> {
+  const user = await readPartnerSession(getCookie(PARTNER_COOKIE_NAME));
   if (!user) throw new Error("unauthorized");
   return user;
 }
@@ -40,8 +39,8 @@ function assertPartnerSession(): PartnerUser {
 // Every mutating action goes through this. The UI also hides the forms from
 // a viewer, but that's cosmetic — this is the check that actually enforces
 // it, so a hand-crafted request from Yifat's session is still rejected.
-function assertPartnerEditor(): PartnerUser {
-  const user = assertPartnerSession();
+async function assertPartnerEditor(): Promise<PartnerUser> {
+  const user = await assertPartnerSession();
   if (user.role !== "editor") throw new Error("forbidden");
   return user;
 }
@@ -59,7 +58,7 @@ export const partnerLogin = createServerFn({ method: "POST" })
     if (isLoginLocked(key)) {
       return { ok: false as const, lockedOut: true as const };
     }
-    const user = verifyPartnerCredentials(data.username, data.password);
+    const user = await verifyPartnerCredentials(data.username, data.password);
     if (!user) {
       recordLoginFailure(key);
       return { ok: false as const };
@@ -81,7 +80,7 @@ export const partnerLogout = createServerFn({ method: "POST" }).handler(async ()
 });
 
 export const getPartnerDashboard = createServerFn({ method: "GET" }).handler(async () => {
-  const user = assertPartnerSession();
+  const user = await assertPartnerSession();
   const [config, entries, payments, summary] = await Promise.all([
     getRetainerConfig(),
     listEntries(),
@@ -101,7 +100,7 @@ const EntrySchema = z.object({
 export const createEntryAction = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => EntrySchema.parse(input))
   .handler(async ({ data }) => {
-    assertPartnerEditor();
+    await assertPartnerEditor();
     await createEntry({
       workedOn: data.workedOn,
       hours: data.hours,
@@ -116,7 +115,7 @@ const UpdateEntrySchema = EntrySchema.extend({ id: z.string().uuid() });
 export const updateEntryAction = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => UpdateEntrySchema.parse(input))
   .handler(async ({ data }) => {
-    assertPartnerEditor();
+    await assertPartnerEditor();
     await updateEntry(data.id, {
       workedOn: data.workedOn,
       hours: data.hours,
@@ -131,7 +130,7 @@ const IdSchema = z.object({ id: z.string().uuid() });
 export const deleteEntryAction = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
-    assertPartnerEditor();
+    await assertPartnerEditor();
     await deleteEntry(data.id);
     return { ok: true };
   });
@@ -146,7 +145,7 @@ const PaymentSchema = z.object({
 export const createPaymentAction = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => PaymentSchema.parse(input))
   .handler(async ({ data }) => {
-    assertPartnerEditor();
+    await assertPartnerEditor();
     await createPayment({
       paidOn: data.paidOn,
       amount: data.amount,
@@ -159,7 +158,7 @@ export const createPaymentAction = createServerFn({ method: "POST" })
 export const deletePaymentAction = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => IdSchema.parse(input))
   .handler(async ({ data }) => {
-    assertPartnerEditor();
+    await assertPartnerEditor();
     await deletePayment(data.id);
     return { ok: true };
   });
@@ -172,7 +171,65 @@ const ConfigSchema = z.object({
 export const updateConfigAction = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => ConfigSchema.parse(input))
   .handler(async ({ data }) => {
-    assertPartnerEditor();
+    await assertPartnerEditor();
     await updateRetainerConfig(data);
     return { ok: true };
   });
+
+/* -------------------------- password reset -------------------------- */
+
+const ForgotSchema = z.object({ username: z.string().trim().min(1).max(60) });
+
+// Always reports success, whether or not the username exists — otherwise
+// this endpoint becomes a way to enumerate valid usernames. Rate-limited on
+// the same per-IP counter as login so it can't be used to spam an inbox.
+export const requestPasswordReset = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => ForgotSchema.parse(input))
+  .handler(async ({ data }) => {
+    const ip = getRequestIP({ xForwardedFor: true }) || "unknown";
+    const key = `partner-reset:${ip}`;
+    if (isLoginLocked(key)) return { ok: true as const };
+    recordLoginFailure(key);
+
+    const issued = await createResetToken(data.username);
+    if (issued) {
+      const { sendPasswordResetEmail } = await import("./retainer-digest.server");
+      try {
+        await sendPasswordResetEmail(issued.email, issued.displayName, issued.token);
+      } catch (err) {
+        console.error("[partner] reset email failed", err);
+      }
+    }
+    return { ok: true as const };
+  });
+
+const ResetSchema = z.object({
+  token: z.string().trim().min(10).max(200),
+  password: z.string().min(8, "הסיסמה חייבת להכיל לפחות 8 תווים").max(200),
+});
+
+export const completePasswordReset = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => ResetSchema.parse(input))
+  .handler(async ({ data }) => {
+    const ok = await consumeResetToken(data.token, data.password);
+    return { ok };
+  });
+
+const TokenSchema = z.object({ token: z.string().trim().min(10).max(200) });
+
+export const checkResetToken = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => TokenSchema.parse(input))
+  .handler(async ({ data }) => {
+    return { valid: await isResetTokenValid(data.token) };
+  });
+
+/* -------------------------- digest -------------------------- */
+
+// Lets the editor fire the twice-weekly report on demand, for testing the
+// content or sending an off-schedule update.
+export const sendDigestNowAction = createServerFn({ method: "POST" }).handler(async () => {
+  await assertPartnerEditor();
+  const { sendRetainerDigestNow } = await import("./retainer-digest.server");
+  await sendRetainerDigestNow();
+  return { ok: true };
+});
