@@ -13,8 +13,10 @@ import { Route as WebinarRouteImport } from './routes/webinar'
 import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as AccessibilityRouteImport } from './routes/accessibility'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PartnerIndexRouteImport } from './routes/partner/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as PaymentSuccessRouteImport } from './routes/payment.success'
+import { Route as PartnerLoginRouteImport } from './routes/partner/login'
 import { Route as LandingRegistrationRouteImport } from './routes/landing/registration'
 import { Route as LandingPartnershipRouteImport } from './routes/landing/partnership'
 import { Route as LandingLitigationRouteImport } from './routes/landing/litigation'
@@ -31,6 +33,7 @@ import { Route as AdminBroadcastRouteImport } from './routes/admin/broadcast'
 import { Route as ApiPublicUnsubscribeRouteImport } from './routes/api/public/unsubscribe'
 import { Route as ApiPublicSumitWebhookRouteImport } from './routes/api/public/sumit-webhook'
 import { Route as ApiPublicSumitReturnRouteImport } from './routes/api/public/sumit-return'
+import { Route as ApiPartnerSyncHoursRouteImport } from './routes/api/partner/sync-hours'
 import { Route as ApiAdminVerifyTransactionRouteImport } from './routes/api/admin/verify-transaction'
 
 const WebinarRoute = WebinarRouteImport.update({
@@ -53,6 +56,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PartnerIndexRoute = PartnerIndexRouteImport.update({
+  id: '/partner/',
+  path: '/partner/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
@@ -61,6 +69,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const PaymentSuccessRoute = PaymentSuccessRouteImport.update({
   id: '/payment/success',
   path: '/payment/success',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartnerLoginRoute = PartnerLoginRouteImport.update({
+  id: '/partner/login',
+  path: '/partner/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LandingRegistrationRoute = LandingRegistrationRouteImport.update({
@@ -143,6 +156,11 @@ const ApiPublicSumitReturnRoute = ApiPublicSumitReturnRouteImport.update({
   path: '/api/public/sumit-return',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPartnerSyncHoursRoute = ApiPartnerSyncHoursRouteImport.update({
+  id: '/api/partner/sync-hours',
+  path: '/api/partner/sync-hours',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminVerifyTransactionRoute =
   ApiAdminVerifyTransactionRouteImport.update({
     id: '/api/admin/verify-transaction',
@@ -168,9 +186,12 @@ export interface FileRoutesByFullPath {
   '/landing/litigation': typeof LandingLitigationRoute
   '/landing/partnership': typeof LandingPartnershipRoute
   '/landing/registration': typeof LandingRegistrationRoute
+  '/partner/login': typeof PartnerLoginRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
+  '/partner/': typeof PartnerIndexRoute
   '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
+  '/api/partner/sync-hours': typeof ApiPartnerSyncHoursRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -193,9 +214,12 @@ export interface FileRoutesByTo {
   '/landing/litigation': typeof LandingLitigationRoute
   '/landing/partnership': typeof LandingPartnershipRoute
   '/landing/registration': typeof LandingRegistrationRoute
+  '/partner/login': typeof PartnerLoginRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin': typeof AdminIndexRoute
+  '/partner': typeof PartnerIndexRoute
   '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
+  '/api/partner/sync-hours': typeof ApiPartnerSyncHoursRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -219,9 +243,12 @@ export interface FileRoutesById {
   '/landing/litigation': typeof LandingLitigationRoute
   '/landing/partnership': typeof LandingPartnershipRoute
   '/landing/registration': typeof LandingRegistrationRoute
+  '/partner/login': typeof PartnerLoginRoute
   '/payment/success': typeof PaymentSuccessRoute
   '/admin/': typeof AdminIndexRoute
+  '/partner/': typeof PartnerIndexRoute
   '/api/admin/verify-transaction': typeof ApiAdminVerifyTransactionRoute
+  '/api/partner/sync-hours': typeof ApiPartnerSyncHoursRoute
   '/api/public/sumit-return': typeof ApiPublicSumitReturnRoute
   '/api/public/sumit-webhook': typeof ApiPublicSumitWebhookRoute
   '/api/public/unsubscribe': typeof ApiPublicUnsubscribeRoute
@@ -246,9 +273,12 @@ export interface FileRouteTypes {
     | '/landing/litigation'
     | '/landing/partnership'
     | '/landing/registration'
+    | '/partner/login'
     | '/payment/success'
     | '/admin/'
+    | '/partner/'
     | '/api/admin/verify-transaction'
+    | '/api/partner/sync-hours'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
     | '/api/public/unsubscribe'
@@ -271,9 +301,12 @@ export interface FileRouteTypes {
     | '/landing/litigation'
     | '/landing/partnership'
     | '/landing/registration'
+    | '/partner/login'
     | '/payment/success'
     | '/admin'
+    | '/partner'
     | '/api/admin/verify-transaction'
+    | '/api/partner/sync-hours'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
     | '/api/public/unsubscribe'
@@ -296,9 +329,12 @@ export interface FileRouteTypes {
     | '/landing/litigation'
     | '/landing/partnership'
     | '/landing/registration'
+    | '/partner/login'
     | '/payment/success'
     | '/admin/'
+    | '/partner/'
     | '/api/admin/verify-transaction'
+    | '/api/partner/sync-hours'
     | '/api/public/sumit-return'
     | '/api/public/sumit-webhook'
     | '/api/public/unsubscribe'
@@ -322,9 +358,12 @@ export interface RootRouteChildren {
   LandingLitigationRoute: typeof LandingLitigationRoute
   LandingPartnershipRoute: typeof LandingPartnershipRoute
   LandingRegistrationRoute: typeof LandingRegistrationRoute
+  PartnerLoginRoute: typeof PartnerLoginRoute
   PaymentSuccessRoute: typeof PaymentSuccessRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  PartnerIndexRoute: typeof PartnerIndexRoute
   ApiAdminVerifyTransactionRoute: typeof ApiAdminVerifyTransactionRoute
+  ApiPartnerSyncHoursRoute: typeof ApiPartnerSyncHoursRoute
   ApiPublicSumitReturnRoute: typeof ApiPublicSumitReturnRoute
   ApiPublicSumitWebhookRoute: typeof ApiPublicSumitWebhookRoute
   ApiPublicUnsubscribeRoute: typeof ApiPublicUnsubscribeRoute
@@ -360,6 +399,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/partner/': {
+      id: '/partner/'
+      path: '/partner'
+      fullPath: '/partner/'
+      preLoaderRoute: typeof PartnerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/': {
       id: '/admin/'
       path: '/admin'
@@ -372,6 +418,13 @@ declare module '@tanstack/react-router' {
       path: '/payment/success'
       fullPath: '/payment/success'
       preLoaderRoute: typeof PaymentSuccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partner/login': {
+      id: '/partner/login'
+      path: '/partner/login'
+      fullPath: '/partner/login'
+      preLoaderRoute: typeof PartnerLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/landing/registration': {
@@ -486,6 +539,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicSumitReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/partner/sync-hours': {
+      id: '/api/partner/sync-hours'
+      path: '/api/partner/sync-hours'
+      fullPath: '/api/partner/sync-hours'
+      preLoaderRoute: typeof ApiPartnerSyncHoursRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/verify-transaction': {
       id: '/api/admin/verify-transaction'
       path: '/api/admin/verify-transaction'
@@ -514,9 +574,12 @@ const rootRouteChildren: RootRouteChildren = {
   LandingLitigationRoute: LandingLitigationRoute,
   LandingPartnershipRoute: LandingPartnershipRoute,
   LandingRegistrationRoute: LandingRegistrationRoute,
+  PartnerLoginRoute: PartnerLoginRoute,
   PaymentSuccessRoute: PaymentSuccessRoute,
   AdminIndexRoute: AdminIndexRoute,
+  PartnerIndexRoute: PartnerIndexRoute,
   ApiAdminVerifyTransactionRoute: ApiAdminVerifyTransactionRoute,
+  ApiPartnerSyncHoursRoute: ApiPartnerSyncHoursRoute,
   ApiPublicSumitReturnRoute: ApiPublicSumitReturnRoute,
   ApiPublicSumitWebhookRoute: ApiPublicSumitWebhookRoute,
   ApiPublicUnsubscribeRoute: ApiPublicUnsubscribeRoute,

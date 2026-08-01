@@ -463,3 +463,73 @@ CREATE TABLE IF NOT EXISTS sumit_webhook_log (
 );
 CREATE INDEX IF NOT EXISTS sumit_webhook_log_outcome_idx
   ON sumit_webhook_log (outcome, received_at);
+
+-- ---------------------------------------------------------------------------
+-- Retainer (bank of hours) — the shared transparency page at /partner.
+-- Separate from everything above: this tracks the working relationship
+-- between the developer and the firm, not the webinar business itself.
+-- ---------------------------------------------------------------------------
+
+-- Single-row table (the CHECK pins it to id=1) holding the terms of the
+-- engagement, so the totals can be raised later from the UI without a code
+-- change. The hourly rate is always derived as total_amount / total_hours
+-- rather than stored, so the two can never drift out of sync.
+CREATE TABLE IF NOT EXISTS retainer_config (
+  id int PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  total_hours numeric NOT NULL CHECK (total_hours > 0),
+  total_amount numeric NOT NULL CHECK (total_amount >= 0),
+  started_on date,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO retainer_config (id, total_hours, total_amount, started_on)
+VALUES (1, 50, 19000, DATE '2026-07-31') ON CONFLICT DO NOTHING;
+
+-- One row per chunk of work. `source` distinguishes hours measured
+-- automatically from a Claude Code session transcript ('claude-code') from
+-- hours typed in by hand ('manual', e.g. meetings and calls that happen
+-- outside the dev environment).
+CREATE TABLE IF NOT EXISTS retainer_entries (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  worked_on date NOT NULL,
+  hours numeric NOT NULL CHECK (hours > 0),
+  title text NOT NULL,
+  details text,
+  source text NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'claude-code')),
+  session_id text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- The idempotency key for automatic syncing: one row per (session, day).
+-- Re-running the sync mid-session UPDATEs that row with the newer, larger
+-- measurement instead of appending a duplicate. Partial (WHERE session_id
+-- IS NOT NULL) so manual rows — which have no session — are unconstrained
+-- and any number of them can share a date.
+CREATE UNIQUE INDEX IF NOT EXISTS retainer_entries_session_day_idx
+  ON retainer_entries (session_id, worked_on) WHERE session_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS retainer_entries_worked_on_idx
+  ON retainer_entries (worked_on DESC);
+
+-- Opening balance: the clock starts here at 3 hours used / 47 remaining.
+-- Guarded on the table being completely empty so it seeds exactly once and
+-- never reappears after the row is edited or deleted.
+INSERT INTO retainer_entries (worked_on, hours, title, source)
+SELECT DATE '2026-07-31', 3.0,
+  'ריכוז תיקונים ועדכוני אתר',
+  'manual'
+WHERE NOT EXISTS (SELECT 1 FROM retainer_entries);
+
+UPDATE retainer_entries
+SET details = '5 עמודי נחיתה לוובינרים וקישורי זום, כותרות חדשות, ותסריט שיווק עם 3 הוקים.'
+WHERE title = 'ריכוז תיקונים ועדכוני אתר' AND details IS NULL;
+
+CREATE TABLE IF NOT EXISTS retainer_payments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  paid_on date NOT NULL,
+  amount numeric NOT NULL CHECK (amount > 0),
+  method text,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS retainer_payments_paid_on_idx
+  ON retainer_payments (paid_on DESC);
