@@ -18,6 +18,9 @@ CTA_DUR = 3.0
 CTA_XF = 0.5
 
 # Licensed background track supplied by the client (BlueTreeAudio, royalty-free).
+# The source mp3 lives in the repo at scripts/video/assets/ so it survives a
+# container reset; it's converted to wav in the scratch workdir on first run.
+MUSIC_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets", "bg-music-bluetree.mp3")
 MUSIC = f"{V}/mus/track.wav"
 
 # Each hook is cut to just past its last word. The originals carry 0.6-1.4s of
@@ -215,6 +218,10 @@ if not os.path.exists(f"{V}/cta.mp4"):
     run(f'{FF} -loop 1 -i {V}/slide_cta.png -f lavfi -i anullsrc=r=44100:cl=stereo '
         f'-t {CTA_DUR} -vf "fps=30,setsar=1,format=yuv420p" -c:v libx264 -preset medium '
         f'-crf 20 -c:a aac -b:a 160k -shortest -y {V}/cta.mp4', "cta")
+
+if not os.path.exists(MUSIC) and os.path.exists(MUSIC_SRC):
+    os.makedirs(f"{V}/mus", exist_ok=True)
+    run(f'{FF} -i "{MUSIC_SRC}" -ar 44100 -ac 2 -y {MUSIC}', "music convert")
 
 only = sys.argv[1:] or list(HOOKS)
 

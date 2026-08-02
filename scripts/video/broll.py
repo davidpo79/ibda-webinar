@@ -136,6 +136,69 @@ def build_hours(dur=2.80, outdir=f"{V}/br2"):
     encode(outdir, f"{V}/broll2.mp4", n)
 
 
+# --------------------------------------------------------------------------
+# 3. Fork in the road: a split screen where the left half fades toward grey
+#    (the lawyer who keeps working exactly as before) while the right half
+#    warms toward gold (the one who picks up the tools). Pairs with "מי באמת
+#    בסכנה מבינה מלאכותית... זה תלוי בבחירה שלכם" in the "מיתוס בכותרת" script.
+# --------------------------------------------------------------------------
+def _stack_icon(d, cx, cy, tone):
+    """Three stacked document bars - the 'business as usual' side."""
+    for i, w in enumerate([150, 130, 110]):
+        y = cy - 45 + i * 40
+        d.rounded_rectangle([cx - w / 2, y, cx + w / 2, y + 26], radius=6,
+                             fill=tone, outline=None)
+
+
+def _spark_icon(d, cx, cy, tone):
+    """A simple bolt - the 'picks up the tools' side."""
+    pts = [
+        (cx - 18, cy - 70), (cx + 30, cy - 12), (cx + 2, cy - 12),
+        (cx + 18, cy + 70), (cx - 30, cy + 4), (cx - 2, cy + 4),
+    ]
+    d.polygon(pts, fill=tone)
+
+
+def build_fork(dur=3.0, outdir=f"{V}/br3"):
+    os.makedirs(outdir, exist_ok=True)
+    n = int(dur * FPS)
+    font = ImageFont.truetype(FONT_B, 40)
+    mid = W // 2
+
+    for f in range(n):
+        t = f / (n - 1)
+        e = min(1.0, t / 0.75)               # settles by 75% through the clip
+        im = background()
+        d = ImageDraw.Draw(im)
+
+        # left half: warm base cooling down to a flat grey
+        left_tone = tuple(int(WARM[i] + (GREY[i] * 0.35 - WARM[i]) * e) for i in range(3))
+        d.rectangle([0, 0, mid - 2, H], fill=left_tone)
+        # right half: warm base rising toward gold
+        right_tone = tuple(int(WARM[i] + (GOLD[i] - WARM[i]) * e) for i in range(3))
+        d.rectangle([mid + 2, 0, W, H], fill=right_tone)
+        d.rectangle([mid - 2, 0, mid + 2, H], fill=INK)
+
+        icon_dim = tuple(int(90 - 40 * e) for _ in range(3))
+        _stack_icon(d, mid // 2, 860, icon_dim)
+        _spark_icon(d, mid + mid // 2, 860, tuple(int(CREAM[i] * (0.4 + 0.6 * e)) for i in range(3)))
+
+        if e > 0.5:
+            # Right label sits on a panel that turns bright gold, so it needs
+            # a dark ink color to stay legible - GOLD-on-GOLD was invisible.
+            for cx, txt, col in [
+                (mid // 2, "כמו תמיד", GREY),
+                (mid + mid // 2, "לומד את הכלים", INK),
+            ]:
+                bb = d.textbbox((0, 0), txt, font=font)
+                tw = bb[2] - bb[0]
+                d.text((cx - tw / 2, 970), txt, font=font, fill=col)
+
+        im.save(f"{outdir}/{f + 1:05d}.png")
+    encode(outdir, f"{V}/broll3.mp4", n)
+
+
 if __name__ == "__main__":
     build_overload()
     build_hours()
+    build_fork()
