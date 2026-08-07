@@ -567,3 +567,27 @@ CREATE TABLE IF NOT EXISTS retainer_digest_log (
   hours_used numeric,
   hours_remaining numeric
 );
+
+-- Meta (Facebook) attribution carried across the Sumit round trip. The buyer
+-- leaves this site for Sumit's hosted payment page, and the Purchase event is
+-- raised later by a webhook with no browser attached — so the browser-side
+-- click identifiers (_fbp/_fbc cookies, IP, user agent) are snapshotted here
+-- at checkout time, keyed on the order reference, and read back when the
+-- payment resolves. purchase_sent_at doubles as the send-once guard: four
+-- different paths can mark an order paid (webhook, browser-return confirm,
+-- reconcile sweep, admin override) and more than one routinely fires for the
+-- same order, so without it a single sale would be reported several times.
+CREATE TABLE IF NOT EXISTS meta_attribution (
+  order_reference text PRIMARY KEY,
+  fbp text,
+  fbc text,
+  client_ip_address text,
+  client_user_agent text,
+  event_source_url text,
+  email text,
+  phone text,
+  first_name text,
+  last_name text,
+  purchase_sent_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);

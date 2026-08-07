@@ -6,6 +6,7 @@ import {
   pickCurrent,
 } from "./schedule.server";
 import type { Session, SessionType } from "./schedule.server";
+import { sendMetaPurchase } from "./meta.server";
 
 export type OrderStatus = "created" | "paid" | "failed";
 
@@ -89,6 +90,14 @@ export async function recordObservedTransactionId(
   `;
 }
 
+// Four independent paths can resolve an order to "paid" (the Sumit webhook,
+// the browser return/confirm fallback, the periodic reconcile sweep, and the
+// admin's manual force-paid override), and in practice more than one of them
+// routinely fires for the same order. This is deliberately the single choke
+// point all four go through, so the Meta Purchase event is raised from here
+// rather than duplicated at each call site — sendMetaPurchase's own
+// database-backed claim (see meta.server.ts) is what keeps a repeat call a
+// no-op instead of a second reported sale.
 export async function markOrderStatus(input: {
   orderReference: string;
   transactionId?: string | null;
@@ -101,6 +110,9 @@ export async function markOrderStatus(input: {
       updated_at = now()
     WHERE order_reference = ${input.orderReference}
   `;
+  if (input.status === "paid") {
+    await sendMetaPurchase(input.orderReference);
+  }
 }
 
 // A transaction that covered several packages at once can still be stored

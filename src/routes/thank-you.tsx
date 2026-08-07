@@ -26,6 +26,8 @@ import { formatSessionDate } from "@/lib/format-date";
 import { buildPricingDateLabels } from "@/lib/pricing-dates";
 import { isFreeCoreLesson } from "@/lib/core-lessons";
 import { phoneSchema } from "@/lib/validators";
+import { packageLabel } from "@/lib/meta";
+import { trackLead, trackInitiateCheckout, useViewContent } from "@/lib/meta-client";
 import {
   saveContact,
   loadContact,
@@ -251,6 +253,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function ThankYouPage() {
   const { openSession, coreSessions, premiumSessions, pricing } = Route.useLoaderData();
+  useViewContent({
+    content_ids: ["core_full", "core_single", "premium_bundle"],
+    content_name: "עמוד התוכניות",
+  });
   const [selected, setSelected] = useState<Set<string>>(() =>
     sanitizeSelection(loadSelection("thank-you") ?? new Set()),
   );
@@ -305,6 +311,28 @@ function ThankYouPage() {
     (selected.has("core_single") ? paidLessonCount * currentPrice("core_single") : 0);
   const discountPercent = couponApplied?.discountPercent ?? 0;
   const total = Math.round(baseTotal * (1 - discountPercent / 100));
+  // Per-package breakdown for the Meta InitiateCheckout event's `contents`
+  // field — same discounted-per-unit shape the pixel/CAPI expect, built
+  // from the same selection the checkout itself charges.
+  const metaContents = [
+    ...Array.from(selected)
+      .filter((id) => id !== "core_single")
+      .map((id) => ({
+        id,
+        quantity: 1,
+        item_price: Math.round(currentPrice(id) * (1 - discountPercent / 100) * 100) / 100,
+      })),
+    ...(selected.has("core_single") && paidLessonCount > 0
+      ? [
+          {
+            id: "core_single",
+            quantity: paidLessonCount,
+            item_price:
+              Math.round(currentPrice("core_single") * (1 - discountPercent / 100) * 100) / 100,
+          },
+        ]
+      : []),
+  ];
   // Whether the current selection is actually chargeable — a core_single
   // selection made up entirely of free lessons (e.g. only lesson 8) charges
   // nothing, even though `selected` is non-empty.
@@ -637,6 +665,9 @@ function ThankYouPage() {
             coreSingleLessons={coreSingleLessons}
             couponCode={couponApplied?.code}
             hasPaid={hasPaid}
+            total={total}
+            itemCount={itemCount}
+            metaContents={metaContents}
           />
         </div>
 
@@ -698,11 +729,17 @@ function RegistrationForm({
   coreSingleLessons,
   couponCode,
   hasPaid,
+  total,
+  itemCount,
+  metaContents,
 }: {
   selected: Set<string>;
   coreSingleLessons: Set<number>;
   couponCode?: string;
   hasPaid: boolean;
+  total: number;
+  itemCount: number;
+  metaContents: { id: string; quantity: number; item_price: number }[];
 }) {
   const savedContact = useRef(loadContact()).current;
   const [first_name, setFirstName] = useState(savedContact?.first_name ?? "");
@@ -780,9 +817,31 @@ function RegistrationForm({
       return;
     }
 
+    const selectedIds = Array.from(selected);
+    await trackLead({
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      first_name: parsed.data.first_name,
+      last_name: parsed.data.last_name,
+      content_ids: selectedIds,
+      content_name: selectedIds.map(packageLabel).join(", "),
+    });
+
     if (hasPaid) {
       try {
         const orderRef = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        await trackInitiateCheckout({
+          email: parsed.data.email,
+          phone: parsed.data.phone,
+          first_name: parsed.data.first_name,
+          last_name: parsed.data.last_name,
+          order_reference: orderRef,
+          content_ids: metaContents.map((c) => c.id),
+          content_name: metaContents.map((c) => packageLabel(c.id)).join(", "),
+          contents: metaContents,
+          num_items: itemCount,
+          value: total,
+        });
         const { payment_url } = await createSumitPayment({
           data: {
             package_ids: Array.from(selected),

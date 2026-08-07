@@ -11,6 +11,7 @@ import { getScheduleData } from "@/lib/schedule.functions";
 import { formatSessionDate } from "@/lib/format-date";
 import { saveContact, loadContact } from "@/lib/checkout-client";
 import { phoneSchema } from "@/lib/validators";
+import { trackLead, useViewContent } from "@/lib/meta-client";
 
 export const Route = createFileRoute("/webinar")({
   head: () => ({
@@ -52,6 +53,7 @@ function WebinarPage() {
   const { openSession } = Route.useLoaderData();
   const dateLabel =
     (openSession && formatSessionDate(openSession.starts_at)) || OPEN_WEBINAR.dateLabel;
+  useViewContent({ content_ids: ["open"], content_name: "וובינר פתוח", value: 0 });
   return (
     <div className="min-h-screen bg-ink text-cream font-sans" dir="rtl">
       <header className="border-b border-border/60">
@@ -193,6 +195,15 @@ function RegistrationForm({ sessionId }: { sessionId?: string }) {
           selected_packages: ["open"],
           session_id: sessionId,
         },
+      });
+      await trackLead({
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        first_name: parsed.data.first_name,
+        last_name: parsed.data.last_name,
+        content_ids: ["open"],
+        content_name: "וובינר פתוח",
+        value: 0,
       });
       window.location.href = "/thank-you?registered=1";
     } catch (err) {

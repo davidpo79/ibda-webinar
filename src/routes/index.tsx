@@ -63,6 +63,8 @@ import { formatUpcomingLine } from "@/lib/social-meta";
 import { buildPricingDateLabels } from "@/lib/pricing-dates";
 import { isFreeCoreLesson } from "@/lib/core-lessons";
 import { phoneSchema } from "@/lib/validators";
+import { packageLabel } from "@/lib/meta";
+import { trackLead, trackInitiateCheckout } from "@/lib/meta-client";
 import {
   saveContact,
   loadContact,
@@ -2088,6 +2090,16 @@ function RegistrationSection({
       return;
     }
 
+    const selectedIds = Array.from(selected);
+    await trackLead({
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      first_name: parsed.data.first_name,
+      last_name: parsed.data.last_name,
+      content_ids: selectedIds,
+      content_name: selectedIds.map(packageLabel).join(", "),
+    });
+
     // hasPaid reflects the actual chargeable total, not just whether a paid
     // package id is selected — a core_single selection made up entirely of
     // free lessons (e.g. only lesson 8) has nothing to charge for and skips
@@ -2095,6 +2107,22 @@ function RegistrationSection({
     if (hasPaid) {
       try {
         const orderRef = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        await trackInitiateCheckout({
+          email: parsed.data.email,
+          phone: parsed.data.phone,
+          first_name: parsed.data.first_name,
+          last_name: parsed.data.last_name,
+          order_reference: orderRef,
+          content_ids: paidSelectedIds,
+          content_name: paidSelectedIds.map(packageLabel).join(", "),
+          contents: paidSelectedIds.map((id) => ({
+            id,
+            quantity: id === "core_single" ? paidLessonCount : 1,
+            item_price: currentPrice(id),
+          })),
+          num_items: flatPricedIds.length + (selected.has("core_single") ? paidLessonCount : 0),
+          value: total,
+        });
         const { payment_url } = await createSumitPayment({
           data: {
             package_ids: paidSelectedIds,

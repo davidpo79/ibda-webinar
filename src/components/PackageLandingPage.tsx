@@ -11,6 +11,8 @@ import { createSumitPayment } from "@/lib/sumit.functions";
 import { saveContact, loadContact } from "@/lib/checkout-client";
 import { idNumberSchema, phoneSchema } from "@/lib/validators";
 import { VideoEmbed } from "@/components/VideoEmbed";
+import { packageLabel } from "@/lib/meta";
+import { trackLead, trackInitiateCheckout, useViewContent } from "@/lib/meta-client";
 
 const RECORDING_VIDEO_ID = "QY_Mz_m4vhA";
 
@@ -35,6 +37,11 @@ export function PackageLandingPage({
   dateLabel: string;
 }) {
   const priceNow = config.risen ? config.regularPrice : config.earlyPrice;
+  useViewContent({
+    content_ids: [config.packageId],
+    content_name: packageLabel(config.packageId),
+    value: priceNow,
+  });
 
   return (
     <div className="min-h-screen bg-ink text-cream font-sans" dir="rtl">
@@ -224,8 +231,30 @@ function PurchaseForm({ config, priceNow }: { config: PackageLandingConfig; pric
       return;
     }
 
+    await trackLead({
+      email: parsed.data.email,
+      phone: parsed.data.phone,
+      first_name: parsed.data.first_name,
+      last_name: parsed.data.last_name,
+      content_ids: [config.packageId],
+      content_name: packageLabel(config.packageId),
+      value: priceNow,
+    });
+
     try {
       const orderRef = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      await trackInitiateCheckout({
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        first_name: parsed.data.first_name,
+        last_name: parsed.data.last_name,
+        order_reference: orderRef,
+        content_ids: [config.packageId],
+        content_name: packageLabel(config.packageId),
+        contents: [{ id: config.packageId, quantity: 1, item_price: priceNow }],
+        num_items: 1,
+        value: priceNow,
+      });
       const { payment_url } = await createSumitPayment({
         data: {
           package_ids: [config.packageId],

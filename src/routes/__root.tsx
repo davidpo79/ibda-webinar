@@ -4,14 +4,16 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { Toaster } from "@/components/ui/sonner";
 import { AccessibilityWidget } from "@/components/AccessibilityWidget";
+import { META_PIXEL_ID, META_PIXEL_SNIPPET, trackMeta } from "@/lib/meta";
 
 function NotFoundComponent() {
   return (
@@ -125,8 +127,22 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="he" dir="rtl">
       <head>
         <HeadContent />
+        {/* Meta pixel base code. Lives in <head>, not a route's head(), so it
+            loads once on first paint regardless of which page was entered
+            from — a client-side route change afterwards only needs a plain
+            PageView call (see useMetaPageView below), not a re-init. */}
+        <script dangerouslySetInnerHTML={{ __html: META_PIXEL_SNIPPET }} />
       </head>
       <body>
+        <noscript>
+          <img
+            height="1"
+            width="1"
+            style={{ display: "none" }}
+            src={`https://www.facebook.com/tr?id=${META_PIXEL_ID}&ev=PageView&noscript=1`}
+            alt=""
+          />
+        </noscript>
         {children}
         <Scripts />
       </body>
@@ -134,8 +150,25 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+// The base snippet's own `fbq('track','PageView')` only covers the very
+// first load. TanStack Router navigates client-side after that without a
+// full page reload, so every route change past the first needs its own
+// PageView call or Events Manager only ever sees one per visit.
+function useMetaPageView() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isFirst = useRef(true);
+  useEffect(() => {
+    if (isFirst.current) {
+      isFirst.current = false;
+      return;
+    }
+    trackMeta("PageView");
+  }, [pathname]);
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useMetaPageView();
 
   return (
     <QueryClientProvider client={queryClient}>
