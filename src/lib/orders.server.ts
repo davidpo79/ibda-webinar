@@ -186,6 +186,82 @@ export async function deleteOrder(orderReference: string): Promise<void> {
   await sql()`DELETE FROM orders WHERE order_reference = ${orderReference}`;
 }
 
+export type CheckoutFunnelPackageRow = {
+  package_id: string;
+  checkouts: number;
+  paid: number;
+  revenue: number;
+};
+
+export type CheckoutFunnelStats = {
+  checkouts: number;
+  paid: number;
+  revenue: number;
+  byPackage: CheckoutFunnelPackageRow[];
+};
+
+// Checkout-start -> paid conversion, computed straight from the orders this
+// site itself created and resolved - not from Meta's copy of events, which
+// depends on the pixel/CAPI actually firing and landing. A row exists here
+// the moment createSumitPayment succeeds (see sumit.functions.ts), which is
+// the same instant the InitiateCheckout event is meant to fire, so "checkout
+// started" here is a reliable stand-in for it regardless of whether the ad
+// tracking pipeline is even connected. Used by the admin analytics page to
+// turn "what CPA can we expect" from a guess into a number backed by real
+// conversion history.
+export async function getCheckoutFunnelStats(
+  sinceDays: number | null,
+): Promise<CheckoutFunnelStats> {
+  const since = sinceDays == null ? null : new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+  const rows = await sql()<
+    { order_reference: string; package_id: string; status: OrderStatus; amount: string | null }[]
+  >`
+    SELECT order_reference, package_id, status, amount
+    FROM orders
+    WHERE ${since ? sql()`created_at >= ${since}` : sql()`true`}
+  `;
+
+  const byPackage = new Map<
+    string,
+    { orderRefs: Set<string>; paidOrderRefs: Set<string>; revenue: number }
+  >();
+  const allRefs = new Set<string>();
+  const paidRefs = new Set<string>();
+  let revenue = 0;
+
+  for (const row of rows) {
+    allRefs.add(row.order_reference);
+    if (row.status === "paid") {
+      paidRefs.add(row.order_reference);
+      revenue += Number(row.amount ?? 0);
+    }
+    let group = byPackage.get(row.package_id);
+    if (!group) {
+      group = { orderRefs: new Set(), paidOrderRefs: new Set(), revenue: 0 };
+      byPackage.set(row.package_id, group);
+    }
+    group.orderRefs.add(row.order_reference);
+    if (row.status === "paid") {
+      group.paidOrderRefs.add(row.order_reference);
+      group.revenue += Number(row.amount ?? 0);
+    }
+  }
+
+  return {
+    checkouts: allRefs.size,
+    paid: paidRefs.size,
+    revenue,
+    byPackage: Array.from(byPackage.entries())
+      .map(([package_id, g]) => ({
+        package_id,
+        checkouts: g.orderRefs.size,
+        paid: g.paidOrderRefs.size,
+        revenue: g.revenue,
+      }))
+      .sort((a, b) => b.checkouts - a.checkouts),
+  };
+}
+
 export async function listOrders(): Promise<OrderRow[]> {
   const [rawRows, sessions] = await Promise.all([
     sql()<RawOrderRow[]>`

@@ -22,6 +22,7 @@ import {
   getOrderPackages,
   isTransactionReusedElsewhere,
   deleteOrder,
+  getCheckoutFunnelStats,
 } from "./orders.server";
 import type { OrderRow } from "./orders.server";
 import { verifySumitTransactionWithRetry } from "./sumit.server";
@@ -504,6 +505,19 @@ export const getAdminWebhookLogData = createServerFn({ method: "GET" }).handler(
   assertAdminSession();
   return { logs: await listRecentWebhookLogs(150) };
 });
+
+const FunnelStatsSchema = z.object({
+  // null = all-time. Kept as days-back rather than a date pair so the UI can
+  // offer simple presets (7/30/90/all) without a date picker.
+  sinceDays: z.number().int().positive().max(3650).nullable(),
+});
+
+export const getAdminFunnelStatsAction = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) => FunnelStatsSchema.parse(input))
+  .handler(async ({ data }) => {
+    assertAdminSession();
+    return getCheckoutFunnelStats(data.sinceDays);
+  });
 
 // Manually triggers the same reconcile pass the 10-minute background sweep
 // runs automatically — lets the admin force an immediate retry (e.g. right

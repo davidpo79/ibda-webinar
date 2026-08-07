@@ -333,6 +333,12 @@ function AdminDashboard() {
           >
             יומן סליקה
           </Link>
+          <Link
+            to="/admin/analytics"
+            className="text-muted-brown hover:text-gold transition-colors"
+          >
+            נתוני המרה
+          </Link>
           <button onClick={onLogout} className="text-muted-brown hover:text-gold transition-colors">
             התנתקות
           </button>

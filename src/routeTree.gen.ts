@@ -31,6 +31,7 @@ import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminEmailsRouteImport } from './routes/admin/emails'
 import { Route as AdminCouponsRouteImport } from './routes/admin/coupons'
 import { Route as AdminBroadcastRouteImport } from './routes/admin/broadcast'
+import { Route as AdminAnalyticsRouteImport } from './routes/admin/analytics'
 import { Route as ApiPublicUnsubscribeRouteImport } from './routes/api/public/unsubscribe'
 import { Route as ApiPublicSumitWebhookRouteImport } from './routes/api/public/sumit-webhook'
 import { Route as ApiPublicSumitReturnRouteImport } from './routes/api/public/sumit-return'
@@ -147,6 +148,11 @@ const AdminBroadcastRoute = AdminBroadcastRouteImport.update({
   path: '/admin/broadcast',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
+  id: '/admin/analytics',
+  path: '/admin/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicUnsubscribeRoute = ApiPublicUnsubscribeRouteImport.update({
   id: '/api/public/unsubscribe',
   path: '/api/public/unsubscribe',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/accessibility': typeof AccessibilityRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/broadcast': typeof AdminBroadcastRoute
   '/admin/coupons': typeof AdminCouponsRoute
   '/admin/emails': typeof AdminEmailsRoute
@@ -208,6 +215,7 @@ export interface FileRoutesByTo {
   '/accessibility': typeof AccessibilityRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/broadcast': typeof AdminBroadcastRoute
   '/admin/coupons': typeof AdminCouponsRoute
   '/admin/emails': typeof AdminEmailsRoute
@@ -238,6 +246,7 @@ export interface FileRoutesById {
   '/accessibility': typeof AccessibilityRoute
   '/thank-you': typeof ThankYouRoute
   '/webinar': typeof WebinarRoute
+  '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/broadcast': typeof AdminBroadcastRoute
   '/admin/coupons': typeof AdminCouponsRoute
   '/admin/emails': typeof AdminEmailsRoute
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/thank-you'
     | '/webinar'
+    | '/admin/analytics'
     | '/admin/broadcast'
     | '/admin/coupons'
     | '/admin/emails'
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/thank-you'
     | '/webinar'
+    | '/admin/analytics'
     | '/admin/broadcast'
     | '/admin/coupons'
     | '/admin/emails'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/accessibility'
     | '/thank-you'
     | '/webinar'
+    | '/admin/analytics'
     | '/admin/broadcast'
     | '/admin/coupons'
     | '/admin/emails'
@@ -357,6 +369,7 @@ export interface RootRouteChildren {
   AccessibilityRoute: typeof AccessibilityRoute
   ThankYouRoute: typeof ThankYouRoute
   WebinarRoute: typeof WebinarRoute
+  AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminBroadcastRoute: typeof AdminBroadcastRoute
   AdminCouponsRoute: typeof AdminCouponsRoute
   AdminEmailsRoute: typeof AdminEmailsRoute
@@ -538,6 +551,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminBroadcastRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/analytics': {
+      id: '/admin/analytics'
+      path: '/admin/analytics'
+      fullPath: '/admin/analytics'
+      preLoaderRoute: typeof AdminAnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/unsubscribe': {
       id: '/api/public/unsubscribe'
       path: '/api/public/unsubscribe'
@@ -581,6 +601,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccessibilityRoute: AccessibilityRoute,
   ThankYouRoute: ThankYouRoute,
   WebinarRoute: WebinarRoute,
+  AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminBroadcastRoute: AdminBroadcastRoute,
   AdminCouponsRoute: AdminCouponsRoute,
   AdminEmailsRoute: AdminEmailsRoute,
